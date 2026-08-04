@@ -1,50 +1,29 @@
-"""Produce a SaaS architecture map from graph.json.
+"""Export the architecture breakdown as JSON for the web app's treemap tab.
 
-Reads the graph, groups communities into thematic SaaS subsystems
-(Auth, Billing, Multi-tenancy, Storage, Frontend, Admin, Observability,
-CLI, Tests, Config, etc.) based on the symbols they contain, and emits
-a structured Markdown report."""
+Produces a nested structure:
+  subsystems: [{ name, communities: [{ id, label, color, count, top_symbols: [...] }], total_nodes }]
+  god_nodes: [{ rank, label, degree, source_file, community, community_name }]
+  checklist: [{ capability, subsystem, present }]
+"""
 import json
-import re
 from collections import defaultdict, Counter
 from pathlib import Path
 
 GRAPH = Path("/home/z/my-project/repos/lastsaas/graphify-out/graph.json")
-OUT = Path("/home/z/my-project/download/graphify-lastsaas/ARCHITECTURE_MAP.md")
+LABELS = Path("/home/z/my-project/repos/lastsaas/graphify-out/community_labels.json")
+OUT = Path("/home/z/my-project/public/architecture.json")
 
-data = json.loads(GRAPH.read_text(encoding="utf-8"))
-nodes = data["nodes"]
-edges = data["links"]
-
-# ---- Build community -> members map ----
-comm_members: dict[int, list[dict]] = defaultdict(list)
-for n in nodes:
-    cid = n.get("community")
-    if cid is None:
-        continue
-    comm_members[cid].append(n)
-
-# ---- Compute degree per node from edges ----
-degree = Counter()
-for e in edges:
-    degree[e["source"]] += 1
-    degree[e["target"]] += 1
-
-# ---- Heuristic classifier: assign each community to a SaaS subsystem ----
-# Strategy: look at every member's source_file path AND label, not just top symbols.
-# This catches thin communities the previous top-labels approach missed.
-def classify(members: list[dict]) -> str:
-    # Collect all source files in the community
+# Inline copy of classify() from architecture_map.py to avoid running its main body on import
+def classify(members):
     src_files = [m.get("source_file", "") for m in members if m.get("source_file")]
     src_joined = " ".join(src_files).lower()
     labels = [m.get("label", "") for m in members]
     label_joined = " ".join(labels).lower()
-    # Also include the LLM-generated community_name (powerful signal)
     comm_names = [m.get("community_name", "") for m in members if m.get("community_name")]
     comm_name_joined = " ".join(comm_names).lower()
     joined = src_joined + " " + label_joined + " " + comm_name_joined
 
-    # Frontend: split by route group using actual file paths
+    # Frontend route groups
     if "pages/public/" in src_joined or "landingpage" in label_joined or "custompage" in label_joined:
         return "Public Site (marketing / custom pages)"
     if "pages/auth/" in src_joined or any(k in label_joined for k in ["loginpage", "signuppage", "authcallback", "resetpassword", "forgotpassword", "verifyemail", "mfachallenge", "magiclinkverify"]):
@@ -54,7 +33,7 @@ def classify(members: list[dict]) -> str:
     if "pages/admin/" in src_joined or any(k in label_joined for k in ["adminpage", "userspage", "tenantspage", "planspage", "configpage", "announcementpage", "logspage", "apikeypage", "financialpage", "dashboardpage", "healthpage", "brandingpage", "promotionspage", "rootmemberspage", "pmpage", "aboutpage", "userprofilepage", "tenantprofilepage"]):
         return "Admin UI (operator console)"
 
-    # Pre-check: use LLM-generated community_name as strong signal
+    # Pre-check: LLM-generated community_name
     if comm_name_joined:
         if any(k in comm_name_joined for k in ["email", "resend", "message"]):
             return "Messaging & Announcements"
@@ -83,7 +62,7 @@ def classify(members: list[dict]) -> str:
         if any(k in comm_name_joined for k in ["cli", "command", "mcp", "process"]):
             return "CLI Tooling"
 
-    # Backend domain areas — most specific first to avoid shadowing
+    # Backend domain areas
     if any(k in joined for k in ["webhook", "dispatcher", "signature", "hmac"]):
         return "Webhooks"
     if any(k in joined for k in ["stripe", "checkout", "subscription", "invoice"]):
@@ -120,136 +99,82 @@ def classify(members: list[dict]) -> str:
         return "Deployment & Manifests"
     return "Misc / Cross-cutting"
 
+data = json.loads(GRAPH.read_text(encoding="utf-8"))
+nodes = data["nodes"]
+edges = data["links"]
 
-# ---- Assign each community to a subsystem ----
-comm_subsystem: dict[int, str] = {}
-comm_top_labels: dict[int, list[str]] = {}
+degree = Counter()
+for e in edges:
+    degree[e["source"]] += 1
+    degree[e["target"]] += 1
 
-for cid, members in comm_members.items():
-    # Sort members by degree desc, take top labels
-    members_sorted = sorted(members, key=lambda m: degree.get(m["id"], 0), reverse=True)
-    top_labels = [m["label"] for m in members_sorted[:8]]
-    comm_top_labels[cid] = top_labels
-    subsystem = classify(members)
-    comm_subsystem[cid] = subsystem
-
-# ---- Group: subsystem -> list of (cid, count, top_labels) ----
-subsystem_comms: dict[str, list[tuple[int, int, list[str]]]] = defaultdict(list)
-for cid, subsystem in comm_subsystem.items():
-    count = len(comm_members[cid])
-    subsystem_comms[subsystem].append((cid, count, comm_top_labels[cid]))
-
-# Sort subsystems by total nodes (largest first)
-subsystem_order = sorted(subsystem_comms.keys(), key=lambda s: -sum(c for _, c, _ in subsystem_comms[s]))
-
-# ---- Compute per-subsystem stats ----
-subsystem_stats = {}
-for s in subsystem_order:
-    comms = subsystem_comms[s]
-    total_nodes = sum(c for _, c, _ in comms)
-    subsystem_stats[s] = {
-        "communities": len(comms),
-        "nodes": total_nodes,
-    }
-
-# ---- Compute degree rankings globally ----
-top_god = sorted(nodes, key=lambda n: degree.get(n["id"], 0), reverse=True)[:20]
-
-# ---- Compute cross-community bridges (nodes with high betweenness via community spread) ----
-node_comms: dict[str, set] = defaultdict(set)
+# Group nodes by community
+comm_members: dict[int, list[dict]] = defaultdict(list)
 for n in nodes:
     cid = n.get("community")
     if cid is None: continue
-    # Look at edges to find which other communities this node touches
-    node_comms[n["id"]].add(cid)
+    comm_members[cid].append(n)
 
-for e in edges:
-    s, t = e["source"], e["target"]
-    sn = next((n for n in nodes if n["id"] == s), None)
-    tn = next((n for n in nodes if n["id"] == t), None)
-    if sn and tn:
-        sc = sn.get("community")
-        tc = tn.get("community")
-        if sc is not None and tc is not None and sc != tc:
-            node_comms[s].add(tc)
-            node_comms[t].add(sc)
+# Classify each community
+comm_to_subsystem: dict[int, str] = {}
+for cid, members in comm_members.items():
+    comm_to_subsystem[cid] = classify(members)
 
-# Bridge score = number of distinct communities touched
-bridges = sorted(
-    [(n["label"], n.get("community"), len(node_comms[n["id"]]), n.get("source_file", "")) for n in nodes if len(node_comms[n["id"]]) >= 3],
-    key=lambda x: -x[2]
-)[:15]
+# Load community colors from the extracted communities JSON
+communities_colors = {}
+communities_json = Path("/home/z/my-project/public/graph-communities.json")
+if communities_json.exists():
+    for c in json.loads(communities_json.read_text(encoding="utf-8")):
+        cid = c.get("id")
+        color = c.get("color")
+        if cid is not None and color:
+            communities_colors[cid] = color
 
-# ---- Emit Markdown ----
-def md(s: str) -> str:
-    return s.replace("|", "\\|")
+# Build subsystem -> communities structure
+subsystem_data: dict[str, list[dict]] = defaultdict(list)
+for cid, members in comm_members.items():
+    members_sorted = sorted(members, key=lambda m: degree.get(m["id"], 0), reverse=True)
+    top_symbols = [
+        {"label": m["label"], "degree": degree.get(m["id"], 0), "source_file": m.get("source_file", "")}
+        for m in members_sorted[:8]
+    ]
+    subsystem_data[comm_to_subsystem[cid]].append({
+        "id": cid,
+        "label": members[0].get("community_name", f"Community {cid}"),
+        "color": communities_colors.get(cid, "#888888"),
+        "count": len(members),
+        "top_symbols": top_symbols,
+    })
 
-lines = []
-lines.append("# lastsaas — Architecture Map")
-lines.append("")
-lines.append("> Auto-generated from `graph.json` by grouping graphify's 157 detected communities")
-lines.append("> into thematic SaaS subsystems. Each community is a Leiden-clustered module")
-lines.append("> of tightly-coupled symbols; the subsystem grouping below is a higher-level view.")
-lines.append("")
-lines.append("## Top-level: 12 SaaS subsystems")
-lines.append("")
-lines.append("| Subsystem | Communities | Nodes | Coverage |")
-lines.append("|---|---:|---:|---|")
-total_nodes_global = len(nodes)
-for s in subsystem_order:
-    st = subsystem_stats[s]
-    pct = 100 * st["nodes"] / total_nodes_global
-    lines.append(f"| **{s}** | {st['communities']} | {st['nodes']} | {pct:.1f}% |")
-lines.append(f"| _Total_ | _{len(comm_members)}_ | _{total_nodes_global}_ | _100%_ |")
-lines.append("")
+# Sort subsystems by total node count desc
+subsystems_list = []
+for name, comms in subsystem_data.items():
+    total = sum(c["count"] for c in comms)
+    comms.sort(key=lambda c: -c["count"])
+    subsystems_list.append({
+        "name": name,
+        "communities": comms,
+        "total_communities": len(comms),
+        "total_nodes": total,
+    })
+subsystems_list.sort(key=lambda s: -s["total_nodes"])
 
-lines.append("## God Nodes — architectural pillars")
-lines.append("")
-lines.append("These 20 symbols have the highest degree (most connections). They are the")
-lines.append("load-bearing abstractions of the entire codebase.")
-lines.append("")
-lines.append("| Rank | Symbol | Degree | Source |")
-lines.append("|---:|---|---:|---|")
-for i, n in enumerate(top_god, 1):
-    src = n.get("source_file", "")
-    if src:
-        src += f":L{n.get('source_line', '')}" if n.get("source_line") else ""
-    lines.append(f"| {i} | `{md(n['label'])}` | {degree.get(n['id'], 0)} | `{md(src)}` |")
-lines.append("")
+# God nodes (top 20 by degree)
+top_god = sorted(nodes, key=lambda n: degree.get(n["id"], 0), reverse=True)[:20]
+god_nodes = [
+    {
+        "rank": i + 1,
+        "label": n["label"],
+        "degree": degree.get(n["id"], 0),
+        "source_file": n.get("source_file", ""),
+        "community": n.get("community"),
+        "community_name": n.get("community_name", ""),
+    }
+    for i, n in enumerate(top_god)
+]
 
-lines.append("## Cross-subsystem bridges")
-lines.append("")
-lines.append("Nodes that touch 3+ communities — these are the integration points where")
-lines.append("subsystems talk to each other. Refactoring them is high-leverage but high-risk.")
-lines.append("")
-lines.append("| Symbol | Home Community | Communities Touched | Source |")
-lines.append("|---|---:|---:|---|")
-for label, cid, n_touch, src in bridges:
-    lines.append(f"| `{md(label)}` | {cid} | {n_touch} | `{md(src)}` |")
-lines.append("")
-
-lines.append("## Subsystem Breakdown")
-lines.append("")
-
-for s in subsystem_order:
-    comms = subsystem_comms[s]
-    total = sum(c for _, c, _ in comms)
-    st = subsystem_stats[s]
-    lines.append(f"### {s} — {st['nodes']} nodes across {st['communities']} communities")
-    lines.append("")
-    # Sort communities in subsystem by size desc
-    comms_sorted = sorted(comms, key=lambda x: -x[1])
-    for cid, count, top_labels in comms_sorted:
-        labels_str = ", ".join(f"`{md(l)}`" for l in top_labels[:6])
-        more = f" +{count - 6} more" if count > 6 else ""
-        lines.append(f"- **Community {cid}** ({count} nodes): {labels_str}{more}")
-    lines.append("")
-
-lines.append("## SaaS Capability Checklist")
-lines.append("")
-lines.append("Cross-referencing the subsystems above against what a typical SaaS needs:")
-lines.append("")
-checklist = [
+# Capability checklist
+checklist_caps = [
     ("User authentication (password + OAuth + MFA)", "Authentication & Identity"),
     ("Auth UI (login / signup / MFA flows)", "Auth UI (login / signup / MFA flows)"),
     ("Authorization / RBAC", "Multi-tenancy & RBAC"),
@@ -270,15 +195,23 @@ checklist = [
     ("Test coverage", "Test Suite"),
     ("Deployment config (Docker/Fly)", "Deployment & Manifests"),
 ]
-for cap, subsystem in checklist:
-    found = subsystem in subsystem_stats
-    mark = "[x]" if found else "[ ]"
-    extra = f" — _{subsystem}_" if found else ""
-    lines.append(f"- {mark} {cap}{extra}")
-lines.append("")
+subsystem_names = {s["name"] for s in subsystems_list}
+checklist = [
+    {"capability": cap, "subsystem": sub, "present": sub in subsystem_names}
+    for cap, sub in checklist_caps
+]
 
-OUT.write_text("\n".join(lines), encoding="utf-8")
+out = {
+    "subsystems": subsystems_list,
+    "god_nodes": god_nodes,
+    "checklist": checklist,
+    "totals": {
+        "nodes": len(nodes),
+        "edges": len(edges),
+        "communities": len(comm_members),
+        "subsystems": len(subsystems_list),
+    },
+}
+OUT.write_text(json.dumps(out), encoding="utf-8")
 print(f"wrote {OUT}")
-print(f"subsystems found: {len(subsystem_order)}")
-for s in subsystem_order:
-    print(f"  {s}: {subsystem_stats[s]['communities']} communities, {subsystem_stats[s]['nodes']} nodes")
+print(f"  {len(subsystems_list)} subsystems, {len(god_nodes)} god nodes, {len(checklist)} checklist items")
