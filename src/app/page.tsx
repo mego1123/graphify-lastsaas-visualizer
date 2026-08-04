@@ -274,12 +274,20 @@ export default function GraphPage() {
         </div>
         <div style={styles.headerRight}>
           <a
+            href="/ARCHITECTURE_MAP.md"
+            target="_blank"
+            rel="noreferrer"
+            style={styles.linkBtn}
+          >
+            Architecture Map →
+          </a>
+          <a
             href="/GRAPH_REPORT.md"
             target="_blank"
             rel="noreferrer"
             style={styles.linkBtn}
           >
-            View GRAPH_REPORT.md →
+            Graph Report →
           </a>
         </div>
       </header>
