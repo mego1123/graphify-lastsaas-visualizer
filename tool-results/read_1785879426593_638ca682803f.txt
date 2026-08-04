@@ -1,0 +1,717 @@
+     1→"""graphify CLI - `graphify install` sets up the Claude Code skill."""
+     2→
+     3→from __future__ import annotations
+     4→import errno
+     5→import functools
+     6→import json
+     7→import os
+     8→import platform
+     9→import re
+    10→import shutil
+    11→import sys
+    12→from pathlib import Path
+    13→
+    14→try:
+    15→    from importlib.metadata import version as _pkg_version
+    16→
+    17→    __version__ = _pkg_version("graphifyy")
+    18→except Exception:
+    19→    __version__ = "unknown"
+    20→
+    21→# Output directory — override with GRAPHIFY_OUT env var for worktrees or shared-output setups.
+    22→# Accepts a relative name ("graphify-out-feature") or an absolute path ("/shared/graphify-out").
+    23→# Defined once in graphify.paths so the security/callflow path guards honour the
+    24→# same override (#1423).
+    25→from graphify.paths import GRAPHIFY_OUT as _GRAPHIFY_OUT
+    26→
+    27→# Install/uninstall subsystem moved to graphify/install.py; re-exported here so
+    28→# `from graphify.__main__ import <name>` keeps working unchanged.
+    29→from graphify.install import (  # noqa: E402,F401
+    30→    dispatch_install_cli,
+    31→    _agents_install,
+    32→    _agents_platform_install,
+    33→    _agents_platform_uninstall,
+    34→    _agents_uninstall,
+    35→    _always_on,
+    36→    _amp_install,
+    37→    _amp_legacy_cleanup,
+    38→    _amp_uninstall,
+    39→    _antigravity_finalize,
+    40→    _antigravity_install,
+    41→    _antigravity_uninstall,
+    42→    _canonical_platform,
+    43→    _claude_pretooluse_hooks,
+    44→    _copy_skill_file,
+    45→    _cursor_install,
+    46→    _cursor_uninstall,
+    47→    _devin_rules_install,
+    48→    _devin_rules_uninstall,
+    49→    _gemini_hook,
+    50→    _install_claude_hook,
+    51→    _install_codebuddy_hook,
+    52→    _install_codex_hook,
+    53→    _install_gemini_hook,
+    54→    _install_kilo_plugin,
+    55→    _install_opencode_plugin,
+    56→    _install_skill_references,
+    57→    _kilo_config_path,
+    58→    _kilo_config_write_path,
+    59→    _kilo_install,
+    60→    _kilo_uninstall,
+    61→    _kilo_uninstall_global,
+    62→    _kiro_install,
+    63→    _kiro_uninstall,
+    64→    _load_json_like,
+    65→    _packaged_skill_refs_dir,
+    66→    _platform_skill_destination,
+    67→    _print_banner,
+    68→    _print_install_usage,
+    69→    _print_project_git_add_hint,
+    70→    _project_install,
+    71→    _project_scope_root,
+    72→    _project_uninstall,
+    73→    _project_uninstall_all,
+    74→    _refresh_all_version_stamps,
+    75→    _remove_claude_skill_registration,
+    76→    _remove_skill_file,
+    77→    _replace_or_append_section,
+    78→    _resolve_graphify_exe,
+    79→    _skill_registration,
+    80→    _strip_graphify_hook,
+    81→    _strip_graphify_md_section,
+    82→    _strip_json_comments,
+    83→    _uninstall_claude_hook,
+    84→    _uninstall_codebuddy_hook,
+    85→    _uninstall_codex_hook,
+    86→    _uninstall_gemini_hook,
+    87→    _uninstall_kilo_plugin,
+    88→    _uninstall_opencode_plugin,
+    89→    claude_install,
+    90→    claude_uninstall,
+    91→    codebuddy_install,
+    92→    codebuddy_uninstall,
+    93→    gemini_install,
+    94→    gemini_uninstall,
+    95→    install,
+    96→    uninstall_all,
+    97→    vscode_install,
+    98→    vscode_uninstall,
+    99→    _PLATFORM_ALIASES,
+   100→    _CLAUDE_MD_MARKER,
+   101→    _CODEBUDDY_MD_MARKER,
+   102→    _AGENTS_MD_MARKER,
+   103→    _GEMINI_MD_MARKER,
+   104→    _VSCODE_INSTRUCTIONS_MARKER,
+   105→    _ANTIGRAVITY_RULES_PATH,
+   106→    _ANTIGRAVITY_WORKFLOW_PATH,
+   107→    _ANTIGRAVITY_WORKFLOW,
+   108→    _CURSOR_RULE_PATH,
+   109→    _CURSOR_RULE,
+   110→    _DEVIN_RULES_PATH,
+   111→    _DEVIN_RULES,
+   112→    _KILO_PLUGIN_JS,
+   113→    _KILO_PLUGIN_PATH,
+   114→    _KILO_CONFIG_JSON_PATH,
+   115→    _KILO_CONFIG_JSONC_PATH,
+   116→    _OPENCODE_PLUGIN_JS,
+   117→    _OPENCODE_PLUGIN_PATH,
+   118→    _OPENCODE_CONFIG_PATH,
+   119→    _PLATFORM_CONFIG,
+   120→)
+   121→from graphify.cli import (  # noqa: E402,F401
+   122→    dispatch_command,
+   123→    _StageTimer,
+   124→    _clone_repo,
+   125→    _default_graph_path,
+   126→    _enforce_graph_size_cap_or_exit,
+   127→    _run_hook_guard,
+   128→    _SEARCH_NUDGE,
+   129→    _READ_NUDGE,
+   130→    _HOOK_SOURCE_EXTS,
+   131→    _GEMINI_NUDGE_TEXT,
+   132→)
+   133→
+   134→
+   135→
+   136→
+   137→_ALWAYS_ON_ALIASES = {
+   138→    "_CLAUDE_MD_SECTION": "claude-md",
+   139→    "_AGENTS_MD_SECTION": "agents-md",
+   140→    "_GEMINI_MD_SECTION": "gemini-md",
+   141→    "_VSCODE_INSTRUCTIONS_SECTION": "vscode-instructions",
+   142→    "_ANTIGRAVITY_RULES": "antigravity-rules",
+   143→    "_KIRO_STEERING": "kiro-steering",
+   144→}
+   145→
+   146→
+   147→def __getattr__(name: str) -> str:
+   148→    # PEP 562: lazily resolve the legacy always-on section constants for external
+   149→    # importers (e.g. the install-string tests). In-module code calls _always_on()
+   150→    # directly; nothing is read at import time, so a missing block can no longer
+   151→    # brick the CLI on `import graphify.__main__` (#1121 follow-up).
+   152→    base = _ALWAYS_ON_ALIASES.get(name)
+   153→    if base is not None:
+   154→        return _always_on(base)
+   155→    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+   156→
+   157→
+   158→
+   159→
+   160→
+   161→
+   162→
+   163→
+   164→def _check_skill_version(skill_dst: Path) -> None:
+   165→    """Warn if the installed skill is from an older graphify version."""
+   166→    version_file = skill_dst.parent / ".graphify_version"
+   167→    try:
+   168→        if not version_file.exists():
+   169→            return
+   170→    except OSError:
+   171→        return
+   172→    try:
+   173→        skill_exists = skill_dst.exists()
+   174→    except OSError:
+   175→        return
+   176→    if not skill_exists:
+   177→        print("  warning: skill dir exists but SKILL.md is missing. Run 'graphify install' to repair.", file=sys.stderr)
+   178→        return
+   179→    # A progressive SKILL.md links to its references/ sidecar. If the body points
+   180→    # at references/ but the dir is gone (manual delete, partial upgrade), the
+   181→    # on-demand fragments won't load — flag it for repair.
+   182→    try:
+   183→        body = skill_dst.read_text(encoding="utf-8")
+   184→    except OSError:
+   185→        body = ""
+   186→    if "references/" in body and not (skill_dst.parent / "references").exists():
+   187→        print("  warning: skill references/ sidecar is missing. Run 'graphify install' to repair.", file=sys.stderr)
+   188→    try:
+   189→        installed = version_file.read_text(encoding="utf-8").strip()
+   190→    except OSError:
+   191→        return
+   192→    if installed != __version__:
+   193→        if _version_tuple(installed) > _version_tuple(__version__):
+   194→            # The skill on disk is NEWER than the running package. `graphify install`
+   195→            # writes the package's OWN (older) bundled skill and re-stamps the version,
+   196→            # so following the old "run install" advice would silently DOWNGRADE the
+   197→            # skill. The real fix is to upgrade the package (#1568). Common for a stale
+   198→            # `uv tool` CLI, or a contributor whose dev checkout stamped a newer skill.
+   199→            print(
+   200→                f"  warning: skill is from graphify {installed}, but the package is "
+   201→                f"{__version__} (older). Upgrade the package "
+   202→                f"(e.g. 'uv tool upgrade graphifyy' or 'pip install -U graphifyy'); "
+   203→                f"running 'graphify install' would downgrade the skill.",
+   204→                file=sys.stderr,
+   205→            )
+   206→        else:
+   207→            print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.", file=sys.stderr)
+   208→
+   209→
+   210→def _version_tuple(version: str) -> tuple[int, ...]:
+   211→    """Parse a version string into a comparable integer tuple (``0.9.2`` -> ``(0, 9, 2)``).
+   212→
+   213→    Reads the leading digits of each dot-segment, so pre/post-release suffixes
+   214→    (``1.0.0rc1``) compare by their numeric core. A non-numeric or empty segment
+   215→    becomes 0, so a malformed stamp degrades to a conservative comparison rather
+   216→    than raising.
+   217→    """
+   218→    parts: list[int] = []
+   219→    for segment in str(version).split("."):
+   220→        digits = ""
+   221→        for ch in segment:
+   222→            if ch.isdigit():
+   223→                digits += ch
+   224→            else:
+   225→                break
+   226→        parts.append(int(digits) if digits else 0)
+   227→    return tuple(parts)
+   228→
+   229→
+   230→
+   231→
+   232→
+   233→
+   234→
+   235→
+   236→
+   237→
+   238→
+   239→
+   240→
+   241→
+   242→
+   243→
+   244→
+   245→
+   246→
+   247→# PreToolUse nudge payloads, emitted verbatim by the shell-agnostic
+   248→# `graphify hook-guard` subcommand (see _run_hook_guard). The previous hooks
+   249→# inlined POSIX bash (case/esac, [ -f ], single-quoted echo) which Windows
+   250→# cmd.exe/PowerShell cannot parse, so on Windows the hook failed and the nudge
+   251→# silently vanished — users had to invoke /graphify by hand (#522). Moving the
+   252→# logic into a Python subcommand invoked via an absolute exe path makes the hook
+   253→# parse identically under sh, cmd.exe and PowerShell. Claude Code accepts
+   254→# additionalContext on PreToolUse (Codex Desktop does not — that path stays a
+   255→# no-op via `hook-check`). Compact separators keep the payload byte-for-byte the
+   256→# same JSON the old `echo` emitted.
+   257→
+   258→
+   259→# Source/doc extensions the Read|Glob guard nudges on (verbatim from the old hook).
+   260→# The trailing-extension test (real final path segment, then its last '.') means
+   261→# '.json' never false-matches '.js', and framework files like '.astro' are kept.
+   262→
+   263→
+   264→
+   265→
+   266→
+   267→
+   268→
+   269→
+   270→
+   271→
+   272→
+   273→
+   274→
+   275→
+   276→
+   277→
+   278→
+   279→
+   280→# The always-on instruction blocks are packaged markdown under graphify/always_on/,
+   281→# generated by tools/skillgen and guarded by `skillgen --check`. Reading them at
+   282→# load keeps the install-string / issue-#580 contract byte-for-byte while letting
+   283→# a human edit one fragment instead of a triple-quoted literal here.
+   284→
+   285→
+   286→
+   287→# AGENTS.md section for Codex, OpenCode, and OpenClaw.
+   288→# All three platforms read AGENTS.md in the project root for persistent instructions.
+   289→
+   290→
+   291→
+   292→
+   293→# Gemini CLI BeforeTool hook nudge text. The hook always returns
+   294→# {"decision":"allow"} (never blocks a tool) and appends this as additionalContext
+   295→# when a graph exists. Emitted by `graphify hook-guard gemini`. The old hook was a
+   296→# `python -c "..."` one-liner that depended on a bare `python` on PATH (often
+   297→# `python`/`py` or absent on Windows) and embedded backticks + escaped quotes that
+   298→# Windows PowerShell mangles (#522 follow-up); the subcommand form has no such
+   299→# dependency and parses under every shell.
+   300→
+   301→
+   302→
+   303→
+   304→
+   305→
+   306→
+   307→
+   308→
+   309→
+   310→
+   311→
+   312→
+   313→
+   314→
+   315→
+   316→
+   317→
+   318→
+   319→
+   320→
+   321→
+   322→
+   323→_KIRO_STEERING_MARKER = "graphify: A knowledge graph of this project"
+   324→
+   325→
+   326→
+   327→
+   328→
+   329→
+   330→
+   331→
+   332→
+   333→
+   334→
+   335→
+   336→
+   337→
+   338→
+   339→
+   340→
+   341→
+   342→
+   343→
+   344→
+   345→
+   346→
+   347→
+   348→
+   349→
+   350→
+   351→
+   352→
+   353→
+   354→
+   355→
+   356→
+   357→
+   358→
+   359→
+   360→
+   361→
+   362→
+   363→
+   364→
+   365→
+   366→
+   367→
+   368→
+   369→
+   370→_CODEX_HOOK = {
+   371→    "hooks": {
+   372→        "PreToolUse": [
+   373→            {
+   374→                "matcher": "Bash",
+   375→                "hooks": [
+   376→                    {
+   377→                        "type": "command",
+   378→                        # Use the graphify CLI itself so the hook is shell-agnostic:
+   379→                        # no [ -f ] bash syntax, no python3 vs python Conda issue,
+   380→                        # no JSON escaping inside PowerShell strings. Works on
+   381→                        # Windows (PowerShell/cmd.exe), macOS, and Linux.
+   382→                        "command": "graphify hook-check",
+   383→                    }
+   384→                ],
+   385→            }
+   386→        ]
+   387→    }
+   388→}
+   389→
+   390→
+   391→
+   392→
+   393→
+   394→
+   395→
+   396→
+   397→
+   398→
+   399→
+   400→
+   401→
+   402→
+   403→
+   404→
+   405→
+   406→
+   407→
+   408→
+   409→
+   410→
+   411→
+   412→
+   413→
+   414→
+   415→
+   416→
+   417→
+   418→
+   419→
+   420→
+   421→
+   422→
+   423→
+   424→
+   425→
+   426→
+   427→
+   428→
+   429→
+   430→
+   431→
+   432→
+   433→
+   434→
+   435→
+   436→
+   437→
+   438→
+   439→
+   440→
+   441→
+   442→
+   443→
+   444→
+   445→
+   446→
+   447→
+   448→def _silence_broken_pipe() -> None:
+   449→    """Handle a downstream reader that closed the pipe early. Redirect stdout to
+   450→    devnull so the interpreter's shutdown flush does not raise a second time, then
+   451→    exit 0 — the reader (head, `Select-Object -First N`, `sed q`) has what it needs."""
+   452→    try:
+   453→        devnull = os.open(os.devnull, os.O_WRONLY)
+   454→        os.dup2(devnull, sys.stdout.fileno())
+   455→    except Exception:
+   456→        pass
+   457→    sys.exit(0)
+   458→
+   459→
+   460→def main() -> None:
+   461→    """Console entry point. Wraps the CLI so that when a downstream consumer closes
+   462→    stdout early, graphify treats it as success instead of crashing with an
+   463→    unhandled write-to-closed-pipe error and exit 255 — which made CI wrappers and
+   464→    agent harnesses read a successful query as a command failure (#1807)."""
+   465→    try:
+   466→        _run_cli()
+   467→        # Flush explicitly, inside the guard. Piped stdout is block-buffered, so a
+   468→        # small fully-buffered output would otherwise only flush at interpreter
+   469→        # shutdown — outside this try — where a reader that closed the pipe surfaces
+   470→        # as a noisy "Exception ignored on flushing sys.stdout" and a nonzero exit.
+   471→        sys.stdout.flush()
+   472→    except BrokenPipeError:
+   473→        _silence_broken_pipe()
+   474→    except OSError as exc:
+   475→        # Windows surfaces a write to a closed pipe as OSError(EINVAL) rather than
+   476→        # BrokenPipeError; EPIPE is the POSIX form when it slips past the above.
+   477→        if getattr(exc, "errno", None) in (errno.EPIPE, errno.EINVAL):
+   478→            _silence_broken_pipe()
+   479→        else:
+   480→            raise
+   481→
+   482→
+   483→def _run_cli() -> None:
+   484→    for _stream in (sys.stdout, sys.stderr):
+   485→        if _stream is not None and hasattr(_stream, "reconfigure"):
+   486→            try:
+   487→                _stream.reconfigure(encoding="utf-8", errors="replace")
+   488→            except Exception:
+   489→                pass
+   490→    # Check all known skill install locations for a stale version stamp.
+   491→    # Skip during install/uninstall (hook writes trigger a fresh check anyway).
+   492→    # Skip during hook-check — it runs on every editor tool use and must be silent.
+   493→    # Deduplicate paths so platforms sharing the same install dir don't warn twice.
+   494→    _silent_cmds = {"install", "uninstall", "hook-check", "hook-guard"}
+   495→    if not any(arg in _silent_cmds for arg in sys.argv):
+   496→        # Resolve each platform's real user-scope destination so per-platform
+   497→        # overrides (gemini, opencode, devin, antigravity, amp) check the dir
+   498→        # they actually install into, not the bare cfg['skill_dst'].
+   499→        for skill_dst in {_platform_skill_destination(name) for name in _PLATFORM_CONFIG}:
+   500→            _check_skill_version(skill_dst)
+   501→
+   502→    if len(sys.argv) >= 2 and sys.argv[1] in ("-v", "--version", "version"):
+   503→        print(f"graphify {__version__}")
+   504→        return
+   505→
+   506→    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "-?"):
+   507→        print("Usage: graphify <command>")
+   508→        print()
+   509→        print("Commands:")
+   510→        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codebuddy|codex|opencode|aider|amp|agents|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi|devin)")
+   511→        print("  uninstall               remove graphify from all detected platforms in one shot")
+   512→        print("    --purge                 also delete graphify-out/ directory")
+   513→        print("  path \"A\" \"B\"            shortest path between two nodes in graph.json")
+   514→        print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+   515→        print("  explain \"X\"             plain-language explanation of a node and its neighbors")
+   516→        print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+   517→        print("  diagnose multigraph    report same-endpoint edge collapse risk in graph.json")
+   518→        print("    --graph <path>          path to graph/extraction JSON")
+   519→        print("                            (default graphify-out/graph.json)")
+   520→        print("    --json                  emit machine-readable JSON")
+   521→        print("    --max-examples N        max same-endpoint examples to print (default 5)")
+   522→        print("    --directed              force directed post-build simulation")
+   523→        print("    --undirected            force undirected post-build simulation")
+   524→        print("                            (default follows JSON directed flag;")
+   525→        print("                             raw extraction with no flag defaults directed)")
+   526→        print("    --extract-path PATH     extractor source for suppression scan")
+   527→        print("  clone <github-url>      clone a GitHub repo locally and print its path for /graphify")
+   528→        print("  merge-driver <base> <current> <other>  git merge driver: union-merge two graph.json files (set up via hook install)")
+   529→        print("  merge-graphs <g1> <g2>  merge two or more graph.json files into one cross-repo graph")
+   530→        print("    --out <path>            output path (default: graphify-out/merged-graph.json)")
+   531→        print("    --branch <branch>       checkout a specific branch (default: repo default)")
+   532→        print("    --out <dir>             clone to a custom directory (default: ~/.graphify/repos/<owner>/<repo>)")
+   533→        print("  add <url>               fetch a URL and save it to ./raw, then update the graph")
+   534→        print("    --author \"Name\"         tag the author of the content")
+   535→        print("    --contributor \"Name\"    tag who added it to the corpus")
+   536→        print("    --dir <path>            target directory (default: ./raw)")
+   537→        print("  watch <path>            watch a folder and rebuild the graph on code changes")
+   538→        print("  update <path>           re-extract code files and update the graph (no LLM needed)")
+   539→        print("    --force                 overwrite graph.json even if the rebuild has fewer nodes")
+   540→        print("                            (also: GRAPHIFY_FORCE=1 env var; use after refactors that delete code)")
+   541→        print("    --no-cluster            skip clustering, write raw extraction only")
+   542→        print("  cluster-only <path>     rerun clustering on an existing graph.json and regenerate report")
+   543→        print("    --no-viz                skip graph.html generation (useful for >5000 node graphs / CI)")
+   544→        print("    --graph <path>          path to graph.json (default <path>/graphify-out/graph.json)")
+   545→        print("    --no-label              keep 'Community N' placeholders (skip LLM community naming)")
+   546→        print("    --backend=<name>        backend to use for community naming (default: auto-detect)")
+   547→        print("    --model=<name>          model to use for community naming")
+   548→        print("    --max-concurrency=N     parallel community-labeling LLM calls (default 4; forced to 1 for ollama/claude-cli)")
+   549→        print("    --batch-size=N          communities per labeling LLM call (default 100)")
+   550→        print("  label <path>            (re)name communities with the configured LLM backend, regenerate report")
+   551→        print("    --missing-only         keep existing labels and only name missing/placeholder communities")
+   552→        print("    --backend=<name>        backend to use (default: auto-detect from API keys)")
+   553→        print("    --model=<name>          model to use for community naming")
+   554→        print("    --max-concurrency=N     parallel labeling LLM calls (default 4; forced to 1 for ollama/claude-cli)")
+   555→        print("    --batch-size=N          communities per labeling LLM call (default 100)")
+   556→        print("  query \"<question>\"       BFS traversal of graph.json for a question")
+   557→        print("    --dfs                   use depth-first instead of breadth-first")
+   558→        print("    --context C             explicit edge-context filter (repeatable)")
+   559→        print("    --budget N              cap output at N tokens (default 2000)")
+   560→        print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+   561→        print("  affected \"X\"             reverse traversal to find nodes impacted by X")
+   562→        print("    --relation R            edge relation to traverse in reverse (repeatable)")
+   563→        print("    --depth N               reverse traversal depth (default 2)")
+   564→        print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+   565→        print("  god-nodes               list the most connected nodes (architectural hubs)")
+   566→        print("    --top N                 how many to show (default 10)")
+   567→        print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+   568→        print("    --json                  emit JSON instead of text")
+   569→        print("  save-result             save a Q&A result to graphify-out/memory/ for graph feedback loop")
+   570→        print("    --question Q            the question asked")
+   571→        print("    --answer A              the answer to save")
+   572→        print(
+   573→            "    --type T                query type: query|path_query|explain (default: query)"
+   574→        )
+   575→        print("    --nodes N1 N2 ...       source node labels cited in the answer")
+   576→        print("    --outcome O             work-memory signal: useful|dead_end|corrected")
+   577→        print("    --correction TEXT       what the right answer was (pairs with --outcome corrected)")
+   578→        print("    --memory-dir DIR        memory directory (default: graphify-out/memory)")
+   579→        print("  reflect                 aggregate graphify-out/memory/ outcomes into a deterministic lessons doc")
+   580→        print("    --memory-dir DIR        memory directory (default: graphify-out/memory)")
+   581→        print("    --out FILE              output path (default: graphify-out/reflections/LESSONS.md)")
+   582→        print("    --graph PATH            graph.json, for community grouping + dropping stale nodes (optional)")
+   583→        print("    --analysis PATH         .graphify_analysis.json (optional, auto-detected next to --graph)")
+   584→        print("    --labels PATH           .graphify_labels.json (optional, auto-detected next to --graph)")
+   585→        print("    --half-life-days N      signal weight halves every N days (default 30)")
+   586→        print("    --min-corroboration N   distinct useful results to prefer a node (default 2)")
+   587→        print("  check-update <path>     check needs_update flag and notify if semantic re-extraction is pending (cron-safe)")
+   588→        print("  tree                    emit a D3 v7 collapsible-tree HTML for graph.json")
+   589→        print("    --graph PATH            path to graph.json (default graphify-out/graph.json)")
+   590→        print("    --output HTML           output path (default graphify-out/GRAPH_TREE.html)")
+   591→        print("    --root PATH             filesystem root for the hierarchy")
+   592→        print("    --max-children N        cap children per node (default 200)")
+   593→        print("    --top-k-edges N         per-symbol outbound edges in inspector (default 12)")
+   594→        print("    --label NAME            project label in header")
+   595→        print("  extract <path>          headless full extraction (AST + semantic LLM) for CI/scripts")
+   596→        print("    --backend B             gemini|kimi|claude|openai|deepseek|ollama (default: whichever API key is set)")
+   597→        print("                            openai also reaches self-hosted OpenAI-compatible servers (llama.cpp,")
+   598→        print("                            vLLM, LM Studio): set OPENAI_BASE_URL (e.g. http://localhost:8080/v1)")
+   599→        print("                            and OPENAI_MODEL to the model name your server serves")
+   600→        print("                            claude also reaches custom Anthropic-compatible endpoints (LiteLLM")
+   601→        print("                            proxy, gateways): set ANTHROPIC_BASE_URL and ANTHROPIC_MODEL")
+   602→        print("    --model M               override backend default model")
+   603→        print("    --mode deep             aggressive INFERRED-edge semantic extraction")
+   604→        print("    --force                 full re-scan and re-dispatch: skip the incremental")
+   605→        print("                            manifest gate and semantic cache reads (env: GRAPHIFY_FORCE=1)")
+   606→        print("    --max-workers N         AST extraction subprocess count (default: cpu_count)")
+   607→        print("    --token-budget N        per-chunk token cap for semantic extraction (default: 60000)")
+   608→        print("    --max-concurrency N     parallel semantic chunks in flight (default: 4; set 1 for local LLMs)")
+   609→        print("    --api-timeout S         per-request timeout in seconds for the LLM client (default: 600)")
+   610→        print("    --out DIR, --output DIR output dir (default: <path>); writes <DIR>/graphify-out/")
+   611→        print("    --google-workspace      export .gdoc/.gsheet/.gslides shortcuts via gws before extraction")
+   612→        print("    --no-gitignore         ignore .gitignore and .git/info/exclude (prioritizes .graphifyignore)")
+   613→        print("    --no-cluster            skip clustering, write raw extraction only")
+   614→        print("    --code-only             index code (local AST, no API key) and skip doc/paper/image files")
+   615→        print("    --postgres DSN          extract schema from a live PostgreSQL database")
+   616→        print("                            maps tables, views, functions + FK relationships;")
+   617→        print("                            column-level detail is not represented in the graph")
+   618→        print("    --cargo                 extract crate→crate deps from Cargo.toml")
+   619→        print("    --global                also merge the resulting graph into the global graph")
+   620→        print("    --as <tag>              repo tag for --global (default: target directory name)")
+   621→        print("  global add <graph.json>  add/update a project graph in the global graph (~/.graphify/global-graph.json)")
+   622→        print("    --as <tag>               repo tag (default: parent directory name)")
+   623→        print("  global remove <tag>      remove a repo's nodes from the global graph")
+   624→        print("  global list              list repos in the global graph")
+   625→        print("  global path              print path to the global graph file")
+   626→        print("  benchmark [graph.json]  measure token reduction vs naive full-corpus approach")
+   627→        print("  export callflow-html    emit Mermaid-based architecture/call-flow HTML")
+   628→        print("  hook install            install post-commit/post-checkout git hooks (all platforms)")
+   629→        print("  hook uninstall          remove git hooks")
+   630→        print("  hook status             check if git hooks are installed")
+   631→        print(
+   632→            "  gemini install          write GEMINI.md section + BeforeTool hook (Gemini CLI)"
+   633→        )
+   634→        print("  gemini uninstall        remove GEMINI.md section + BeforeTool hook")
+   635→        print("  cursor install          write .cursor/rules/graphify.mdc (Cursor)")
+   636→        print("  cursor uninstall        remove .cursor/rules/graphify.mdc")
+   637→        print("  claude install          write graphify section to CLAUDE.md + PreToolUse hook (Claude Code)")
+   638→        print("  claude uninstall        remove graphify section from CLAUDE.md + PreToolUse hook")
+   639→        print("  codebuddy install       write graphify section to CODEBUDDY.md + PreToolUse hook (CodeBuddy)")
+   640→        print("  codebuddy uninstall     remove graphify section from CODEBUDDY.md + PreToolUse hook")
+   641→        print("  codex install           write graphify section to AGENTS.md (Codex)")
+   642→        print("  codex uninstall         remove graphify section from AGENTS.md")
+   643→        print(
+   644→            "  opencode install        write graphify section to AGENTS.md + tool.execute.before plugin (OpenCode)"
+   645→        )
+   646→        print(
+   647→            "  opencode uninstall      remove graphify section from AGENTS.md + plugin"
+   648→        )
+   649→        print(
+   650→            "  kilo install            install native Kilo skill + command + AGENTS.md + .kilo plugin"
+   651→        )
+   652→        print(
+   653→            "  kilo uninstall          remove native Kilo skill + command + AGENTS.md + .kilo plugin"
+   654→        )
+   655→        print("  aider install           write graphify section to AGENTS.md (Aider)")
+   656→        print("  aider uninstall         remove graphify section from AGENTS.md")
+   657→        print(
+   658→            "  copilot install         copy graphify skill to ~/.copilot/skills (GitHub Copilot CLI)"
+   659→        )
+   660→        print("  copilot uninstall       remove graphify skill from ~/.copilot/skills")
+   661→        print(
+   662→            "  vscode install          configure VS Code Copilot Chat (skill + .github/copilot-instructions.md)"
+   663→        )
+   664→        print("  vscode uninstall        remove VS Code Copilot Chat configuration")
+   665→        print(
+   666→            "  claw install            write graphify section to AGENTS.md (OpenClaw)"
+   667→        )
+   668→        print("  claw uninstall          remove graphify section from AGENTS.md")
+   669→        print(
+   670→            "  droid install           write graphify section to AGENTS.md (Factory Droid)"
+   671→        )
+   672→        print("  droid uninstall        remove graphify section from AGENTS.md")
+   673→        print("  trae install            write graphify section to AGENTS.md (Trae)")
+   674→        print("  trae uninstall         remove graphify section from AGENTS.md")
+   675→        print("  trae-cn install         write graphify section to AGENTS.md (Trae CN)")
+   676→        print("  trae-cn uninstall      remove graphify section from AGENTS.md")
+   677→        print(
+   678→            "  antigravity install     write .agents/rules + .agents/workflows + skill (Google Antigravity)"
+   679→        )
+   680→        print(
+   681→            "  antigravity uninstall   remove .agents/rules, .agents/workflows, and skill"
+   682→        )
+   683→        print(
+   684→            "  hermes install          write skill to ~/.hermes/skills/graphify/ (Hermes)"
+   685→        )
+   686→        print("  hermes uninstall        remove skill from ~/.hermes/skills/graphify/")
+   687→        print(
+   688→            "  kiro install            write skill to .kiro/skills/graphify/ + steering file (Kiro IDE/CLI)"
+   689→        )
+   690→        print("  kiro uninstall          remove skill + steering file")
+   691→        print("  pi install              write skill to ~/.pi/agent/skills/graphify/ (Pi coding agent)")
+   692→        print("  pi uninstall            remove skill from ~/.pi/agent/skills/graphify/")
+   693→        print("  devin install           write skill to ~/.config/devin/skills/graphify/ (Devin CLI)")
+   694→        print("  devin uninstall         remove skill from ~/.config/devin/skills/graphify/")
+   695→        print()
+   696→        return
+   697→
+   698→    cmd = sys.argv[1]
+   699→
+   700→    # Universal help guard: -h/--help/-? anywhere after the command shows help
+   701→    # and stops — prevents flags from silently triggering destructive subcommands
+   702→    # (e.g. "cursor install --help" was silently installing into Cursor, #821).
+   703→    # Exempt: free-text commands (user string may contain these tokens), and
+   704→    # "install"/"uninstall" which have their own per-subcommand help handlers.
+   705→    _FREE_TEXT_CMDS = {"query", "explain", "path", "save-result", "install", "uninstall"}
+   706→    if cmd not in _FREE_TEXT_CMDS and any(a in {"-h", "--help", "-?"} for a in sys.argv[2:]):
+   707→        print(f"Run 'graphify --help' for full usage.")
+   708→        return
+   709→
+   710→    if dispatch_install_cli(cmd):
+   711→        return
+   712→    dispatch_command(cmd)
+   713→
+   714→
+   715→if __name__ == "__main__":
+   716→    main()
+   717→
