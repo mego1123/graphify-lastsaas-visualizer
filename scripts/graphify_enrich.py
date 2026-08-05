@@ -245,7 +245,7 @@ def enrich_with_ssa(graph: dict, functions: list[dict], repo: Path) -> dict:
         # For method labels like ".ListTenants()", also index without the
         # leading dot so "ListTenants()" and "ListTenants" match.
         if label.startswith(".") and label.endswith("()"):
-            method = label[1:-2]  # strip ". " and "()"
+            method = label[1:-2]  # strip leading "." and trailing "()"
             if method:
                 node_by_label[method] = nid
                 node_by_label[method + "()"] = nid

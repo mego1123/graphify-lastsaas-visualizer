@@ -141,11 +141,25 @@ def apply_annotation(file_path: Path, ann: dict) -> bool:
         if anchor_idx < 0:
             print(f"  SKIP {ann['file']}::{ann['function']} — anchor pattern not found")
             return False
+        # Detect the indentation of the anchor line and apply it to the
+        # annotation lines so the insertion matches surrounding code.
+        anchor_line = lines[anchor_idx]
+        indent = ""
+        for ch in anchor_line:
+            if ch in (" ", "\t"):
+                indent += ch
+            else:
+                break
         new_lines = []
         for j, line in enumerate(lines):
             if j == anchor_idx:
                 for ann_line in ann["text"]:
-                    new_lines.append(ann_line)
+                    # If the annotation text already starts with whitespace,
+                    # use it as-is; otherwise prepend the detected indent.
+                    if ann_line.startswith((" ", "\t")):
+                        new_lines.append(ann_line)
+                    else:
+                        new_lines.append(indent + ann_line)
             new_lines.append(line)
         file_path.write_text("\n".join(new_lines), encoding="utf-8")
         print(f"  OK   {ann['file']}::{ann['function']} — line_above annotation inserted at line {anchor_idx + 1}")
