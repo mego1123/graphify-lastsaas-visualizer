@@ -657,6 +657,145 @@ def _collection_to_struct_name(collection: str) -> str:
     return "".join(p[:1].upper() + p[1:] for p in parts)
 
 
+# --------------------------------------------------------------------------- #
+# Go filter tracer integration
+# --------------------------------------------------------------------------- #
+#
+# The Python regex-based scanner in this file can't always resolve the
+# fields of a *variable* filter (e.g. ``coll.Find(ctx, filter)`` where
+# ``filter`` was built dynamically via ``filter["x"] = y`` patterns
+# across multiple lines, possibly inside helper functions). The Go
+# tool at ``scripts/go/graphify_filter_tracer/main.go`` uses go/ssa to
+# trace these dynamic constructions. We invoke it as a subprocess and
+# load the JSON output to get a ``{position_key: [field_names]}`` map
+# keyed by ``"file:line"`` (the source location of the MongoDB call).
+
+FILTER_TRACER_PATH = Path(__file__).resolve().parent / 'go' / 'graphify_filter_tracer' / 'main.go'
+
+
+def load_go_filter_tracer(repo_root: Path) -> dict[str, list[str]]:
+    """Run the Go filter tracer over the backend module and return a
+    ``{position_key: [field_names]}`` map.
+
+    The position key is ``"file:line"`` (relative file path + the line
+    number of the MongoDB call site). Callers look up the dynamic
+    filter fields for a query by constructing the same key from the
+    query's ``file`` and ``line`` attributes.
+
+    Returns an empty dict if the Go toolchain is unavailable or the
+    tracer fails (the auditor falls back to its regex-based parser).
+    """
+    import os
+    import subprocess
+    env = os.environ.copy()
+    go_path = Path('/home/z/.local/go/bin')
+    if go_path.exists():
+        env['PATH'] = f'{go_path}:{env.get("PATH", "")}'
+    env.setdefault('GOTOOLCHAIN', 'auto')
+
+    backend_dir = repo_root / 'backend'
+    if not backend_dir.is_dir():
+        backend_dir = repo_root
+    if not FILTER_TRACER_PATH.is_file():
+        print(
+            f'  ! filter tracer not found at {FILTER_TRACER_PATH}',
+            file=sys.stderr,
+        )
+        return {}
+
+    out_file = Path('/tmp/graphify-tenant-filters.json')
+    cmd = [
+        'go', 'run', str(FILTER_TRACER_PATH),
+        '-out', str(out_file),
+    ]
+    print(
+        f'  Running Go filter tracer (cd {backend_dir} && go run ...)',
+        file=sys.stderr,
+    )
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(backend_dir), env=env,
+            capture_output=True, text=True, timeout=600,
+        )
+    except FileNotFoundError as exc:
+        print(f'  ! go executable not found: {exc}', file=sys.stderr)
+        return {}
+    except subprocess.TimeoutExpired:
+        print('  ! filter tracer timed out after 600s', file=sys.stderr)
+        return {}
+    if result.returncode != 0:
+        print(
+            f'  ! filter tracer exited {result.returncode}: '
+            f'{result.stderr.strip()[:500]}',
+            file=sys.stderr,
+        )
+        return {}
+    if not out_file.is_file():
+        print(f'  ! filter tracer did not produce {out_file}', file=sys.stderr)
+        return {}
+
+    try:
+        data = json.loads(out_file.read_text(encoding='utf-8'))
+    except Exception as exc:
+        print(f'  ! could not parse filter tracer output: {exc}', file=sys.stderr)
+        return {}
+
+    out: dict[str, list[str]] = {}
+    for entry in data:
+        for finding in entry.get('findings', []):
+            method = finding.get('method', '')
+            if method not in ('literal', 'map_update'):
+                continue
+            position = finding.get('position', '')
+            if not position or ':' not in position:
+                continue
+            # Normalise to "relative_path:line". The tracer's file paths
+            # are already relative to the module root, but the leading
+            # ``backend/`` may or may not be present depending on where
+            # the tool was invoked from. We try both forms when looking
+            # up the position later (in ``_lookup_filter_tracer_fields``).
+            for f in finding.get('fields', []):
+                if f and not f.startswith('$'):
+                    out.setdefault(position, []).append(f)
+    print(
+        f'  Loaded filter tracer data for {len(out)} call sites',
+        file=sys.stderr,
+    )
+    return out
+
+
+def _lookup_filter_tracer_fields(
+    file: str,
+    line: int,
+    tracer_data: dict[str, list[str]],
+) -> Optional[list[str]]:
+    """Look up the dynamic filter fields for a query at ``file:line``.
+
+    Tries multiple key forms (with and without a leading ``backend/``
+    prefix) since the tracer's file paths are relative to the module
+    root but the auditor's ``file`` attribute may be relative to the
+    repo root (which includes the ``backend/`` prefix).
+    """
+    if not tracer_data or not file or not line:
+        return None
+    candidates = [
+        f'{file}:{line}',
+        f'backend/{file}:{line}' if not file.startswith('backend/') else f'{file[len("backend/"):]}:{line}',
+    ]
+    for key in candidates:
+        fields = tracer_data.get(key)
+        if fields:
+            # De-duplicate while preserving order.
+            seen: set[str] = set()
+            out: list[str] = []
+            for f in fields:
+                if f not in seen:
+                    seen.add(f)
+                    out.append(f)
+            return out
+    return None
+
+
 def build_collection_struct_map(
     accessor_map: dict[str, str],
     struct_fields: dict[str, set[str]],
@@ -1004,6 +1143,7 @@ def scan_file(
     collection_struct_map: Optional[dict[str, str]] = None,
     user_scoped_collections: Optional[set[str]] = None,
     global_collections: Optional[set[str]] = None,
+    filter_tracer_fields: Optional[dict[str, list[str]]] = None,
 ) -> None:
     """Scan a single Go file for MongoDB queries and classify each."""
     try:
@@ -1294,7 +1434,18 @@ def scan_file(
                             filter_fields = sorted(info["fields"])
                             filter_source = f"variable-pipeline:{var_m.group(1)}"
                         else:
-                            filter_source = "variable-pipeline:unknown"
+                            # Fall back to the Go filter tracer (go/ssa)
+                            # if it produced data for this call site.
+                            traced = _lookup_filter_tracer_fields(
+                                rel, line_no, filter_tracer_fields or {},
+                            )
+                            if traced:
+                                filter_fields = traced
+                                filter_source = (
+                                    f"variable-pipeline:tracer:{filter_text.strip()[:40]}"
+                                )
+                            else:
+                                filter_source = "variable-pipeline:unknown"
                 else:
                     filter_source = "missing-arg"
             elif operation in FILTER_AT_POS_2:
@@ -1315,7 +1466,18 @@ def scan_file(
                             filter_fields = sorted(info["fields"])
                             filter_source = f"variable:{var_m.group(1)}"
                         else:
-                            filter_source = f"variable:unknown:{filter_text.strip()[:40]}"
+                            # Fall back to the Go filter tracer (go/ssa)
+                            # if it produced data for this call site.
+                            traced = _lookup_filter_tracer_fields(
+                                rel, line_no, filter_tracer_fields or {},
+                            )
+                            if traced:
+                                filter_fields = traced
+                                filter_source = (
+                                    f"variable:tracer:{filter_text.strip()[:40]}"
+                                )
+                            else:
+                                filter_source = f"variable:unknown:{filter_text.strip()[:40]}"
                 else:
                     filter_source = "missing-arg"
             else:
@@ -2176,6 +2338,11 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
 
+    # Run the Go filter tracer (go/ssa-based, sees dynamic filter["x"] = y
+    # patterns the regex parser misses). Falls back gracefully to an
+    # empty dict if the Go toolchain is unavailable.
+    filter_tracer_fields = load_go_filter_tracer(repo_root)
+
     queries: list[Query] = []
     file_index: dict[str, FileInfo] = {}
 
@@ -2198,6 +2365,7 @@ def main(argv: list[str] | None = None) -> int:
             collection_struct_map=collection_struct_map,
             user_scoped_collections=user_scoped_collections,
             global_collections=global_collections,
+            filter_tracer_fields=filter_tracer_fields,
         )
         scanned += 1
     print(f"scanned {scanned} .go files", file=sys.stderr)

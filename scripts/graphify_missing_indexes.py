@@ -990,6 +990,104 @@ class Finding:
     suggestion: str
 
 
+@dataclass
+class SuppressedFinding:
+    """A finding that was suppressed by a ``// graphify:no-index-check``
+    annotation. Tracked separately so the report can show how many
+    findings were intentionally silenced.
+    """
+    file: str
+    line: int
+    function: str
+    collection: str
+    operation: str
+    filter_fields: list[str]
+    would_be_severity: str
+    finding_type: str
+    reason: str
+    suppression: str            # "function" (function-level annotation) | "line_above" (line-above annotation)
+
+
+# The ``// graphify:no-index-check`` annotation: when present anywhere
+# in a function body OR on the line immediately above a query, the
+# query's missing-index finding is suppressed and counted separately.
+NO_INDEX_CHECK_RE = re.compile(r"//\s*graphify:no-index-check\b")
+
+
+def _scan_no_index_check_annotations(
+    src_by_file: dict[str, str],
+) -> tuple[dict[str, set[int]], dict[str, set[int]]]:
+    """Pre-scan every file's source for ``// graphify:no-index-check``
+    comments.
+
+    Returns two dicts:
+
+      * ``line_annotations``: ``{file: {line_numbers}}`` — every line
+        on which the annotation appears (used for per-query suppression
+        via the "line above the query" check).
+      * ``function_annotations``: ``{file: {function_names}}`` — every
+        function whose doc comment OR body contains at least one
+        annotation (used for function-level suppression).
+    """
+    line_annotations: dict[str, set[int]] = {}
+    function_annotations: dict[str, set[str]] = {}
+    for file, src in src_by_file.items():
+        masked = mask_source(src)
+        # Per-line annotations on the RAW source (the masker blanks
+        # comment contents, so we must search the original).
+        src_lines = src.splitlines()
+        line_set: set[int] = set()
+        for i, line in enumerate(src_lines, start=1):
+            if NO_INDEX_CHECK_RE.search(line):
+                line_set.add(i)
+        if line_set:
+            line_annotations[file] = line_set
+        # Per-function annotations: walk every top-level function and
+        # check if its doc comment OR body contains the annotation.
+        funcs = parse_functions(masked)
+        func_set: set[str] = set()
+        for name, start_line, end_line in funcs:
+            # Walk backward from start_line-1 over the doc comment
+            # (consecutive // lines on the raw source) so the
+            # function-level annotation can live in the godoc above the
+            # function declaration, not just inside the body.
+            doc_start = start_line
+            j = start_line - 1
+            while j >= 1:
+                prev_raw = src_lines[j - 1].strip() if j - 1 < len(src_lines) else ""
+                if prev_raw.startswith("//") or prev_raw == "":
+                    if NO_INDEX_CHECK_RE.search(src_lines[j - 1] if j - 1 < len(src_lines) else ""):
+                        doc_start = j
+                    j -= 1
+                    continue
+                break
+            body_lines = src_lines[doc_start - 1: end_line] if end_line <= len(src_lines) else src_lines[doc_start - 1:]
+            body = "\n".join(body_lines)
+            if NO_INDEX_CHECK_RE.search(body):
+                func_set.add(name)
+        if func_set:
+            function_annotations[file] = func_set
+    return line_annotations, function_annotations
+
+
+def _is_query_suppressed(
+    query: Query,
+    line_annotations: dict[str, set[int]],
+    function_annotations: dict[str, set[str]],
+) -> Optional[str]:
+    """If the query is suppressed by a ``// graphify:no-index-check``
+    annotation, return the suppression kind (``"function"`` or
+    ``"line_above"``). Otherwise return None.
+    """
+    file_lines = line_annotations.get(query.file)
+    if file_lines and (query.line - 1) in file_lines:
+        return "line_above"
+    file_funcs = function_annotations.get(query.file)
+    if file_funcs and query.function in file_funcs:
+        return "function"
+    return None
+
+
 def _is_admin_scope(file: str, function: str) -> bool:
     """Heuristic: True if this query is in an admin / CLI context where
     cross-tenant scans are expected (admin dashboards, CLI reporting
@@ -1207,6 +1305,7 @@ def build_report(
     findings: list[Finding],
     indexes: dict[str, CollectionIndexSummary],
     queries: list[Query],
+    suppressed: Optional[list[SuppressedFinding]] = None,
 ) -> dict:
     by_sev: Counter = Counter()
     by_type: Counter = Counter()
@@ -1217,6 +1316,13 @@ def build_report(
         by_type[f.finding_type] += 1
         by_collection[f.collection] += 1
         by_file[f.file] += 1
+
+    suppressed = suppressed or []
+    suppressed_by_sev: Counter = Counter()
+    suppressed_by_kind: Counter = Counter()
+    for s in suppressed:
+        suppressed_by_sev[s.would_be_severity] += 1
+        suppressed_by_kind[s.suppression] += 1
 
     # Index inventory (so the report shows what's declared).
     index_inventory = []
@@ -1251,6 +1357,11 @@ def build_report(
         "root": str(root),
         "total_queries_scanned": len(queries),
         "total_findings": len(findings),
+        "suppressed_findings": len(suppressed),
+        "suppression_breakdown": {
+            "by_severity": dict(suppressed_by_sev),
+            "by_kind": dict(suppressed_by_kind),
+        },
         "severity_breakdown": dict(by_sev),
         "type_breakdown": [
             {"type": t, "count": c}
@@ -1267,6 +1378,7 @@ def build_report(
         "index_inventory": index_inventory,
         "collections_queried_without_indexes": no_index_collections,
         "findings": [asdict(f) for f in findings],
+        "suppressed": [asdict(s) for s in suppressed],
     }
 
 
@@ -1298,6 +1410,11 @@ def render_markdown(report: dict) -> str:
     for sev in ("HIGH", "MEDIUM", "LOW"):
         out.append(
             f"| {sev} severity | {report['severity_breakdown'].get(sev, 0)} |"
+        )
+    suppressed_total = report.get("suppressed_findings", 0)
+    if suppressed_total:
+        out.append(
+            f"| Suppressed by `// graphify:no-index-check` | {suppressed_total} |"
         )
     out.append("")
 
@@ -1517,11 +1634,61 @@ def main(argv: Optional[list[str]] = None) -> int:
     queries = scan_queries(root, accessor_map, args.include_tests)
     print(f"  scanned {len(queries)} queries", file=sys.stderr)
 
-    findings: list[Finding] = []
-    for q in queries:
-        findings.extend(classify_query(q, indexes))
+    # Pre-scan every Go file's source for ``// graphify:no-index-check``
+    # annotations (function-level and line-above). Findings on annotated
+    # queries are suppressed and tracked separately.
+    print("Scanning for // graphify:no-index-check annotations ...", file=sys.stderr)
+    src_by_file: dict[str, str] = {}
+    skip_dirs = {"vendor", "node_modules", ".git", "graphify-out", "testdata"}
+    for path in root.rglob("*.go"):
+        if any(part in skip_dirs for part in path.parts):
+            continue
+        if not args.include_tests and path.name.endswith("_test.go"):
+            continue
+        try:
+            src = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        try:
+            rel = str(path.resolve().relative_to(root.resolve()))
+        except ValueError:
+            rel = str(path)
+        src_by_file[rel] = src
+    line_annotations, function_annotations = _scan_no_index_check_annotations(
+        src_by_file
+    )
+    print(
+        f"  {sum(len(v) for v in line_annotations.values())} line-level "
+        f"annotations, {sum(len(v) for v in function_annotations.values())} "
+        f"function-level annotations",
+        file=sys.stderr,
+    )
 
-    report = build_report(root, findings, indexes, queries)
+    findings: list[Finding] = []
+    suppressed: list[SuppressedFinding] = []
+    for q in queries:
+        q_findings = classify_query(q, indexes)
+        suppression = _is_query_suppressed(
+            q, line_annotations, function_annotations,
+        )
+        if suppression:
+            for f in q_findings:
+                suppressed.append(SuppressedFinding(
+                    file=f.file,
+                    line=f.line,
+                    function=f.function,
+                    collection=f.collection,
+                    operation=f.operation,
+                    filter_fields=f.filter_fields,
+                    would_be_severity=f.severity,
+                    finding_type=f.finding_type,
+                    reason=f.reason,
+                    suppression=suppression,
+                ))
+        else:
+            findings.extend(q_findings)
+
+    report = build_report(root, findings, indexes, queries, suppressed)
 
     # Always write JSON + MD to /home/z/my-project/public/ if writable.
     public_dir = Path("/home/z/my-project/public")
@@ -1537,12 +1704,20 @@ def main(argv: Optional[list[str]] = None) -> int:
     except Exception as e:
         print(f"WARN: could not write {md_path}: {e}", file=sys.stderr)
 
+    # When --json is set, the --out path receives JSON (matching
+    # graphify_api_shapes.py's behavior). Without --json, --out receives
+    # the markdown report.
     if args.out:
         out_path = Path(args.out)
         try:
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(render_markdown(report), encoding="utf-8")
-            print(f"Markdown report written to {out_path}", file=sys.stderr)
+            if args.json:
+                out_path.write_text(
+                    json.dumps(report, indent=2) + "\n", encoding="utf-8",
+                )
+            else:
+                out_path.write_text(render_markdown(report), encoding="utf-8")
+            print(f"Report written to {out_path}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR: could not write --out file: {e}", file=sys.stderr)
             return 1
@@ -1555,7 +1730,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         f"collections; found {len(findings)} missing-index findings "
         f"(HIGH={report['severity_breakdown'].get('HIGH', 0)}, "
         f"MEDIUM={report['severity_breakdown'].get('MEDIUM', 0)}, "
-        f"LOW={report['severity_breakdown'].get('LOW', 0)}).",
+        f"LOW={report['severity_breakdown'].get('LOW', 0)}); "
+        f"suppressed {len(suppressed)} via // graphify:no-index-check.",
         file=sys.stderr,
     )
     return 0

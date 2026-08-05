@@ -1,0 +1,2002 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify_tenant_audit — tenant-isolation security auditor for Go MongoDB code.
+     3→
+     4→Scans all .go files under the target path and finds MongoDB queries that are
+     5→missing a ``tenantId`` filter — the #1 cause of cross-tenant data leakage in a
+     6→multi-tenant SaaS.
+     7→
+     8→For every detected query (``Find`` / ``FindOne`` / ``InsertOne`` /
+     9→``UpdateOne`` / ``UpdateMany`` / ``DeleteOne`` / ``DeleteMany`` / ``Aggregate``
+    10→/ ``CountDocuments`` / ``FindOneAndUpdate`` / ``FindOneAndDelete`` /
+    11→``FindOneAndReplace`` / ``ReplaceOne`` / ``UpdateByID`` / ``InsertMany`` /
+    12→``BulkWrite``), the script:
+    13→
+    14→  1. Resolves the underlying MongoDB collection (via direct ``.Collection("x")``
+    15→     calls or accessor methods like ``h.db.Users()`` defined in the codebase).
+    16→  2. Extracts the filter argument — handling inline ``bson.M{}`` / ``bson.D{}``
+    17→     literals, ``nil``, and *variable* filters by tracing the variable back to
+    18→     its definition (including dynamic field additions like
+    19→     ``filter["tenantId"] = tenant.ID``).
+    20→  3. Checks whether the filter contains ``tenantId`` or ``tenant_id``.
+    21→  4. Classifies the query as OK / MEDIUM / HIGH / CRITICAL:
+    22→       - OK       — has a ``tenantId`` filter.
+    23→       - MEDIUM   — on a "global" collection (``tenants``, ``plans``,
+    24→                    ``system_config``, ``system_logs``, ``users``) that
+    25→                    legitimately doesn't need tenant filtering (or is
+    26→                    cross-tenant by nature).
+    27→       - HIGH     — read op (Find/FindOne/Aggregate/CountDocuments) without
+    28→                    ``tenantId`` on a tenant-scoped collection.
+    29→       - CRITICAL — write op (InsertOne/UpdateOne/DeleteOne/...) without
+    30→                    ``tenantId`` on a tenant-scoped collection.
+    31→
+    32→  5. Records each query with file, line, collection, function, operation,
+    33→     filter fields, the raw snippet, a safe-key heuristic flag (queries that
+    34→     filter on a globally-unique key like ``_id`` / ``tokenHash`` / ``slug``
+    35→     are noted as likely false positives), and a human-readable note.
+    36→
+    37→A "violation" is any query classified as HIGH or CRITICAL. MEDIUM queries on
+    38→global collections are reported separately for context.
+    39→
+    40→Usage:
+    41→    python graphify_tenant_audit.py [path] [--out report.md] [--json]
+    42→
+    43→Outputs:
+    44→    - JSON written to /home/z/my-project/public/tenant-audit.json (best effort)
+    45→    - Markdown written to /home/z/my-project/public/TENANT_AUDIT.md (best effort)
+    46→    - Markdown written to --out path if specified
+    47→    - JSON to stdout if --json given (without a value)
+    48→
+    49→Test target: /home/z/my-project/repos/lastsaas/backend
+    50→"""
+    51→from __future__ import annotations
+    52→
+    53→import argparse
+    54→import json
+    55→import re
+    56→import sys
+    57→from collections import Counter, defaultdict
+    58→from dataclasses import asdict, dataclass, field
+    59→from pathlib import Path
+    60→from typing import Optional
+    61→
+    62→# --------------------------------------------------------------------------- #
+    63→# Constants
+    64→# --------------------------------------------------------------------------- #
+    65→
+    66→# Operations covered by the audit. The 12 in the spec plus the closely-related
+    67→# UpdateByID / InsertMany / BulkWrite / ReplaceOne / FindOneAndReplace, which
+    68→# share the same tenant-isolation concerns.
+    69→READ_OPS: set[str] = {
+    70→    "Find",
+    71→    "FindOne",
+    72→    "Aggregate",
+    73→    "CountDocuments",
+    74→    "EstimatedDocumentCount",  # never has a filter; informational only
+    75→}
+    76→
+    77→WRITE_OPS: set[str] = {
+    78→    "InsertOne",
+    79→    "InsertMany",
+    80→    "UpdateOne",
+    81→    "UpdateMany",
+    82→    "DeleteOne",
+    83→    "DeleteMany",
+    84→    "FindOneAndUpdate",
+    85→    "FindOneAndDelete",
+    86→    "FindOneAndReplace",
+    87→    "ReplaceOne",
+    88→    "UpdateByID",
+    89→    "BulkWrite",
+    90→}
+    91→
+    92→# Operations where the 2nd positional argument is the *filter*.
+    93→FILTER_AT_POS_2: set[str] = {
+    94→    "Find",
+    95→    "FindOne",
+    96→    "UpdateOne",
+    97→    "UpdateMany",
+    98→    "DeleteOne",
+    99→    "DeleteMany",
+   100→    "CountDocuments",
+   101→    "FindOneAndUpdate",
+   102→    "FindOneAndDelete",
+   103→    "FindOneAndReplace",
+   104→    "ReplaceOne",
+   105→}
+   106→
+   107→ALL_OPERATIONS: tuple[str, ...] = tuple(
+   108→    sorted(READ_OPS | WRITE_OPS)
+   109→)
+   110→
+   111→OP_RE = re.compile(
+   112→    r"\.(" + "|".join(re.escape(op) for op in ALL_OPERATIONS) + r")\s*\("
+   113→)
+   114→
+   115→# Function declaration: ``func (recv) Name(args) (rets) {`` or ``func Name(...) {``.
+   116→FUNC_RE = re.compile(
+   117→    r"^func\s+(?:\([^)]*\)\s+)?([A-Za-z_]\w*)\s*[(<]"
+   118→)
+   119→
+   120→# Direct collection access: ``db.Collection("name")``.
+   121→COLLECTION_LITERAL_RE = re.compile(
+   122→    r'\.Collection\(\s*"([^"]+)"\s*\)'
+   123→)
+   124→
+   125→# Accessor definition: ``func (recv) Name() *mongo.Collection { return <expr>.Collection("name") }``.
+   126→ACCESSOR_DEF_RE = re.compile(
+   127→    r"func\s+(?:\([^)]*\)\s+)?([A-Z]\w*)\s*\(\s*\)\s*\*mongo\.Collection\s*\{[^}]*?"
+   128→    r'\.Collection\(\s*"([^"]+)"\s*\)',
+   129→    re.DOTALL,
+   130→)
+   131→
+   132→# Variable aliasing a collection accessor result.
+   133→#   ``col := m.Database.Collection("plans")``
+   134→#   ``col := s.db.Plans()``
+   135→ALIAS_LITERAL_RE = re.compile(
+   136→    r"(\w+)\s*:?=\s*[\w\.\[\]\*]+\.Collection\(\s*\"([^\"]+)\"\s*\)"
+   137→)
+   138→ALIAS_ACCESSOR_RE = re.compile(
+   139→    r"(\w+)\s*:?=\s*[\w\.\[\]\*]+\.(\w+)\(\s*\)"
+   140→)
+   141→
+   142→# bson.D blocks: ``bson.D{{Key: "f", Value: ...}, {"f2", v}}``.
+   143→BSON_D_BLOCK_RE = re.compile(
+   144→    r'\bbson\.D\s*\{([^}]*)\}'
+   145→)
+   146→BSON_D_KEYVAL_NAMED_RE = re.compile(
+   147→    r'Key:\s*"([^"]+)"\s*,\s*Value:'
+   148→)
+   149→BSON_D_KEYVAL_POS_RE = re.compile(
+   150→    r'\{\s*"([^"]+)"\s*,'
+   151→)
+   152→
+   153→# bson.M{"field": value, "other": value}
+   154→BSON_M_RE = re.compile(
+   155→    r'\bbson\.M\s*\{([^}]*)\}'
+   156→)
+   157→BSON_M_KEY_RE = re.compile(
+   158→    r'"([^"]+)"\s*:'
+   159→)
+   160→
+   161→# map[string]interface{}{"field": value} — occasionally used in tests.
+   162→MAP_LITERAL_RE = re.compile(
+   163→    r'map\[string\]interface\{\}\s*\{([^}]*)\}'
+   164→)
+   165→MAP_KEY_RE = re.compile(
+   166→    r'"([^"]+)"\s*:'
+   167→)
+   168→
+   169→# Variable assignment of a filter:
+   170→#   ``filter := bson.M{...}``
+   171→#   ``filter := bson.D{...}``
+   172→#   ``filter := map[string]interface{}{...}``
+   173→FILTER_VAR_DEF_RE = re.compile(
+   174→    r"(\w+)\s*:?=\s*(bson\.M|bson\.D|map\[string\]interface\{\})\s*\{"
+   175→)
+   176→
+   177→# Variable assignment of a struct literal:
+   178→#   ``invitation := models.Invitation{...}``
+   179→#   ``user := &models.User{...}``
+   180→# Used by InsertOne / InsertMany to detect whether the inserted document
+   181→# carries a tenantId field.
+   182→STRUCT_VAR_DEF_RE = re.compile(
+   183→    r"(\w+)\s*:?=\s*&?(models\.)?([A-Z]\w*)\s*\{"
+   184→)
+   185→
+   186→# Dynamic field addition to a map:
+   187→#   ``filter["tenantId"] = tenant.ID``
+   188→#   ``filter["$or"] = []bson.M{...}``
+   189→FILTER_VAR_SET_RE = re.compile(
+   190→    r'(\w+)\[\s*"([^"]+)"\s*\]\s*=?='
+   191→)
+   192→
+   193→# Variable assignment of an aggregate pipeline:
+   194→#   ``pipeline := []bson.M{...}``
+   195→#   ``pipeline := mongo.Pipeline{...}``
+   196→#   ``pipeline := bson.A{...}``  (BSON array — also used for pipelines)
+   197→PIPELINE_VAR_DEF_RE = re.compile(
+   198→    r"(\w+)\s*:?=\s*(\[\]bson\.M|\[\]bson\.D|mongo\.Pipeline|bson\.A)\s*\{"
+   199→)
+   200→
+   201→# Tenant-id field names. The codebase uses camelCase ``tenantId`` for the
+   202→# MongoDB field name and snake_case ``tenant_id`` is included for robustness.
+   203→TENANT_ID_FIELDS: set[str] = {"tenantId", "tenant_id"}
+   204→
+   205→# Collections that are *global* and legitimately do not need tenant filtering.
+   206→# Per the spec:
+   207→#   tenants        — the tenant records themselves
+   208→#   plans          — global subscription plans
+   209→#   system_config  — system-wide config
+   210→#   system_logs    — may be filtered differently (by category, severity, etc.)
+   211→#   users          — users exist across tenants (but queries should still be
+   212→#                    scoped; flagged as MEDIUM, not OK)
+   213→EXEMPT_COLLECTIONS: set[str] = {
+   214→    "tenants",
+   215→    "plans",
+   216→    "system_config",
+   217→    "system_logs",
+   218→    "users",
+   219→}
+   220→
+   221→# Collections whose accessor names map to a global collection — used to make
+   222→# the "exempt" check robust when collection resolution falls back to the
+   223→# accessor name. Mirrors EXEMPT_COLLECTIONS but in PascalCase.
+   224→EXEMPT_ACCESSORS: set[str] = {
+   225→    "Tenants",
+   226→    "Plans",
+   227→    "SystemConfig",
+   228→    "SystemLogs",
+   229→    "Users",
+   230→}
+   231→
+   232→# Filter keys that are *globally unique* identifiers — a query that filters
+   233→# on one of these keys cannot accidentally leak cross-tenant data because the
+   234→# key uniquely identifies a single document regardless of tenant.
+   235→SAFE_UNIQUE_KEYS: set[str] = {
+   236→    "_id",
+   237→    "slug",
+   238→    "tokenHash",
+   239→    "token",
+   240→    "keyHash",
+   241→    "code",
+   242→    "eventId",
+   243→    "credentialId",
+   244→    "machineId",
+   245→    "email",
+   246→    "name",
+   247→    "invoiceNumber",
+   248→    "familyId",
+   249→    "codeHash",
+   250→    "credentialID",
+   251→    "webhookId",
+   252→}
+   253→
+   254→# --------------------------------------------------------------------------- #
+   255→# False-positive suppression — context heuristics
+   256→# --------------------------------------------------------------------------- #
+   257→#
+   258→# In real-world multi-tenant codebases, many MongoDB queries legitimately
+   259→# omit ``tenantId`` for one of the following reasons. The auditor now
+   260→# recognises all of these and downgrades them from HIGH/CRITICAL violations
+   261→# to MEDIUM informational notes (so they still appear in the report for
+   262→# review, but don't inflate the violation count).
+   263→
+   264→# Functions that run as background system tasks (started via ``go func()``,
+   265→# tickers, or worker loops). They have no request context and therefore no
+   266→# ``tenantId`` available — they operate on system-wide collections by design.
+   267→BACKGROUND_TASK_FUNCS: set[str] = {
+   268→    "flushLoop",            # log buffer flusher
+   269→    "tryAcquireOrRenew",    # leader-election lock acquisition
+   270→    "heartbeat",            # node heartbeat
+   271→    "registerNode",         # node registration
+   272→    "dispatch",             # webhook dispatcher loop
+   273→    "deliverWithRetry",     # webhook delivery with retry
+   274→    "collectDaily",         # daily metrics collection
+   275→    "collectAndStore",      # generic collector
+   276→    "aggregateDailyPoints", # daily aggregation
+   277→    "isLeader",             # leader check
+   278→    "releaseLock",          # leader-lock release
+   279→    "handleCheckoutCompleted",      # Stripe webhook handler (background)
+   280→    "handleInvoicePaymentFailed",   # Stripe webhook handler (background)
+   281→    "computeLiveRevenue",           # background revenue computation
+   282→    "sendUpgradeMessage",           # post-upgrade side-effect message
+   283→    "cleanupExpired",               # generic TTL cleanup
+   284→    "CleanupCollections",           # generic TTL cleanup
+   285→    "NextInvoiceNumber",            # counter increment (atomic, no tenant context)
+   286→}
+   287→
+   288→# Internal service methods called from admin HTTP handlers (the route
+   289→# classifier only catches the *handler* names registered on routers, not
+   290→# the underlying service methods they delegate to). These methods compute
+   291→# admin analytics over system-wide collections and don't take a tenantId
+   292→# — they're called from ``pmHandler.GetFunnel`` / ``GetKPIs`` / etc.,
+   293→# which are registered on ``adminAPI`` (root tenant + user role, sees ALL
+   294→# tenants by design).
+   295→ADMIN_SERVICE_FUNCS: set[str] = {
+   296→    # telemetry/service.go — called from pmHandler (admin)
+   297→    "FunnelMetrics",
+   298→    "CustomEventSummary",
+   299→    "EngagementMetrics",
+   300→    "RetentionCohorts",
+   301→    "KPIs",
+   302→    "ListEventTypes",
+   303→    "countDistinct",
+   304→    "weeklyActiveUsers",
+   305→    "monthlyActiveUsers",
+   306→    "topCustomEvents",
+   307→    "creditConsumptionTrend",
+   308→    "medianTimeToFirstPurchase",
+   309→    "subscriberTrend",
+   310→    "mrrTrend",
+   311→    "GetAggregateMetrics",
+   312→    "GetCurrentMetrics",
+   313→    "GetIntegrationCounts24h",
+   314→    "FunnelMetrics",
+   315→    # billing/service.go — admin-side metrics
+   316→    "AdminGetMetrics",
+   317→    "AdminListTransactions",
+   318→    # Stripe webhook handler internals
+   319→    "GetOrCreatePrice",
+   320→    "resolveStripeProducts",
+   321→    "buildProductNameMap",
+   322→    # Config-store helpers (called from admin handlers)
+   323→    "Load",
+   324→    "Reload",
+   325→    "Set",
+   326→    "Seed",
+   327→}
+   328→
+   329→# Public endpoint handlers — no auth, content visible to everyone. These
+   330→# legitimately query published/global content without ``tenantId``.
+   331→PUBLIC_ENDPOINT_FUNCS: set[str] = {
+   332→    "ListPublic",
+   333→    "ListPublicPages",
+   334→    "ListBundlesPublic",
+   335→    "ListPlansPublic",
+   336→    "GetPublicPage",
+   337→    "GetBranding",
+   338→    "ServeAsset",
+   339→    "ServeMedia",
+   340→    "DocsHTML",
+   341→    "DocsMarkdown",
+   342→    "DocsOpenAPI",
+   343→    "Status",            # bootstrap status
+   344→    "HandleWebhook",     # Stripe webhook (signature-verified, not tenant-scoped)
+   345→    "TrackAnonymous",    # anonymous telemetry
+   346→    "GetProviders",      # auth provider discovery
+   347→}
+   348→
+   349→# Auth-flow handlers — operate on user-scoped collections (refresh_tokens,
+   350→# verification_tokens, etc.) where the user hasn't selected a tenant yet.
+   351→# Filters on userId / token / tokenHash are valid scopes here.
+   352→AUTH_FLOW_FUNCS: set[str] = {
+   353→    "Register", "Login", "Refresh", "VerifyEmail", "ResendVerification",
+   354→    "ForgotPassword", "ResetPassword", "ExchangeCode", "MagicLinkRequest",
+   355→    "MagicLinkVerify", "MFAChallenge", "MFASetup", "MFAVerifySetup",
+   356→    "MFADisable", "MFARegenerateRecoveryCodes",
+   357→    "GoogleOAuth", "GoogleOAuthCallback",
+   358→    "GitHubOAuth", "GitHubOAuthCallback",
+   359→    "MicrosoftOAuth", "MicrosoftOAuthCallback",
+   360→    "GetMe", "Logout", "ChangePassword", "AcceptInvitation",
+   361→    "ListSessions", "RevokeSession", "RevokeAllSessions",
+   362→    "UpdatePreferences", "CompleteOnboarding",
+   363→    "DeleteAccount", "ExportData",
+   364→    "storeRefreshToken", "sendVerificationEmail", "createAuthCodeRedirect",
+   365→    "isTokenRevoked", "authenticateAPIKey",
+   366→    "lookupUserWithMemberships", "getUserMemberships",
+   367→    "acceptInvitationForUser",
+   368→    # User-scoped message inbox
+   369→    "ListMessages", "UnreadCount", "MarkRead",
+   370→}
+   371→
+   372→# User-scoped collections — documents belong to a user (not a tenant). A
+   373→# filter on ``userId`` is a valid scope. Populated below in
+   374→# ``build_user_scoped_collections`` once struct fields are known, but a
+   375→# hardcoded seed list is kept here as a fallback.
+   376→USER_SCOPED_COLLECTIONS_SEED: set[str] = {
+   377→    "refresh_tokens",
+   378→    "verification_tokens",
+   379→    "revoked_tokens",
+   380→    "messages",
+   381→    "webauthn_credentials",
+   382→    "auth_codes",
+   383→}
+   384→
+   385→# Collections known to be global by design even when their struct isn't
+   386→# found by the naming heuristic (e.g. ``counters`` → ``InvoiceCounter``).
+   387→GLOBAL_COLLECTIONS_EXTRA: set[str] = {
+   388→    "counters",
+   389→    "leader_locks",
+   390→    "webhook_events",
+   391→    "webhook_deliveries",
+   392→    "oauth_states",
+   393→    "impersonation_logs",
+   394→    "audit_log",
+   395→    "webauthn_sessions",
+   396→}
+   397→
+   398→# Subdirectory paths (relative to repo root) that contain CLI tools — these
+   399→# are not HTTP request handlers and don't carry a tenantId in their context.
+   400→CLI_PATH_PARTS: tuple[str, ...] = ("cmd", "lastsaas")
+   401→
+   402→# Router variable names used in main.go and their route scope. Used by
+   403→# ``build_route_classifier`` to map a HandleFunc call to a route scope.
+   404→ADMIN_ROUTERS: set[str] = {
+   405→    "adminAPI", "adminWrite", "adminOwner",
+   406→}
+   407→TENANT_ROUTERS: set[str] = {
+   408→    "tenantAPI", "tenantSettingsRouter", "inviteRouter",
+   409→    "removeRouter", "ownerRouter", "usageAPI",
+   410→    "telemetryAPI", "billingAPI", "billingOwner",
+   411→}
+   412→
+   413→# Patterns we never want to count as a real query:
+   414→# - ``options.Find()`` / ``options.FindOneAndUpdate()`` etc. — these construct
+   415→#   options structs, not real queries.
+   416→OPTIONS_BUILDER_RE = re.compile(r"\boptions\s*$")
+   417→
+   418→
+   419→# --------------------------------------------------------------------------- #
+   420→# Data containers
+   421→# --------------------------------------------------------------------------- #
+   422→
+   423→
+   424→@dataclass
+   425→class Query:
+   426→    """A single MongoDB query occurrence with tenant-isolation classification."""
+   427→
+   428→    file: str
+   429→    line: int
+   430→    function: str
+   431→    collection: str
+   432→    operation: str
+   433→    filter_fields: list[str] = field(default_factory=list)
+   434→    has_tenant_id: bool = False
+   435→    filter_source: str = ""          # inline | variable:<name> | nil | unknown
+   436→    risk_level: str = "OK"           # OK | MEDIUM | HIGH | CRITICAL
+   437→    is_violation: bool = False
+   438→    is_exempt_collection: bool = False
+   439→    safe_key_filter: bool = False    # filter contains a globally-unique key
+   440→    filter_snippet: str = ""
+   441→    note: str = ""
+   442→    # ---- Context heuristics (false-positive suppression) ----
+   443→    route_scope: str = "unknown"     # admin | tenant | auth | public | cli | background | unknown
+   444→    is_admin_handler: bool = False
+   445→    is_background_task: bool = False
+   446→    is_public_endpoint: bool = False
+   447→    is_auth_flow: bool = False
+   448→    is_cli_tool: bool = False
+   449→    collection_has_tenant_id: Optional[bool] = None  # None if struct not found
+   450→    collection_is_user_scoped: bool = False
+   451→    has_user_id_filter: bool = False
+   452→    suppression_reason: str = ""     # populated when downgraded from violation to MEDIUM
+   453→
+   454→    def to_dict(self) -> dict:
+   455→        return asdict(self)
+   456→
+   457→
+   458→@dataclass
+   459→class FileInfo:
+   460→    """Per-file aggregate stats."""
+   461→
+   462→    path: str
+   463→    total_queries: int = 0
+   464→    violations: int = 0
+   465→    by_risk: Counter = field(default_factory=Counter)
+   466→
+   467→
+   468→# --------------------------------------------------------------------------- #
+   469→# Helpers
+   470→# --------------------------------------------------------------------------- #
+   471→
+   472→
+   473→def _relative(root: Path, p: str | Path) -> str:
+   474→    try:
+   475→        return str(Path(p).resolve().relative_to(root.resolve()))
+   476→    except ValueError:
+   477→        return str(p)
+   478→
+   479→
+   480→def mask_strings_and_comments(text: str) -> str:
+   481→    """Replace string literals and comments with spaces (preserving length and
+   482→    newlines) so brace/paren matching is robust against braces inside strings.
+   483→
+   484→    Go has raw strings (```...```), interpreted strings (``"..."``), rune
+   485→    literals (``'...'``), line comments (``//...``), and block comments
+   486→    (``/*...*/``). All are masked here.
+   487→    """
+   488→    out: list[str] = []
+   489→    i = 0
+   490→    n = len(text)
+   491→    while i < n:
+   492→        c = text[i]
+   493→        # Block comment
+   494→        if c == "/" and i + 1 < n and text[i + 1] == "*":
+   495→            end = text.find("*/", i + 2)
+   496→            if end == -1:
+   497→                # Unterminated — mask to end of file.
+   498→                for j in range(i, n):
+   499→                    out.append("\n" if text[j] == "\n" else " ")
+   500→                return "".join(out)
+   501→            for j in range(i, end + 2):
+   502→                out.append("\n" if text[j] == "\n" else " ")
+   503→            i = end + 2
+   504→            continue
+   505→        # Line comment
+   506→        if c == "/" and i + 1 < n and text[i + 1] == "/":
+   507→            end = text.find("\n", i + 2)
+   508→            if end == -1:
+   509→                end = n
+   510→            for j in range(i, end):
+   511→                out.append(" ")
+   512→            i = end
+   513→            continue
+   514→        # Raw string literal
+   515→        if c == "`":
+   516→            end = text.find("`", i + 1)
+   517→            if end == -1:
+   518→                end = n
+   519→            for j in range(i, end + 1 if end < n else n):
+   520→                out.append("\n" if text[j] == "\n" else " ")
+   521→            i = end + 1
+   522→            continue
+   523→        # Interpreted string literal
+   524→        if c == '"':
+   525→            j = i + 1
+   526→            while j < n:
+   527→                if text[j] == "\\" and j + 1 < n:
+   528→                    out.append(" ")
+   529→                    out.append(" ")
+   530→                    j += 2
+   531→                    continue
+   532→                if text[j] == '"':
+   533→                    break
+   534→                if text[j] == "\n":
+   535→                    # Unterminated string at EOL — bail.
+   536→                    break
+   537→                out.append(" ")
+   538→                j += 1
+   539→            # Mask the opening & closing quotes too.
+   540→            out.append(" ")  # opening quote already added via outer loop? no.
+   541→            # We didn't append the opening quote yet — fix that.
+   542→            # Actually the outer loop hasn't appended c yet, so we handle it here.
+   543→            i = j + 1
+   544→            # Append the closing quote as a space (if present).
+   545→            if j < n and text[j] == '"':
+   546→                out.append(" ")
+   547→            continue
+   548→        # Rune literal (single-char, possibly escaped).
+   549→        if c == "'":
+   550→            j = i + 1
+   551→            while j < n:
+   552→                if text[j] == "\\" and j + 1 < n:
+   553→                    j += 2
+   554→                    continue
+   555→                if text[j] == "'":
+   556→                    break
+   557→                if text[j] == "\n":
+   558→                    break
+   559→                j += 1
+   560→            out.append(" ")  # opening '
+   561→            for _ in range(i + 1, min(j + 1, n)):
+   562→                out.append(" ")
+   563→            i = j + 1
+   564→            continue
+   565→        out.append(c)
+   566→        i += 1
+   567→    return "".join(out)
+   568→
+   569→
+   570→def build_accessor_map(repo_root: Path) -> dict[str, str]:
+   571→    """Build {accessor_method_name: collection_name}.
+   572→
+   573→    Scans every .go file for ``func (recv) Name() *mongo.Collection {
+   574→    return <expr>.Collection("name") }``.
+   575→    """
+   576→    accessor_map: dict[str, str] = {}
+   577→    for path in repo_root.rglob("*.go"):
+   578→        if "graphify-out" in path.parts:
+   579→            continue
+   580→        try:
+   581→            text = path.read_text(encoding="utf-8", errors="replace")
+   582→        except (OSError, UnicodeDecodeError):
+   583→            continue
+   584→        # NOTE: do NOT mask strings here — the collection name is itself a
+   585→        # string literal that we need to capture.
+   586→        for m in ACCESSOR_DEF_RE.finditer(text):
+   587→            name, coll = m.group(1), m.group(2)
+   588→            accessor_map.setdefault(name, coll)
+   589→    return accessor_map
+   590→
+   591→
+   592→def collect_struct_fields(repo_root: Path) -> dict[str, set[str]]:
+   593→    """Build {struct_name: set_of_bson_field_names}.
+   594→
+   595→    Walks every Go struct declaration and extracts the bson field names from
+   596→    struct-tag annotations (e.g. ``bson:"tenantId,omitempty"`` → ``tenantId``).
+   597→    Used to check whether an Insert target struct carries a tenantId field.
+   598→    """
+   599→    struct_re = re.compile(r"^type\s+([A-Z]\w*)\s+struct\s*\{")
+   600→    # Matches the bson tag in a struct field annotation:
+   601→    #   `json:"x" bson:"tenantId,omitempty" validate:"required"`
+   602→    # captures ``tenantId`` (up to the first ``,`` or ``"``).
+   603→    tag_re = re.compile(r'bson:"([^",]+)')
+   604→    structs: dict[str, set[str]] = {}
+   605→    for path in repo_root.rglob("*.go"):
+   606→        if "graphify-out" in path.parts:
+   607→            continue
+   608→        try:
+   609→            text = path.read_text(encoding="utf-8", errors="replace")
+   610→        except (OSError, UnicodeDecodeError):
+   611→            continue
+   612→        lines = text.splitlines()
+   613→        i = 0
+   614→        n = len(lines)
+   615→        while i < n:
+   616→            m = struct_re.match(lines[i].strip())
+   617→            if not m:
+   618→                i += 1
+   619→                continue
+   620→            name = m.group(1)
+   621→            fields: set[str] = set()
+   622→            i += 1
+   623→            depth = 1
+   624→            while i < n and depth > 0:
+   625→                line = lines[i]
+   626→                depth += line.count("{") - line.count("}")
+   627→                if depth <= 0:
+   628→                    break
+   629→                # Extract the bson tag (first field name, ignoring omitempty etc.)
+   630→                tm = tag_re.search(line)
+   631→                if tm:
+   632→                    fname = tm.group(1).split(",")[0]
+   633→                    if fname and fname != "-":
+   634→                        fields.add(fname)
+   635→                i += 1
+   636→            structs.setdefault(name, set())
+   637→            structs[name].update(fields)
+   638→    return structs
+   639→
+   640→
+   641→def _collection_to_struct_name(collection: str) -> str:
+   642→    """Convert a snake_case collection name to a PascalCase struct name.
+   643→
+   644→    Heuristic:
+   645→      - "ies" suffix → "y"     (e.g. webhook_deliveries → WebhookDelivery)
+   646→      - "s"  suffix  → ""      (e.g. users → User, tenant_memberships → TenantMembership)
+   647→      - otherwise   → unchanged (e.g. system_config → SystemConfig)
+   648→
+   649→    Then snake_case → PascalCase (split on ``_``, capitalise each segment).
+   650→    """
+   651→    name = collection
+   652→    if name.endswith("ies"):
+   653→        name = name[:-3] + "y"
+   654→    elif name.endswith("s"):
+   655→        name = name[:-1]
+   656→    parts = [p for p in name.split("_") if p]
+   657→    return "".join(p[:1].upper() + p[1:] for p in parts)
+   658→
+   659→
+   660→def build_collection_struct_map(
+   661→    accessor_map: dict[str, str],
+   662→    struct_fields: dict[str, set[str]],
+   663→) -> dict[str, str]:
+   664→    """Build {collection_name: struct_name} using the snake→Pascal heuristic.
+   665→
+   666→    For each collection referenced by an accessor, derive the candidate
+   667→    struct name and confirm it exists in ``struct_fields``. If the heuristic
+   668→    doesn't match, fall back to checking known special cases (e.g.
+   669→    ``counters`` → ``InvoiceCounter``).
+   670→    """
+   671→    # Hardcoded overrides for cases the naming heuristic can't resolve
+   672→    # (collections whose struct name uses acronym capitalization like
+   673→    # ``APIKey`` instead of ``ApiKey``).
+   674→    overrides: dict[str, str] = {
+   675→        "counters": "InvoiceCounter",
+   676→        "api_keys": "APIKey",
+   677→        "oauth_states": "OAuthState",
+   678→        "sso_connections": "SSOConnection",
+   679→        "webauthn_credentials": "WebAuthnCredential",
+   680→    }
+   681→    coll_to_struct: dict[str, str] = {}
+   682→    collections = set(accessor_map.values()) | set(overrides.keys())
+   683→    for coll in collections:
+   684→        if coll in overrides and overrides[coll] in struct_fields:
+   685→            coll_to_struct[coll] = overrides[coll]
+   686→            continue
+   687→        candidate = _collection_to_struct_name(coll)
+   688→        if candidate in struct_fields:
+   689→            coll_to_struct[coll] = candidate
+   690→            continue
+   691→        # Try without singularisation (some collections are already
+   692→        # singular in the DB but use a plural struct name in Go).
+   693→        if coll in struct_fields:
+   694→            coll_to_struct[coll] = coll
+   695→    return coll_to_struct
+   696→
+   697→
+   698→def build_user_scoped_collections(
+   699→    collection_struct_map: dict[str, str],
+   700→    struct_fields: dict[str, set[str]],
+   701→) -> set[str]:
+   702→    """Identify collections whose struct has a ``userId`` bson field.
+   703→
+   704→    For these collections, filtering on ``userId`` is a valid scope — even
+   705→    if the collection also has a ``tenantId`` field, the ``userId`` filter
+   706→    already constrains the query to a single user's data (and a user's data
+   707→    can span tenants via ``tenant_memberships``).
+   708→    """
+   709→    out: set[str] = set(USER_SCOPED_COLLECTIONS_SEED)
+   710→    for coll, struct_name in collection_struct_map.items():
+   711→        fields = struct_fields.get(struct_name, set())
+   712→        if "userId" in fields:
+   713→            out.add(coll)
+   714→    return out
+   715→
+   716→
+   717→def build_global_collections(
+   718→    collection_struct_map: dict[str, str],
+   719→    struct_fields: dict[str, set[str]],
+   720→) -> set[str]:
+   721→    """Identify collections whose struct does NOT declare a ``tenantId`` field.
+   722→
+   723→    These collections are GLOBAL BY DESIGN — they have no tenantId field to
+   724→    filter on. Examples: ``webhooks``, ``plans``, ``system_nodes``,
+   725→    ``event_definitions``, ``branding_assets``, ``api_keys``.
+   726→    """
+   727→    out: set[str] = set(EXEMPT_COLLECTIONS) | set(GLOBAL_COLLECTIONS_EXTRA)
+   728→    for coll, struct_name in collection_struct_map.items():
+   729→        fields = struct_fields.get(struct_name, set())
+   730→        if not (TENANT_ID_FIELDS & fields):
+   731→            out.add(coll)
+   732→    return out
+   733→
+   734→
+   735→# --------------------------------------------------------------------------- #
+   736→# Route classification — parse main.go to map handler functions to route scope
+   737→# --------------------------------------------------------------------------- #
+   738→
+   739→# Matches ``<router>.HandleFunc("/path", HANDLER)`` or ``<router>.Handle("/path", ...)``
+   740→# capturing the router variable. The handler can be either a bare method value
+   741→# (``handler.Foo``) or wrapped in ``rateLimiter.RateLimitHandler(...,
+   742→# handler.Foo,)``.
+   743→ROUTER_HANDLE_RE = re.compile(
+   744→    r'\b(\w+)\.(?:HandleFunc|Handle)\s*\(\s*"[^"]*"'
+   745→)
+   746→
+   747→# Matches a handler method value like ``authHandler.Login`` or
+   748→# ``plansHandler.ListPlans`` (last identifier is the function name).
+   749→HANDLER_METHOD_RE = re.compile(
+   750→    r'\b(\w+Handler)\.([A-Z]\w*)\b'
+   751→)
+   752→
+   753→# Matches ``http.HandlerFunc(handler.X)`` — the X is the actual handler.
+   754→HTTPHANDLERFUNC_RE = re.compile(
+   755→    r'\bhttp\.HandlerFunc\s*\(\s*(\w+Handler)\.([A-Z]\w*)\s*\)'
+   756→)
+   757→
+   758→
+   759→def build_route_classifier(repo_root: Path) -> dict[str, set[str]]:
+   760→    """Parse ``cmd/server/main.go`` to extract handler-function → route-scope.
+   761→
+   762→    Returns a dict with three sets of handler function names:
+   763→      - ``admin``   — registered on adminAPI/adminWrite/adminOwner (sees ALL tenants)
+   764→      - ``tenant``  — registered on tenantAPI/usageAPI/telemetryAPI/billingAPI
+   765→      - ``auth``    — registered on guarded/protectedAuth (auth flow, user-scoped)
+   766→      - ``public``  — registered on api/router (no auth)
+   767→
+   768→    Falls back to an empty dict if main.go cannot be found.
+   769→    """
+   770→    result: dict[str, set[str]] = {
+   771→        "admin": set(),
+   772→        "tenant": set(),
+   773→        "auth": set(),
+   774→        "public": set(),
+   775→    }
+   776→    # Look for cmd/server/main.go under the repo root.
+   777→    candidates = [
+   778→        repo_root / "cmd" / "server" / "main.go",
+   779→        repo_root / "backend" / "cmd" / "server" / "main.go",
+   780→    ]
+   781→    main_go: Optional[Path] = None
+   782→    for c in candidates:
+   783→        if c.is_file():
+   784→            main_go = c
+   785→            break
+   786→    if main_go is None:
+   787→        # Last resort: rglob.
+   788→        for p in repo_root.rglob("main.go"):
+   789→            if "cmd" in p.parts and "server" in p.parts:
+   790→                main_go = p
+   791→                break
+   792→    if main_go is None or not main_go.is_file():
+   793→        return result
+   794→
+   795→    try:
+   796→        text = main_go.read_text(encoding="utf-8", errors="replace")
+   797→    except OSError:
+   798→        return result
+   799→
+   800→    masked = mask_strings_and_comments(text)
+   801→    # Walk HandleFunc/Handle calls. We match the router.HandleFunc("/path", ...)
+   802→    # pattern on the RAW text (so the string literal "/path" is visible), but
+   803→    # use the MASKED text to find the closing paren of the call (so parens
+   804→    # inside string literals don't confuse depth tracking).
+   805→    for m in ROUTER_HANDLE_RE.finditer(text):
+   806→        router = m.group(1)
+   807→        # Find the corresponding index in the masked text (same offset since
+   808→        # mask_strings_and_comments preserves length).
+   809→        open_paren = masked.find("(", m.start())
+   810→        if open_paren == -1:
+   811→            continue
+   812→        close_paren = find_block_end(masked, open_paren, "(", ")")
+   813→        if close_paren == -1:
+   814→            continue
+   815→        call_span = text[m.start():close_paren]
+   816→        # Find all handler.Foo references in the call span. The LAST one is
+   817→        # the actual handler (rateLimiter.RateLimitHandler takes the handler
+   818→        # as its last positional argument).
+   819→        handlers = HANDLER_METHOD_RE.findall(call_span)
+   820→        if not handlers:
+   821→            # Try http.HandlerFunc(handler.X) form.
+   822→            hfd = HTTPHANDLERFUNC_RE.findall(call_span)
+   823→            handlers = hfd
+   824→        if not handlers:
+   825→            continue
+   826→        # Take the LAST handler reference (in rate-limited form, the actual
+   827→        # handler is the last positional argument).
+   828→        _, func_name = handlers[-1]
+   829→        if router in ADMIN_ROUTERS:
+   830→            result["admin"].add(func_name)
+   831→        elif router in TENANT_ROUTERS:
+   832→            result["tenant"].add(func_name)
+   833→        elif router in ("guarded", "protectedAuth", "api", "router"):
+   834→            # Auth flow + public — the heuristic below refines further.
+   835→            if func_name in PUBLIC_ENDPOINT_FUNCS:
+   836→                result["public"].add(func_name)
+   837→            else:
+   838→                result["auth"].add(func_name)
+   839→    return result
+   840→
+   841→
+   842→def extract_filter_fields_from_text(text: str) -> list[str]:
+   843→    """Pull field names out of bson.M / bson.D / map literals in the given
+   844→    text. Returns a de-duplicated list (preserving first-seen order).
+   845→    """
+   846→    fields: list[str] = []
+   847→
+   848→    # bson.D blocks
+   849→    for block in BSON_D_BLOCK_RE.finditer(text):
+   850→        inner = block.group(1)
+   851→        for m in BSON_D_KEYVAL_NAMED_RE.finditer(inner):
+   852→            fields.append(m.group(1))
+   853→        for m in BSON_D_KEYVAL_POS_RE.finditer(inner):
+   854→            fields.append(m.group(1))
+   855→
+   856→    # bson.M blocks
+   857→    for m in BSON_M_RE.finditer(text):
+   858→        for km in BSON_M_KEY_RE.finditer(m.group(1)):
+   859→            fields.append(km.group(1))
+   860→
+   861→    # map[string]interface{} blocks
+   862→    for m in MAP_LITERAL_RE.finditer(text):
+   863→        for km in MAP_KEY_RE.finditer(m.group(1)):
+   864→            fields.append(km.group(1))
+   865→
+   866→    # Dedupe, drop operators and empty strings.
+   867→    seen: set[str] = set()
+   868→    out: list[str] = []
+   869→    for f in fields:
+   870→        if not f or f.startswith("$") or f in seen:
+   871→            continue
+   872→        seen.add(f)
+   873→        out.append(f)
+   874→    return out
+   875→
+   876→
+   877→def find_block_end(text: str, start: int, open_ch: str, close_ch: str) -> int:
+   878→    """Return the index of the matching closing bracket starting at ``start``
+   879→    (which must point at ``open_ch``). Returns -1 if no match is found.
+   880→    """
+   881→    assert text[start] == open_ch
+   882→    depth = 0
+   883→    i = start
+   884→    n = len(text)
+   885→    while i < n:
+   886→        c = text[i]
+   887→        if c == open_ch:
+   888→            depth += 1
+   889→        elif c == close_ch:
+   890→            depth -= 1
+   891→            if depth == 0:
+   892→                return i
+   893→        i += 1
+   894→    return -1
+   895→
+   896→
+   897→def extract_call_args(
+   898→    masked: str, raw: str, open_paren_idx: int
+   899→) -> list[str]:
+   900→    """Given the index of the opening ``(`` of a call in ``masked`` (and the
+   901→    corresponding ``raw`` text of identical length), return the list of
+   902→    top-level argument source strings (split on commas at depth 1).
+   903→
+   904→    Depth tracking uses ``masked`` (so commas/braces/parens inside string
+   905→    literals don't confuse the splitter), but the returned argument text is
+   906→    sliced from ``raw`` so that filter field extraction can see the actual
+   907→    string keys (e.g. ``"tenantId"``).
+   908→    """
+   909→    if open_paren_idx >= len(masked) or masked[open_paren_idx] != "(":
+   910→        return []
+   911→    close_idx = find_block_end(masked, open_paren_idx, "(", ")")
+   912→    if close_idx == -1:
+   913→        return []
+   914→    # The inner text spans [open_paren_idx+1, close_idx) in both masked & raw.
+   915→    args: list[str] = []
+   916→    depth_paren = 0
+   917→    depth_brace = 0
+   918→    depth_brack = 0
+   919→    buf_start = open_paren_idx + 1
+   920→    i = buf_start
+   921→    n = close_idx
+   922→    while i < n:
+   923→        c = masked[i]
+   924→        if c == "(":
+   925→            depth_paren += 1
+   926→        elif c == ")":
+   927→            depth_paren -= 1
+   928→        elif c == "{":
+   929→            depth_brace += 1
+   930→        elif c == "}":
+   931→            depth_brace -= 1
+   932→        elif c == "[":
+   933→            depth_brack += 1
+   934→        elif c == "]":
+   935→            depth_brack -= 1
+   936→        elif c == "," and depth_paren == 0 and depth_brace == 0 and depth_brack == 0:
+   937→            args.append(raw[buf_start:i].strip())
+   938→            buf_start = i + 1
+   939→        i += 1
+   940→    tail = raw[buf_start:close_idx].strip()
+   941→    if tail:
+   942→        args.append(tail)
+   943→    return args
+   944→
+   945→
+   946→# --------------------------------------------------------------------------- #
+   947→# Per-file scanner
+   948→# --------------------------------------------------------------------------- #
+   949→
+   950→
+   951→def _collect_brace_window(
+   952→    masked_lines: list[str],
+   953→    raw_lines: list[str],
+   954→    start_idx: int,
+   955→    start_col: int,
+   956→    max_lines: int = 80,
+   957→) -> str:
+   958→    """Build a multi-line text window starting at
+   959→    ``raw_lines[start_idx][start_col:]`` and extending until the braces
+   960→    opened on the first line are balanced.
+   961→
+   962→    Depth tracking uses ``masked_lines`` (so braces/parens inside string
+   963→    literals don't prematurely close the window), but the returned text is
+   964→    sliced from ``raw_lines`` so that filter field extraction can see the
+   965→    actual string keys (e.g. ``"tenantId"``).
+   966→
+   967→    The two line arrays must have identical length and newline positions
+   968→    (which is guaranteed when both are derived from the same source via
+   969→    :func:`mask_strings_and_comments`).
+   970→    """
+   971→    n = len(masked_lines)
+   972→    if start_idx >= n:
+   973→        return ""
+   974→    first_masked = masked_lines[start_idx][start_col:]
+   975→    first_raw = raw_lines[start_idx][start_col:]
+   976→    window_lines = [first_raw]
+   977→    depth = 0
+   978→    for ch in first_masked:
+   979→        if ch == "{":
+   980→            depth += 1
+   981→        elif ch == "}":
+   982→            depth -= 1
+   983→    i = start_idx + 1
+   984→    while depth > 0 and i < n and (i - start_idx) < max_lines:
+   985→        nxt_masked = masked_lines[i]
+   986→        window_lines.append(raw_lines[i])
+   987→        for ch in nxt_masked:
+   988→            if ch == "{":
+   989→                depth += 1
+   990→            elif ch == "}":
+   991→                depth -= 1
+   992→        i += 1
+   993→    return "\n".join(window_lines)
+   994→
+   995→
+   996→def scan_file(
+   997→    path: Path,
+   998→    repo_root: Path,
+   999→    accessor_map: dict[str, str],
+  1000→    struct_fields: dict[str, set[str]],
+  1001→    queries: list[Query],
+  1002→    file_index: dict[str, FileInfo],
+  1003→    route_classifier: Optional[dict[str, set[str]]] = None,
+  1004→    collection_struct_map: Optional[dict[str, str]] = None,
+  1005→    user_scoped_collections: Optional[set[str]] = None,
+  1006→    global_collections: Optional[set[str]] = None,
+  1007→) -> None:
+  1008→    """Scan a single Go file for MongoDB queries and classify each."""
+  1009→    try:
+  1010→        raw = path.read_text(encoding="utf-8", errors="replace")
+  1011→    except OSError:
+  1012→        return
+  1013→    masked = mask_strings_and_comments(raw)
+  1014→    lines = masked.splitlines()
+  1015→    raw_lines = raw.splitlines()
+  1016→
+  1017→    rel = _relative(repo_root, path)
+  1018→    finfo = file_index.setdefault(rel, FileInfo(path=rel))
+  1019→
+  1020→    # Pre-compute per-file context flags.
+  1021→    is_cli_file = CLI_PATH_PARTS[0] in path.parts and CLI_PATH_PARTS[1] in path.parts
+  1022→    is_testutil = "testutil" in path.parts or path.name == "testutil.go"
+  1023→    is_test_file = path.name.endswith("_test.go") or is_testutil
+  1024→    route_classifier = route_classifier or {}
+  1025→    collection_struct_map = collection_struct_map or {}
+  1026→    user_scoped_collections = user_scoped_collections or set()
+  1027→    global_collections = global_collections or set()
+  1028→
+  1029→    # Per-file alias + filter-variable tracking.
+  1030→    #   aliases[var_name]      = collection_name           (collection-typed vars)
+  1031→    #   filter_vars[var_name]  = {fields, def_line, ...}   (bson.M/bson.D/map vars)
+  1032→    #   pipeline_vars[var_name]= {fields, def_line, ...}   ([]bson.M / mongo.Pipeline)
+  1033→    #   struct_vars[var_name]  = struct_name               (models.Invitation, etc.)
+  1034→    aliases: dict[str, str] = {}
+  1035→    filter_vars: dict[str, dict] = {}
+  1036→    pipeline_vars: dict[str, dict] = {}
+  1037→    struct_vars: dict[str, str] = {}
+  1038→
+  1039→    current_func = "<package-init>"
+  1040→    n = len(lines)
+  1041→    masked_full = masked
+  1042→    raw_full = raw
+  1043→
+  1044→    # Single pass: walk line-by-line, tracking function context and variable
+  1045→    # assignments. When a MongoDB operation call is found on the current
+  1046→    # line, extract its arguments from the full masked/raw text (so multi-
+  1047→    # line calls are handled) and classify the query.
+  1048→    #
+  1049→    # NOTE: function/alias/var-def tracking uses the MASKED line (so braces
+  1050→    # inside strings don't confuse depth tracking), but dynamic field-addition
+  1051→    # detection (``filter["tenantId"] = ...``) uses the RAW line because the
+  1052→    # string key must be visible to the regex.
+  1053→    for idx in range(n):
+  1054→        line = lines[idx]
+  1055→        raw_line = raw_lines[idx]
+  1056→        line_no = idx + 1
+  1057→        stripped = line.lstrip()
+  1058→
+  1059→        # ---- Track current function (and reset per-function state) ----
+  1060→        if stripped.startswith("func"):
+  1061→            fm = FUNC_RE.match(stripped)
+  1062→            if fm:
+  1063→                current_func = fm.group(1)
+  1064→                filter_vars.clear()
+  1065→                pipeline_vars.clear()
+  1066→                aliases.clear()
+  1067→                struct_vars.clear()
+  1068→                continue
+  1069→
+  1070→        # ---- Track collection-alias assignments ----
+  1071→        for m in ALIAS_LITERAL_RE.finditer(line):
+  1072→            aliases[m.group(1)] = m.group(2)
+  1073→        for m in ALIAS_ACCESSOR_RE.finditer(line):
+  1074→            var_name = m.group(1)
+  1075→            accessor = m.group(2)
+  1076→            end = m.end()
+  1077→            if end < len(line) and line[end] == ".":
+  1078→                continue  # chained call, not a bare alias
+  1079→            if accessor in accessor_map:
+  1080→                aliases[var_name] = accessor_map[accessor]
+  1081→
+  1082→        # ---- Track filter-variable definitions ----
+  1083→        # ``filter := bson.M{...}`` — capture the multi-line literal that
+  1084→        # follows, starting at the variable name so the ``bson.M`` prefix is
+  1085→        # preserved (the field-extraction regexes require it).
+  1086→        for m in FILTER_VAR_DEF_RE.finditer(line):
+  1087→            var_name = m.group(1)
+  1088→            window = _collect_brace_window(lines, raw_lines, idx, m.start(), max_lines=30)
+  1089→            fields = extract_filter_fields_from_text(window)
+  1090→            filter_vars[var_name] = {
+  1091→                "fields": set(fields),
+  1092→                "def_line": line_no,
+  1093→                "source": "inline-literal",
+  1094→            }
+  1095→
+  1096→        # ---- Track filter-variable dynamic field additions ----
+  1097→        # ``filter["tenantId"] = ...`` — uses the RAW line so the string key
+  1098→        # is visible (the masked line has the key's characters replaced with
+  1099→        # spaces).
+  1100→        for m in FILTER_VAR_SET_RE.finditer(raw_line):
+  1101→            var_name = m.group(1)
+  1102→            field_name = m.group(2)
+  1103→            if var_name in filter_vars:
+  1104→                filter_vars[var_name]["fields"].add(field_name)
+  1105→            else:
+  1106→                # Variable defined elsewhere (function param, loop var, etc.)
+  1107→                filter_vars[var_name] = {
+  1108→                    "fields": {field_name},
+  1109→                    "def_line": line_no,
+  1110→                    "source": "dynamic-only",
+  1111→                }
+  1112→
+  1113→        # ---- Track pipeline-variable definitions (for Aggregate) ----
+  1114→        for m in PIPELINE_VAR_DEF_RE.finditer(line):
+  1115→            var_name = m.group(1)
+  1116→            window = _collect_brace_window(lines, raw_lines, idx, m.start(), max_lines=80)
+  1117→            fields = _extract_pipeline_match_fields(window)
+  1118→            pipeline_vars[var_name] = {
+  1119→                "fields": set(fields),
+  1120→                "def_line": line_no,
+  1121→                "source": "inline-literal",
+  1122→                "window": window,
+  1123→            }
+  1124→
+  1125→        # ---- Track struct-literal variable assignments ----
+  1126→        # ``invitation := models.Invitation{...}`` — records the struct name
+  1127→        # so InsertOne(ctx, invitation) can be checked for tenantId presence
+  1128→        # via the struct's bson field tags. Uses the RAW line so that the
+  1129→        # struct name (which is a Go identifier, not a string) is visible.
+  1130→        for m in STRUCT_VAR_DEF_RE.finditer(raw_line):
+  1131→            var_name = m.group(1)
+  1132→            struct_name = m.group(3)
+  1133→            # Only track if the struct is known (has bson field tags). This
+  1134→            # filters out generic-looking assignments like ``x := Foo{}``
+  1135→            # where Foo isn't a tracked struct.
+  1136→            if struct_name in struct_fields:
+  1137→                struct_vars[var_name] = struct_name
+  1138→
+  1139→        # ---- Find operation calls on this line ----
+  1140→        line_offset = sum(len(lines[k]) + 1 for k in range(idx))  # +1 for \n
+  1141→        for op_m in OP_RE.finditer(line):
+  1142→            operation = op_m.group(1)
+  1143→            # OP_RE matches ``.Find(`` etc. — op_m.end() is just past the "(".
+  1144→            open_paren_idx_in_line = op_m.end() - 1
+  1145→            open_paren_idx_full = line_offset + open_paren_idx_in_line
+  1146→
+  1147→            # Skip option-builder calls (``options.Find()`` etc.). Uses the
+  1148→            # RAW prefix so the literal ``options`` token is reliably visible.
+  1149→            raw_prefix = raw_line[: op_m.start()]
+  1150→            if OPTIONS_BUILDER_RE.search(raw_prefix):
+  1151→                continue
+  1152→
+  1153→            # ---- Resolve the collection ----
+  1154→            # The prefix search uses the RAW line so that collection literals
+  1155→            # like ``db.Collection("users")`` (which contain a string) are
+  1156→            # visible. Depth tracking isn't needed here — we're just looking
+  1157→            # for the last accessor call or collection literal before ``.Op(``.
+  1158→            collection: Optional[str] = None
+  1159→            accessor_used: Optional[str] = None
+  1160→
+  1161→            lit_m = COLLECTION_LITERAL_RE.search(raw_prefix)
+  1162→            if lit_m:
+  1163→                collection = lit_m.group(1)
+  1164→            else:
+  1165→                acc_m = re.search(r"([A-Z]\w*)\(\s*\)\s*$", raw_prefix)
+  1166→                if acc_m:
+  1167→                    accessor_used = acc_m.group(1)
+  1168→                    collection = accessor_map.get(accessor_used)
+  1169→                else:
+  1170→                    var_m = re.search(r"([A-Za-z_]\w*)\s*$", raw_prefix)
+  1171→                    if var_m:
+  1172→                        collection = aliases.get(var_m.group(1))
+  1173→
+  1174→            # Fallback: look back a couple of lines for a collection literal
+  1175→            # or accessor call (handles calls split across lines). Uses RAW
+  1176→            # lines for the same reason as above.
+  1177→            if collection is None:
+  1178→                for back in range(idx - 1, max(idx - 4, -1), -1):
+  1179→                    if back < 0 or back >= n:
+  1180→                        continue
+  1181→                    prev_raw = raw_lines[back]
+  1182→                    lit_m2 = COLLECTION_LITERAL_RE.search(prev_raw)
+  1183→                    if lit_m2:
+  1184→                        collection = lit_m2.group(1)
+  1185→                        break
+  1186→                    acc_m2 = re.search(r"([A-Z]\w*)\(\s*\)", prev_raw)
+  1187→                    if acc_m2 and acc_m2.group(1) in accessor_map:
+  1188→                        collection = accessor_map[acc_m2.group(1)]
+  1189→                        if accessor_used is None:
+  1190→                            accessor_used = acc_m2.group(1)
+  1191→                        break
+  1192→
+  1193→            if collection is None:
+  1194→                # Last resort: if the accessor name is in the exempt set,
+  1195→                # use it as the collection name (so we can still classify).
+  1196→                if accessor_used and accessor_used in EXEMPT_ACCESSORS:
+  1197→                    collection = _accessor_to_collection(accessor_used)
+  1198→                else:
+  1199→                    collection = "<unknown>"
+  1200→
+  1201→            # ---- Extract the call arguments ----
+  1202→            args = extract_call_args(masked_full, raw_full, open_paren_idx_full)
+  1203→
+  1204→            # Determine which argument holds the filter/document/pipeline.
+  1205→            filter_text = ""
+  1206→            filter_source = "unknown"
+  1207→            filter_fields: list[str] = []
+  1208→            has_tenant_id = False
+  1209→
+  1210→            # MongoDB driver convention: first arg is always ctx (or t in
+  1211→            # tests). The filter/document/pipeline is the second arg.
+  1212→            if operation == "EstimatedDocumentCount":
+  1213→                # No filter argument.
+  1214→                filter_source = "no-filter"
+  1215→            elif operation == "BulkWrite":
+  1216→                # BulkWrite(ctx, []mongo.WriteModel{...}) — the models slice
+  1217→                # is too complex to analyse statically.
+  1218→                filter_source = "bulk-write-models"
+  1219→                if len(args) >= 2:
+  1220→                    filter_text = args[1]
+  1221→            elif operation == "InsertMany":
+  1222→                # InsertMany(ctx, []interface{}{...}) — the slice contains
+  1223→                # the documents to insert.
+  1224→                if len(args) >= 2:
+  1225→                    filter_text = args[1]
+  1226→                    filter_fields = extract_filter_fields_from_text(filter_text)
+  1227→                    filter_source = "inline-document-slice"
+  1228→                else:
+  1229→                    filter_source = "missing-arg"
+  1230→            elif operation == "InsertOne":
+  1231→                # InsertOne(ctx, document) — document may be a bson.M literal,
+  1232→                # an inline struct literal (``models.Foo{...}``), or a
+  1233→                # variable holding a struct literal (``foo`` assigned from
+  1234→                # ``models.Foo{...}`` earlier in the function).
+  1235→                if len(args) >= 2:
+  1236→                    filter_text = args[1]
+  1237→                    if "bson.M" in filter_text or "bson.D" in filter_text or "map[string]" in filter_text:
+  1238→                        filter_fields = extract_filter_fields_from_text(filter_text)
+  1239→                        filter_source = "inline-document"
+  1240→                    else:
+  1241→                        # Try inline struct literal first.
+  1242→                        struct_name = _extract_struct_name(filter_text)
+  1243→                        # Then fall back to a struct-typed variable alias.
+  1244→                        if struct_name is None or struct_name not in struct_fields:
+  1245→                            var_m = re.match(r"^&?(\w+)\s*$", filter_text.strip())
+  1246→                            if var_m and var_m.group(1) in struct_vars:
+  1247→                                struct_name = struct_vars[var_m.group(1)]
+  1248→                                filter_source = f"struct-var:{var_m.group(1)}:{struct_name}"
+  1249→                        if struct_name and struct_name in struct_fields:
+  1250→                            if not filter_source.startswith("struct-var:"):
+  1251→                                filter_source = f"struct:{struct_name}"
+  1252→                            bson_fields = struct_fields[struct_name]
+  1253→                            # Don't pollute filter_fields with every struct
+  1254→                            # field — just record the ones relevant for
+  1255→                            # tenant filtering. We expose the full field set
+  1256→                            # for context, but only treat tenantId presence
+  1257→                            # as "has_tenant_id" if the struct HAS a
+  1258→                            # tenantId bson field.
+  1259→                            filter_fields = sorted(
+  1260→                                f for f in bson_fields if not f.startswith("_")
+  1261→                            )
+  1262→                            if TENANT_ID_FIELDS & bson_fields:
+  1263→                                has_tenant_id = True
+  1264→                        else:
+  1265→                            filter_source = "struct:unknown"
+  1266→                else:
+  1267→                    filter_source = "missing-arg"
+  1268→            elif operation == "UpdateByID":
+  1269→                # UpdateByID(ctx, id, update) — id is the document _id (unique).
+  1270→                filter_source = "by-id"
+  1271→                if len(args) >= 2:
+  1272→                    filter_text = args[1]
+  1273→                    # Mark as having a safe unique key.
+  1274→                    filter_fields = ["_id"]
+  1275→            elif operation == "Aggregate":
+  1276→                # Aggregate(ctx, pipeline) — pipeline is a slice of stages.
+  1277→                if len(args) >= 2:
+  1278→                    filter_text = args[1]
+  1279→                    if (
+  1280→                        filter_text.startswith("bson.M")
+  1281→                        or filter_text.startswith("bson.D")
+  1282→                        or filter_text.startswith("bson.A")
+  1283→                        or filter_text.startswith("[]bson")
+  1284→                        or filter_text.startswith("mongo.Pipeline")
+  1285→                    ):
+  1286→                        # Inline pipeline literal.
+  1287→                        filter_fields = _extract_pipeline_match_fields(filter_text)
+  1288→                        filter_source = "inline-pipeline"
+  1289→                    else:
+  1290→                        # Variable pipeline — look up in pipeline_vars.
+  1291→                        var_m = re.match(r"^(\w+)\s*$", filter_text.strip())
+  1292→                        if var_m and var_m.group(1) in pipeline_vars:
+  1293→                            info = pipeline_vars[var_m.group(1)]
+  1294→                            filter_fields = sorted(info["fields"])
+  1295→                            filter_source = f"variable-pipeline:{var_m.group(1)}"
+  1296→                        else:
+  1297→                            filter_source = "variable-pipeline:unknown"
+  1298→                else:
+  1299→                    filter_source = "missing-arg"
+  1300→            elif operation in FILTER_AT_POS_2:
+  1301→                # Standard filter-bearing call: <Op>(ctx, filter, ...).
+  1302→                if len(args) >= 2:
+  1303→                    filter_text = args[1]
+  1304→                    if filter_text == "nil":
+  1305→                        filter_source = "nil"
+  1306→                        filter_fields = []
+  1307→                    elif filter_text.startswith("bson.M") or filter_text.startswith("bson.D") or filter_text.startswith("map[string]"):
+  1308→                        filter_fields = extract_filter_fields_from_text(filter_text)
+  1309→                        filter_source = "inline"
+  1310→                    else:
+  1311→                        # Variable filter — look up in filter_vars.
+  1312→                        var_m = re.match(r"^(\w+)\s*$", filter_text.strip())
+  1313→                        if var_m and var_m.group(1) in filter_vars:
+  1314→                            info = filter_vars[var_m.group(1)]
+  1315→                            filter_fields = sorted(info["fields"])
+  1316→                            filter_source = f"variable:{var_m.group(1)}"
+  1317→                        else:
+  1318→                            filter_source = f"variable:unknown:{filter_text.strip()[:40]}"
+  1319→                else:
+  1320→                    filter_source = "missing-arg"
+  1321→            else:
+  1322→                # Should not happen — every op is handled above.
+  1323→                filter_source = "unhandled"
+  1324→
+  1325→            # ---- Determine has_tenant_id ----
+  1326→            if filter_fields:
+  1327→                field_set = set(filter_fields)
+  1328→                if TENANT_ID_FIELDS & field_set:
+  1329→                    has_tenant_id = True
+  1330→
+  1331→            # ---- Classify ----
+  1332→            is_exempt = _is_exempt_collection(collection, accessor_used)
+  1333→            safe_key = _has_safe_unique_key(filter_fields, operation)
+  1334→            has_user_id = "userId" in filter_fields or "user_id" in filter_fields
+  1335→
+  1336→            # ---- Compute context heuristics (false-positive suppression) ----
+  1337→            # These are checked in priority order; the first match wins and
+  1338→            # downgrades the query from a violation to MEDIUM informational.
+  1339→            # Auth flow handlers are user-scoped (operate on refresh_tokens,
+  1340→            # verification_tokens, etc.) — not admin handlers.
+  1341→            is_auth_flow = (
+  1342→                current_func in route_classifier.get("auth", set())
+  1343→                or current_func in AUTH_FLOW_FUNCS
+  1344→            )
+  1345→            is_admin_handler = (
+  1346→                current_func in route_classifier.get("admin", set())
+  1347→                or current_func in ADMIN_SERVICE_FUNCS
+  1348→            )
+  1349→            is_public_endpoint = (
+  1350→                current_func in route_classifier.get("public", set())
+  1351→                or current_func in PUBLIC_ENDPOINT_FUNCS
+  1352→            )
+  1353→            is_background_task = current_func in BACKGROUND_TASK_FUNCS
+  1354→            # Resolve the underlying struct for this collection.
+  1355→            struct_name = collection_struct_map.get(collection)
+  1356→            coll_has_tid: Optional[bool] = None
+  1357→            if struct_name and struct_name in struct_fields:
+  1358→                coll_has_tid = bool(
+  1359→                    TENANT_ID_FIELDS & struct_fields[struct_name]
+  1360→                )
+  1361→            # ``collection_is_user_scoped`` is True when the struct has a
+  1362→            # ``userId`` bson field — for these, a ``userId`` filter is a
+  1363→            # valid scope (the user's data spans tenants).
+  1364→            coll_is_user_scoped = collection in user_scoped_collections
+  1365→            # ``collection_is_global`` is True when the struct does NOT
+  1366→            # declare a tenantId field — these collections are global by
+  1367→            # design (e.g. ``webhooks``, ``plans``, ``system_nodes``).
+  1368→            collection_is_global = (
+  1369→                collection in global_collections
+  1370→                or coll_has_tid is False
+  1371→            )
+  1372→            # Decide the route scope label (for the report).
+  1373→            if is_testutil:
+  1374→                route_scope = "testutil"
+  1375→            elif is_cli_file:
+  1376→                route_scope = "cli"
+  1377→            elif is_background_task:
+  1378→                route_scope = "background"
+  1379→            elif is_public_endpoint:
+  1380→                route_scope = "public"
+  1381→            elif is_admin_handler:
+  1382→                route_scope = "admin"
+  1383→            elif is_auth_flow:
+  1384→                route_scope = "auth"
+  1385→            elif current_func in route_classifier.get("tenant", set()):
+  1386→                route_scope = "tenant"
+  1387→            else:
+  1388→                route_scope = "unknown"
+  1389→
+  1390→            suppression_reason: str = ""
+  1391→
+  1392→            # ---- Apply false-positive suppressions in priority order ----
+  1393→            if has_tenant_id:
+  1394→                risk_level = "OK"
+  1395→                is_violation = False
+  1396→                note = "Filter contains tenantId."
+  1397→            elif is_testutil:
+  1398→                risk_level = "MEDIUM"
+  1399→                is_violation = False
+  1400→                suppression_reason = "test-util"
+  1401→                note = (
+  1402→                    "Query is in a test-utility file (internal/testutil/) — "
+  1403→                    "test helpers reset/clean test databases between test "
+  1404→                    "runs. Not production code."
+  1405→                )
+  1406→            elif is_cli_file:
+  1407→                risk_level = "MEDIUM"
+  1408→                is_violation = False
+  1409→                suppression_reason = "cli-tool"
+  1410→                note = (
+  1411→                    "Query is in a CLI tool (cmd/lastsaas/) — CLI tools have "
+  1412→                    "no HTTP request context and operate on system-wide "
+  1413→                    "collections by design."
+  1414→                )
+  1415→            elif is_background_task:
+  1416→                risk_level = "MEDIUM"
+  1417→                is_violation = False
+  1418→                suppression_reason = "background-task"
+  1419→                note = (
+  1420→                    f"Function '{current_func}' is a background system task "
+  1421→                    "(no request context, no tenantId available). Operates "
+  1422→                    "on system-wide collections by design."
+  1423→                )
+  1424→            elif is_admin_handler:
+  1425→                risk_level = "MEDIUM"
+  1426→                is_violation = False
+  1427→                suppression_reason = "admin-handler"
+  1428→                note = (
+  1429→                    f"Function '{current_func}' is an admin handler "
+  1430→                    "(registered on /api/admin/*). Admin handlers see ALL "
+  1431→                    "tenants by design — no tenantId filter needed."
+  1432→                )
+  1433→            elif is_public_endpoint:
+  1434→                risk_level = "MEDIUM"
+  1435→                is_violation = False
+  1436→                suppression_reason = "public-endpoint"
+  1437→                note = (
+  1438→                    f"Function '{current_func}' is a public endpoint (no "
+  1439→                    "auth) — returns published/global content to everyone."
+  1440→                )
+  1441→            elif collection_is_global:
+  1442→                risk_level = "MEDIUM"
+  1443→                is_violation = False
+  1444→                suppression_reason = "global-by-design"
+  1445→                if struct_name:
+  1446→                    note = (
+  1447→                        f"Collection '{collection}' maps to struct "
+  1448→                        f"'{struct_name}' which does NOT declare a tenantId "
+  1449→                        f"bson field — this collection is global by design."
+  1450→                    )
+  1451→                else:
+  1452→                    note = (
+  1453→                        f"Collection '{collection}' is in the global list "
+  1454→                        f"(no tenantId field) — global by design."
+  1455→                    )
+  1456→            elif coll_is_user_scoped and has_user_id:
+  1457→                risk_level = "OK"
+  1458→                is_violation = False
+  1459→                suppression_reason = "user-scoped"
+  1460→                note = (
+  1461→                    f"Collection '{collection}' is user-scoped (has userId "
+  1462→                    f"field) and the filter contains userId — a user's data "
+  1463→                    f"spans tenants, so userId is a valid scope."
+  1464→                )
+  1465→            elif is_auth_flow and (has_user_id or safe_key):
+  1466→                risk_level = "MEDIUM"
+  1467→                is_violation = False
+  1468→                suppression_reason = "auth-flow"
+  1469→                note = (
+  1470→                    f"Auth-flow handler '{current_func}' operates on user-"
+  1471→                    f"scoped collections (the user hasn't selected a tenant "
+  1472→                    f"yet during auth). Filter on userId/token/tokenHash is "
+  1473→                    f"a valid scope."
+  1474→                )
+  1475→            elif safe_key:
+  1476→                risk_level = "MEDIUM"
+  1477→                is_violation = False
+  1478→                suppression_reason = "safe-unique-key"
+  1479→                note = (
+  1480→                    f"Filter contains a globally-unique key "
+  1481→                    f"({', '.join(f for f in filter_fields if f in SAFE_UNIQUE_KEYS)}) "
+  1482→                    f"— the query will only ever return one document "
+  1483→                    f"regardless of tenant."
+  1484→                )
+  1485→            elif is_exempt:
+  1486→                risk_level = "MEDIUM"
+  1487→                is_violation = False
+  1488→                suppression_reason = "exempt-collection"
+  1489→                note = (
+  1490→                    f"Collection '{collection}' is in the exempt (global) "
+  1491→                    f"list; tenant filtering is not strictly required, but "
+  1492→                    f"queries should still be reviewed for appropriate "
+  1493→                    f"scoping."
+  1494→                )
+  1495→            elif operation in ("InsertOne", "InsertMany") and (
+  1496→                filter_source in ("inline-document", "inline-document-slice")
+  1497→                or filter_source == "missing-arg"
+  1498→            ) and coll_has_tid is True:
+  1499→                # The inserted struct (or slice of structs) declares a
+  1500→                # ``tenantId`` bson field. The auditor can't statically
+  1501→                # verify the value is set at runtime, but the struct
+  1502→                # SUPPORTS tenant scoping — caller is responsible. Common
+  1503→                # case: a tenant-scoped HTTP handler populates the struct
+  1504→                # from request context before calling the service method.
+  1505→                risk_level = "MEDIUM"
+  1506→                is_violation = False
+  1507→                suppression_reason = "struct-supports-tenant-id"
+  1508→                note = (
+  1509→                    f"{operation} inserts a document (or slice of documents) "
+  1510→                    f"whose struct '{struct_name}' declares a tenantId bson "
+  1511→                    f"field. The value cannot be verified statically — caller "
+  1512→                    f"is responsible for setting it (typically the tenant-"
+  1513→                    f"scoped HTTP handler reads tenantId from request context "
+  1514→                    f"and populates the struct before calling this method)."
+  1515→                )
+  1516→            elif operation in WRITE_OPS:
+  1517→                risk_level = "CRITICAL"
+  1518→                is_violation = True
+  1519→                if filter_source == "by-id":
+  1520→                    note = (
+  1521→                        "UpdateByID uses the document _id (globally unique) — "
+  1522→                        "tenant filtering is implicit. Likely safe."
+  1523→                    )
+  1524→                elif filter_source.startswith("struct:"):
+  1525→                    struct_name_src = filter_source.split(":", 1)[1]
+  1526→                    if struct_name_src == "unknown":
+  1527→                        note = (
+  1528→                            "InsertOne with an unrecognised struct value; "
+  1529→                            "could not statically verify tenantId presence. "
+  1530→                            "Manual review required."
+  1531→                        )
+  1532→                    else:
+  1533→                        note = (
+  1534→                            f"InsertOne with a {struct_name_src} struct "
+  1535→                            f"value; tenantId presence inferred from the "
+  1536→                            f"struct definition — verify the value is "
+  1537→                            f"actually set at runtime."
+  1538→                        )
+  1539→                elif filter_source.startswith("struct-var:"):
+  1540→                    parts = filter_source.split(":")
+  1541→                    var_name = parts[1] if len(parts) > 1 else "?"
+  1542→                    struct_name_src = parts[2] if len(parts) > 2 else "?"
+  1543→                    note = (
+  1544→                        f"InsertOne with {var_name} (a {struct_name_src} "
+  1545→                        f"struct); the struct definition does NOT declare a "
+  1546→                        f"tenantId bson field. CRITICAL: inserted document "
+  1547→                        f"will be orphaned across tenants."
+  1548→                    )
+  1549→                elif operation in ("InsertOne", "InsertMany") and (
+  1550→                    filter_source in ("inline-document", "inline-document-slice")
+  1551→                    or filter_source == "missing-arg"
+  1552→                ):
+  1553→                    note = (
+  1554→                        f"{operation} inserts a document with no tenantId "
+  1555→                        f"field. CRITICAL: the inserted document will be "
+  1556→                        f"orphaned — readable/modifiable by any tenant that "
+  1557→                        f"queries without a tenantId filter, or invisible to "
+  1558→                        f"queries that DO filter by tenantId."
+  1559→                    )
+  1560→                elif operation == "BulkWrite":
+  1561→                    note = (
+  1562→                        "BulkWrite with a slice of WriteModel operations — "
+  1563→                        "individual model filters cannot be analysed "
+  1564→                        "statically. CRITICAL: manual review required to "
+  1565→                        "confirm every UpdateOne/DeleteOne/ReplaceOne model "
+  1566→                        "in the slice includes a tenantId filter."
+  1567→                    )
+  1568→                elif filter_source == "nil":
+  1569→                    note = (
+  1570→                        f"{operation} with nil filter — affects ALL "
+  1571→                        f"documents in the collection. CRITICAL: this can "
+  1572→                        f"modify/delete data across all tenants."
+  1573→                    )
+  1574→                elif not filter_fields and operation in (
+  1575→                    "UpdateOne", "UpdateMany", "DeleteOne", "DeleteMany",
+  1576→                    "FindOneAndUpdate", "FindOneAndDelete", "FindOneAndReplace",
+  1577→                    "ReplaceOne",
+  1578→                ):
+  1579→                    note = (
+  1580→                        f"{operation} with an empty filter — affects ALL "
+  1581→                        f"documents. CRITICAL: cross-tenant data corruption "
+  1582→                        f"risk."
+  1583→                    )
+  1584→                else:
+  1585→                    note = (
+  1586→                        f"{operation} on a tenant-scoped collection without "
+  1587→                        f"tenantId in the filter. CRITICAL: this can "
+  1588→                        f"modify/delete data belonging to other tenants."
+  1589→                    )
+  1590→            else:
+  1591→                # Read operation.
+  1592→                risk_level = "HIGH"
+  1593→                is_violation = True
+  1594→                if filter_source == "no-filter":
+  1595→                    note = (
+  1596→                        f"{operation} returns aggregate info about ALL "
+  1597→                        f"documents in the collection (no filter is taken). "
+  1598→                        f"HIGH: leaks the total document count across all "
+  1599→                        f"tenants."
+  1600→                    )
+  1601→                elif filter_source == "nil":
+  1602→                    note = (
+  1603→                        "Read operation with nil filter — returns ALL "
+  1604→                        "documents in the collection. HIGH: cross-tenant "
+  1605→                        "data leakage risk."
+  1606→                    )
+  1607→                elif not filter_fields:
+  1608→                    note = (
+  1609→                        "Read operation with an empty filter — returns ALL "
+  1610→                        "documents. HIGH: cross-tenant data leakage risk."
+  1611→                    )
+  1612→                elif filter_source.startswith("variable:unknown"):
+  1613→                    note = (
+  1614→                        "Read operation whose filter is a variable that "
+  1615→                        "could not be traced to a definition. Manual review "
+  1616→                        "required to confirm tenantId is set."
+  1617→                    )
+  1618→                elif filter_source.startswith("variable-pipeline:unknown"):
+  1619→                    note = (
+  1620→                        "Aggregate pipeline variable could not be traced to "
+  1621→                        "a definition; cannot verify whether a $match stage "
+  1622→                        "filters on tenantId. Manual review required."
+  1623→                    )
+  1624→                else:
+  1625→                    note = (
+  1626→                        "Read operation on a tenant-scoped collection "
+  1627→                        "without tenantId in the filter. HIGH: cross-tenant "
+  1628→                        "data leakage risk."
+  1629→                    )
+  1630→
+  1631→            # ---- Build a snippet from the RAW source (not masked) ----
+  1632→            snippet = _build_snippet(raw_lines, line_no, filter_text)
+  1633→
+  1634→            q = Query(
+  1635→                file=rel,
+  1636→                line=line_no,
+  1637→                function=current_func,
+  1638→                collection=collection,
+  1639→                operation=operation,
+  1640→                filter_fields=filter_fields,
+  1641→                has_tenant_id=has_tenant_id,
+  1642→                filter_source=filter_source,
+  1643→                risk_level=risk_level,
+  1644→                is_violation=is_violation,
+  1645→                is_exempt_collection=is_exempt,
+  1646→                safe_key_filter=safe_key or filter_source == "by-id",
+  1647→                filter_snippet=snippet,
+  1648→                note=note,
+  1649→                route_scope=route_scope,
+  1650→                is_admin_handler=is_admin_handler,
+  1651→                is_background_task=is_background_task,
+  1652→                is_public_endpoint=is_public_endpoint,
+  1653→                is_auth_flow=is_auth_flow,
+  1654→                is_cli_tool=is_cli_file,
+  1655→                collection_has_tenant_id=coll_has_tid,
+  1656→                collection_is_user_scoped=coll_is_user_scoped,
+  1657→                has_user_id_filter=has_user_id,
+  1658→                suppression_reason=suppression_reason,
+  1659→            )
+  1660→            queries.append(q)
+  1661→            finfo.total_queries += 1
+  1662→            finfo.by_risk[risk_level] += 1
+  1663→            if is_violation:
+  1664→                finfo.violations += 1
+  1665→
+  1666→
+  1667→def _extract_pipeline_match_fields(text: str) -> list[str]:
+  1668→    """Extract field names from ``$match`` stages in an aggregate pipeline.
+  1669→
+  1670→    A ``$match`` stage looks like ``{"$match": bson.M{...}}`` or
+  1671→    ``bson.D{{Key: "$match", Value: bson.D{...}}}``. We locate the inner
+  1672→    filter literal and delegate to :func:`extract_filter_fields_from_text`,
+  1673→    passing enough surrounding context (the ``bson.M`` / ``bson.D`` prefix)
+  1674→    that the BSON regexes can match.
+  1675→    """
+  1676→    fields: list[str] = []
+  1677→    match_re = re.compile(
+  1678→        r'"\$match"\s*:\s*(bson\.M|bson\.D)\s*\{', re.IGNORECASE
+  1679→    )
+  1680→    for m in match_re.finditer(text):
+  1681→        # Find the closing brace of the ``bson.M{...}`` block.
+  1682→        brace_idx = m.end() - 1
+  1683→        end = find_block_end(text, brace_idx, "{", "}")
+  1684→        if end == -1:
+  1685→            continue
+  1686→        # Include the ``bson.M`` prefix in the slice so that
+  1687→        # ``BSON_M_RE`` / ``BSON_D_RE`` (which require the prefix) match.
+  1688→        bson_prefix_start = m.start(1)
+  1689→        inner = text[bson_prefix_start : end + 1]
+  1690→        fields.extend(extract_filter_fields_from_text(inner))
+  1691→    # Dedupe.
+  1692→    seen: set[str] = set()
+  1693→    out: list[str] = []
+  1694→    for f in fields:
+  1695→        if f and not f.startswith("$") and f not in seen:
+  1696→            seen.add(f)
+  1697→            out.append(f)
+  1698→    return out
+  1699→
+  1700→
+  1701→def _extract_struct_name(text: str) -> Optional[str]:
+  1702→    """Best-effort: extract the struct name from an argument like
+  1703→    ``models.User{...}`` or ``&models.User{...}`` or ``User{...}``.
+  1704→    """
+  1705→    m = re.search(r"&?([\w\.]+)\s*\{", text)
+  1706→    if m:
+  1707→        # Take the last component after any dots.
+  1708→        name = m.group(1).split(".")[-1]
+  1709→        return name
+  1710→    return None
+  1711→
+  1712→
+  1713→def _is_exempt_collection(collection: str, accessor: Optional[str]) -> bool:
+  1714→    """Return True if the collection is in the exempt (global) list."""
+  1715→    if collection in EXEMPT_COLLECTIONS:
+  1716→        return True
+  1717→    if accessor and accessor in EXEMPT_ACCESSORS:
+  1718→        return True
+  1719→    return False
+  1720→
+  1721→
+  1722→def _accessor_to_collection(accessor: str) -> str:
+  1723→    """Convert a PascalCase accessor name (e.g. ``Users``) to its snake_case
+  1724→    collection name (e.g. ``users``). Best-effort.
+  1725→    """
+  1726→    # Handle common acronyms first.
+  1727→    out: list[str] = []
+  1728→    cur = ""
+  1729→    for ch in accessor:
+  1730→        if ch.isupper():
+  1731→            if cur:
+  1732→                out.append(cur)
+  1733→                cur = ch.lower()
+  1734→            else:
+  1735→                cur = ch.lower()
+  1736→        else:
+  1737→            cur += ch
+  1738→    if cur:
+  1739→        out.append(cur)
+  1740→    return "_".join(out)
+  1741→
+  1742→
+  1743→def _has_safe_unique_key(filter_fields: list[str], operation: str) -> bool:
+  1744→    """Return True if the filter contains a globally-unique key."""
+  1745→    if operation == "UpdateByID":
+  1746→        return True
+  1747→    for f in filter_fields:
+  1748→        if f in SAFE_UNIQUE_KEYS:
+  1749→            return True
+  1750→    return False
+  1751→
+  1752→
+  1753→def _build_snippet(raw_lines: list[str], line_no: int, filter_text: str) -> str:
+  1754→    """Build a compact human-readable snippet for the report.
+  1755→
+  1756→    Uses the raw (unmasked) source lines so the snippet shows the actual code
+  1757→    the developer wrote (with strings/comments intact).
+  1758→    """
+  1759→    if 1 <= line_no <= len(raw_lines):
+  1760→        first = raw_lines[line_no - 1].strip()
+  1761→    else:
+  1762→        first = ""
+  1763→    # Include up to 3 following lines if the call clearly continues.
+  1764→    snippet_lines = [first]
+  1765→    depth_paren = first.count("(") - first.count(")")
+  1766→    depth_brace = first.count("{") - first.count("}")
+  1767→    i = line_no + 1
+  1768→    while (depth_paren > 0 or depth_brace > 0) and i <= len(raw_lines) and (i - line_no) < 5:
+  1769→        nxt = raw_lines[i - 1].rstrip()
+  1770→        snippet_lines.append(nxt)
+  1771→        depth_paren += nxt.count("(") - nxt.count(")")
+  1772→        depth_brace += nxt.count("{") - nxt.count("}")
+  1773→        i += 1
+  1774→    snippet = "\n".join(snippet_lines).strip()
+  1775→    if len(snippet) > 400:
+  1776→        snippet = snippet[:397] + "..."
+  1777→    return snippet
+  1778→
+  1779→
+  1780→# --------------------------------------------------------------------------- #
+  1781→# Output rendering
+  1782→# --------------------------------------------------------------------------- #
+  1783→
+  1784→
+  1785→def build_summary(
+  1786→    queries: list[Query],
+  1787→    file_index: dict[str, FileInfo],
+  1788→    accessor_map: dict[str, str],
+  1789→    repo_root: Path,
+  1790→    collection_struct_map: Optional[dict[str, str]] = None,
+  1791→    user_scoped_collections: Optional[set[str]] = None,
+  1792→    global_collections: Optional[set[str]] = None,
+  1793→    route_classifier: Optional[dict[str, set[str]]] = None,
+  1794→) -> dict:
+  1795→    """Build the JSON-serialisable summary object."""
+  1796→    total = len(queries)
+  1797→    with_tenant = sum(1 for q in queries if q.has_tenant_id)
+  1798→    without_tenant = total - with_tenant
+  1799→    violations = [q for q in queries if q.is_violation]
+  1800→    critical = [q for q in violations if q.risk_level == "CRITICAL"]
+  1801→    high = [q for q in violations if q.risk_level == "HIGH"]
+  1802→    medium = [q for q in queries if q.risk_level == "MEDIUM"]
+  1803→    ok = [q for q in queries if q.risk_level == "OK"]
+  1804→    safe_key_violations = [q for q in violations if q.safe_key_filter]
+  1805→    real_violations = [q for q in violations if not q.safe_key_filter]
+  1806→
+  1807→    # Suppression breakdown — how many queries were downgraded from a
+  1808→    # potential violation to MEDIUM informational by each heuristic.
+  1809→    suppression_counts: Counter = Counter()
+  1810→    for q in queries:
+  1811→        if q.suppression_reason:
+  1812→            suppression_counts[q.suppression_reason] += 1
+  1813→    route_scope_counts: Counter = Counter(q.route_scope for q in queries)
+  1814→
+  1815→    by_collection: Counter = Counter()
+  1816→    by_operation: Counter = Counter()
+  1817→    violations_by_collection: Counter = Counter()
+  1818→    violations_by_file: Counter = Counter()
+  1819→    for q in queries:
+  1820→        by_collection[q.collection] += 1
+  1821→        by_operation[q.operation] += 1
+  1822→        if q.is_violation:
+  1823→            violations_by_collection[q.collection] += 1
+  1824→            violations_by_file[q.file] += 1
+  1825→
+  1826→    # Top files by violation count.
+  1827→    top_files = [
+  1828→        {"file": f, "violations": v, "total": file_index[f].total_queries}
+  1829→        for f, v in violations_by_file.most_common(20)
+  1830→    ]
+  1831→
+  1832→    return {
+  1833→        "repo_root": str(repo_root),
+  1834→        "total_queries": total,
+  1835→        "queries_with_tenant_id": with_tenant,
+  1836→        "queries_without_tenant_id": without_tenant,
+  1837→        "violations": len(violations),
+  1838→        "critical_violations": len(critical),
+  1839→        "high_violations": len(high),
+  1840→        "medium_global_collection_queries": len(medium),
+  1841→        "ok_queries": len(ok),
+  1842→        "safe_key_violations": len(safe_key_violations),
+  1843→        "real_violations_needing_review": len(real_violations),
+  1844→        "pct_with_tenant_id": (
+  1845→            round(100.0 * with_tenant / total, 2) if total else 0.0
+  1846→        ),
+  1847→        "queries_by_collection": [
+  1848→            {"collection": c, "queries": n}
+  1849→            for c, n in by_collection.most_common()
+  1850→        ],
+  1851→        "queries_by_operation": [
+  1852→            {"operation": op, "count": n}
+  1853→            for op, n in by_operation.most_common()
+  1854→        ],
+  1855→        "violations_by_collection": [
+  1856→            {"collection": c, "violations": n}
+  1857→            for c, n in violations_by_collection.most_common()
+  1858→        ],
+  1859→        "top_files_by_violations": top_files,
+  1860→        "exempt_collections": sorted(EXEMPT_COLLECTIONS),
+  1861→        "tenant_id_fields": sorted(TENANT_ID_FIELDS),
+  1862→        "safe_unique_keys": sorted(SAFE_UNIQUE_KEYS),
+  1863→        "accessor_map_size": len(accessor_map),
+  1864→        "suppression_breakdown": [
+  1865→            {"reason": r, "count": n}
+  1866→            for r, n in suppression_counts.most_common()
+  1867→        ],
+  1868→        "route_scope_breakdown": [
+  1869→            {"scope": s, "count": n}
+  1870→            for s, n in route_scope_counts.most_common()
+  1871→        ],
+  1872→        "user_scoped_collections": sorted(user_scoped_collections or set()),
+  1873→        "global_collections": sorted(global_collections or set()),
+  1874→        "collection_struct_map": collection_struct_map or {},
+  1875→        "route_classifier_sizes": {
+  1876→            "admin": len((route_classifier or {}).get("admin", set())),
+  1877→            "tenant": len((route_classifier or {}).get("tenant", set())),
+  1878→            "auth": len((route_classifier or {}).get("auth", set())),
+  1879→            "public": len((route_classifier or {}).get("public", set())),
+  1880→        },
+  1881→    }
+  1882→
+  1883→
+  1884→def render_markdown(summary: dict, queries: list[Query]) -> str:
+  1885→    """Render the summary + queries as a Markdown report."""
+  1886→    lines: list[str] = []
+  1887→    lines.append("# Tenant Isolation Audit\n")
+  1888→    lines.append(
+  1889→        "MongoDB query audit for **cross-tenant data leakage** risks. The "
+  1890→        "auditor flags queries on tenant-scoped collections that lack a "
+  1891→        "`tenantId` filter — but first applies a series of context-aware "
+  1892→        "heuristics to suppress known false positives (global-by-design "
+  1893→        "collections, admin handlers, background tasks, public endpoints, "
+  1894→        "user-scoped filters, globally-unique keys, and CLI tools).\n"
+  1895→    )
+  1896→    lines.append(f"Repo: `{summary['repo_root']}`\n")
+  1897→
+  1898→    # ---- Headline numbers ----
+  1899→    lines.append("## Summary\n")
+  1900→    lines.append("| Metric | Value |")
+  1901→    lines.append("|--------|-------|")
+  1902→    lines.append(f"| Total MongoDB queries | **{summary['total_queries']}** |")
+  1903→    lines.append(
+  1904→        f"| Queries with `tenantId` filter | **{summary['queries_with_tenant_id']}** "
+  1905→        f"({summary['pct_with_tenant_id']}%) |"
+  1906→    )
+  1907→    lines.append(
+  1908→        f"| Queries without `tenantId` filter | **{summary['queries_without_tenant_id']}** |"
+  1909→    )
+  1910→    lines.append(f"| OK (suppressed: user-scoped, has tenantId, etc.) | {summary['ok_queries']} |")
+  1911→    lines.append(f"| MEDIUM (suppressed: global/admin/CLI/background/public) | {summary['medium_global_collection_queries']} |")
+  1912→    lines.append(f"| **Total violations** | **{summary['violations']}** |")
+  1913→    lines.append(f"| → CRITICAL (write ops, no tenantId) | **{summary['critical_violations']}** |")
+  1914→    lines.append(f"| → HIGH (read ops, no tenantId) | **{summary['high_violations']}** |")
+  1915→    lines.append(
+  1916→        f"| **Real violations needing review** | **{summary['real_violations_needing_review']}** |"
+  1917→    )
+  1918→    lines.append("")
+  1919→
+  1920→    # ---- Suppression breakdown ----
+  1921→    if summary.get("suppression_breakdown"):
+  1922→        lines.append("### False-positive suppressions applied\n")
+  1923→        lines.append("The following heuristics downgraded potential violations to MEDIUM informational notes:\n")
+  1924→        lines.append("| Suppression reason | Queries affected |")
+  1925→        lines.append("|--------------------|-----------------|")
+  1926→        reason_labels = {
+  1927→            "test-util": "Test utility (internal/testutil/) — not production code",
+  1928→            "cli-tool": "CLI tool (cmd/lastsaas/) — no request context",
+  1929→            "background-task": "Background system task (no request context)",
+  1930→            "admin-handler": "Admin handler (/api/admin/*) — sees all tenants by design",
+  1931→            "public-endpoint": "Public endpoint (no auth) — published content",
+  1932→            "global-by-design": "Collection's struct has no tenantId field — global by design",
+  1933→            "user-scoped": "User-scoped collection with userId filter — valid scope",
+  1934→            "auth-flow": "Auth-flow handler — user hasn't selected a tenant yet",
+  1935→            "safe-unique-key": "Filter uses a globally-unique key — single-doc query",
+  1936→            "struct-supports-tenant-id": "Inserted struct declares tenantId — caller responsibility",
+  1937→            "exempt-collection": "Collection in exempt list (legacy)",
+  1938→        }
+  1939→        for r in summary["suppression_breakdown"]:
+  1940→            label = reason_labels.get(r["reason"], r["reason"])
+  1941→            lines.append(f"| {label} | {r['count']} |")
+  1942→        lines.append("")
+  1943→
+  1944→    # ---- Route scope breakdown ----
+  1945→    if summary.get("route_scope_breakdown"):
+  1946→        lines.append("### Route scope breakdown\n")
+  1947→        lines.append("| Scope | Queries |")
+  1948→        lines.append("|-------|---------|")
+  1949→        for s in summary["route_scope_breakdown"]:
+  1950→            lines.append(f"| `{s['scope']}` | {s['count']} |")
+  1951→        lines.append("")
+  1952→
+  1953→    # ---- Risk-level legend ----
+  1954→    lines.append("### Risk levels\n")
+  1955→    lines.append(
+  1956→        "- **CRITICAL** — write operation (`InsertOne`, `UpdateOne`, "
+  1957→        "`DeleteOne`, `FindOneAndUpdate`, ...) on a tenant-scoped collection "
+  1958→        "without a `tenantId` filter. Can modify or delete data belonging to "
+  1959→        "other tenants.\n"
+  1960→        "- **HIGH** — read operation (`Find`, `FindOne`, `Aggregate`, "
+  1961→        "`CountDocuments`) on a tenant-scoped collection without a "
+  1962→        "`tenantId` filter. Can leak data across tenants.\n"
+  1963→        "- **MEDIUM** — query that was *suppressed* by a false-positive "
+  1964→        "heuristic (global-by-design collection, admin handler, background "
+  1965→        "task, public endpoint, user-scoped filter, globally-unique key, "
+  1966→        "or CLI tool). Not a strict violation but listed for review.\n"
+  1967→        "- **OK** — query has a `tenantId` filter, or is on a user-scoped "
+  1968→        "collection filtered by `userId` (a valid scope since a user's "
+  1969→        "data spans tenants).\n"
+  1970→    )
+  1971→    lines.append(
+  1972→        "The `safe_key_filter` flag marks queries whose filter contains a "
+  1973→        "globally-unique key (e.g. `_id`, `tokenHash`, `slug`, `webhookId`). "
+  1974→        "Such queries are downgraded to MEDIUM because the unique key "
+  1975→        "already constrains the query to a single document regardless of "
+  1976→        "tenant.\n"
+  1977→    )
+  1978→
+  1979→    # ---- Top files ----
+  1980→    if summary["top_files_by_violations"]:
+  1981→        lines.append("## Top Files by Violations\n")
+  1982→        lines.append("| File | Violations | Total queries |")
+  1983→        lines.append("|------|------------|---------------|")
+  1984→        for f in summary["top_files_by_violations"]:
+  1985→            lines.append(f"| `{f['file']}` | {f['violations']} | {f['total']} |")
+  1986→        lines.append("")
+  1987→
+  1988→    # ---- Violations by collection ----
+  1989→    if summary["violations_by_collection"]:
+  1990→        lines.append("## Violations by Collection\n")
+  1991→        lines.append("| Collection | Violations |")
+  1992→        lines.append("|------------|------------|")
+  1993→        for c in summary["violations_by_collection"]:
+  1994→            lines.append(f"| `{c['collection']}` | {c['violations']} |")
+  1995→        lines.append("")
+  1996→
+  1997→    # ---- CRITICAL violations (real, no safe key) ----
+  1998→    crit_real = [
+  1999→        q for q in queries
+  2000→        if q.risk_level == "CRITICAL" and not q.safe_key_filter
+
+[showing lines 1-2000 of 2266; use offset=2001 with limit to continue reading]

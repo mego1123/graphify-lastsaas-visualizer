@@ -1,6 +1,6 @@
 {
   "summary": {
-    "repo_root": "/home/z/my-project/repos/lastsaas/backend",
+    "repo_root": "/home/z/my-project/repos/lastsaas",
     "total_queries": 544,
     "queries_with_tenant_id": 77,
     "queries_without_tenant_id": 467,
@@ -368,39 +368,39 @@
       "webhooks"
     ],
     "collection_struct_map": {
-      "api_keys": "APIKey",
-      "event_definitions": "EventDefinition",
-      "webhook_deliveries": "WebhookDelivery",
-      "financial_transactions": "FinancialTransaction",
-      "counters": "InvoiceCounter",
-      "config_vars": "ConfigVar",
-      "refresh_tokens": "RefreshToken",
-      "credit_bundles": "CreditBundle",
-      "system_metrics": "SystemMetric",
-      "stripe_mappings": "StripeMapping",
-      "system_logs": "SystemLog",
-      "oauth_states": "OAuthState",
-      "auth_codes": "AuthCode",
       "verification_tokens": "VerificationToken",
-      "branding_config": "BrandingConfig",
       "daily_metrics": "DailyMetric",
-      "usage_events": "UsageEvent",
-      "webauthn_credentials": "WebAuthnCredential",
-      "messages": "Message",
-      "invitations": "Invitation",
-      "tenant_memberships": "TenantMembership",
-      "system_nodes": "SystemNode",
-      "webhooks": "Webhook",
-      "custom_pages": "CustomPage",
-      "telemetry_events": "TelemetryEvent",
-      "branding_assets": "BrandingAsset",
-      "users": "User",
-      "sso_connections": "SSOConnection",
-      "revoked_tokens": "RevokedToken",
-      "plans": "Plan",
-      "announcements": "Announcement",
+      "config_vars": "ConfigVar",
+      "counters": "InvoiceCounter",
+      "webhook_deliveries": "WebhookDelivery",
       "system_config": "SystemConfig",
-      "tenants": "Tenant"
+      "custom_pages": "CustomPage",
+      "system_nodes": "SystemNode",
+      "financial_transactions": "FinancialTransaction",
+      "announcements": "Announcement",
+      "tenant_memberships": "TenantMembership",
+      "stripe_mappings": "StripeMapping",
+      "tenants": "Tenant",
+      "refresh_tokens": "RefreshToken",
+      "revoked_tokens": "RevokedToken",
+      "sso_connections": "SSOConnection",
+      "invitations": "Invitation",
+      "webauthn_credentials": "WebAuthnCredential",
+      "branding_config": "BrandingConfig",
+      "users": "User",
+      "plans": "Plan",
+      "system_logs": "SystemLog",
+      "api_keys": "APIKey",
+      "credit_bundles": "CreditBundle",
+      "auth_codes": "AuthCode",
+      "webhooks": "Webhook",
+      "telemetry_events": "TelemetryEvent",
+      "event_definitions": "EventDefinition",
+      "oauth_states": "OAuthState",
+      "system_metrics": "SystemMetric",
+      "messages": "Message",
+      "usage_events": "UsageEvent",
+      "branding_assets": "BrandingAsset"
     },
     "route_classifier_sizes": {
       "admin": 91,
@@ -411,7 +411,7 @@
   },
   "queries": [
     {
-      "file": "cmd/lastsaas/cmd_doctor.go",
+      "file": "backend/cmd/lastsaas/cmd_doctor.go",
       "line": 67,
       "function": "cmdDoctor",
       "collection": "system_config",
@@ -437,7 +437,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_doctor.go",
+      "file": "backend/cmd/lastsaas/cmd_doctor.go",
       "line": 102,
       "function": "cmdDoctor",
       "collection": "tenants",
@@ -465,7 +465,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_doctor.go",
+      "file": "backend/cmd/lastsaas/cmd_doctor.go",
       "line": 103,
       "function": "cmdDoctor",
       "collection": "tenant_memberships",
@@ -494,7 +494,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/cmd_doctor.go",
+      "file": "backend/cmd/lastsaas/cmd_doctor.go",
       "line": 115,
       "function": "cmdDoctor",
       "collection": "system_nodes",
@@ -522,7 +522,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 58,
       "function": "cmdFinancialSummary",
       "collection": "financial_transactions",
@@ -550,7 +550,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 84,
       "function": "cmdFinancialSummary",
       "collection": "financial_transactions",
@@ -578,7 +578,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 111,
       "function": "cmdFinancialSummary",
       "collection": "financial_transactions",
@@ -604,7 +604,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 131,
       "function": "cmdFinancialSummary",
       "collection": "tenants",
@@ -632,7 +632,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 138,
       "function": "cmdFinancialSummary",
       "collection": "daily_metrics",
@@ -658,7 +658,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 147,
       "function": "cmdFinancialSummary",
       "collection": "financial_transactions",
@@ -686,7 +686,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 254,
       "function": "cmdFinancialTransactions",
       "collection": "financial_transactions",
@@ -716,7 +716,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/cmd_financial.go",
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
       "line": 350,
       "function": "cmdFinancialMetrics",
       "collection": "daily_metrics",
@@ -742,7 +742,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_health.go",
+      "file": "backend/cmd/lastsaas/cmd_health.go",
       "line": 51,
       "function": "cmdHealth",
       "collection": "system_nodes",
@@ -768,7 +768,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_health.go",
+      "file": "backend/cmd/lastsaas/cmd_health.go",
       "line": 77,
       "function": "cmdHealth",
       "collection": "system_metrics",
@@ -794,7 +794,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_health.go",
+      "file": "backend/cmd/lastsaas/cmd_health.go",
       "line": 100,
       "function": "cmdHealth",
       "collection": "system_nodes",
@@ -820,7 +820,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_health.go",
+      "file": "backend/cmd/lastsaas/cmd_health.go",
       "line": 124,
       "function": "cmdHealth",
       "collection": "system_metrics",
@@ -846,7 +846,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_logs.go",
+      "file": "backend/cmd/lastsaas/cmd_logs.go",
       "line": 140,
       "function": "queryLogs",
       "collection": "system_logs",
@@ -872,7 +872,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_logs.go",
+      "file": "backend/cmd/lastsaas/cmd_logs.go",
       "line": 193,
       "function": "logsFollow",
       "collection": "system_logs",
@@ -900,7 +900,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 23,
       "function": "cmdStats",
       "collection": "users",
@@ -926,7 +926,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 27,
       "function": "cmdStats",
       "collection": "tenants",
@@ -952,7 +952,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 31,
       "function": "cmdStats",
       "collection": "users",
@@ -980,7 +980,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 37,
       "function": "cmdStats",
       "collection": "tenants",
@@ -1008,7 +1008,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 51,
       "function": "cmdStats",
       "collection": "system_logs",
@@ -1034,7 +1034,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 71,
       "function": "cmdStats",
       "collection": "daily_metrics",
@@ -1060,7 +1060,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_stats.go",
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
       "line": 79,
       "function": "cmdStats",
       "collection": "financial_transactions",
@@ -1088,7 +1088,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 61,
       "function": "cmdTenantsList",
       "collection": "tenants",
@@ -1114,7 +1114,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 160,
       "function": "cmdTenantsGet",
       "collection": "tenants",
@@ -1142,7 +1142,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 166,
       "function": "cmdTenantsGet",
       "collection": "tenants",
@@ -1170,7 +1170,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 173,
       "function": "cmdTenantsGet",
       "collection": "tenant_memberships",
@@ -1198,7 +1198,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 193,
       "function": "cmdTenantsGet",
       "collection": "plans",
@@ -1226,7 +1226,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 289,
       "function": "resolveUserNames",
       "collection": "users",
@@ -1254,7 +1254,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 317,
       "function": "resolvePlanNames",
       "collection": "plans",
@@ -1282,7 +1282,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_tenants.go",
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
       "line": 355,
       "function": "countMembersPerTenant",
       "collection": "tenant_memberships",
@@ -1310,7 +1310,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 73,
       "function": "cmdUsersList",
       "collection": "users",
@@ -1338,7 +1338,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 287,
       "function": "cmdUsersSetActive",
       "collection": "users",
@@ -1366,7 +1366,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 301,
       "function": "cmdUsersSetActive",
       "collection": "users",
@@ -1394,7 +1394,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 314,
       "function": "cmdUsersSetActive",
       "collection": "refresh_tokens",
@@ -1422,7 +1422,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 342,
       "function": "cmdUsersRevokeSessions",
       "collection": "users",
@@ -1450,7 +1450,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 347,
       "function": "cmdUsersRevokeSessions",
       "collection": "refresh_tokens",
@@ -1478,7 +1478,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 360,
       "function": "lookupUserWithMemberships",
       "collection": "users",
@@ -1506,7 +1506,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 365,
       "function": "lookupUserWithMemberships",
       "collection": "tenant_memberships",
@@ -1534,7 +1534,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/cmd_users.go",
+      "file": "backend/cmd/lastsaas/cmd_users.go",
       "line": 383,
       "function": "resolveTenantNames",
       "collection": "tenants",
@@ -1562,7 +1562,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 227,
       "function": "cmdSetup",
       "collection": "system_config",
@@ -1588,7 +1588,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 235,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -1616,7 +1616,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 237,
       "function": "cmdSetup",
       "collection": "tenant_memberships",
@@ -1645,7 +1645,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 239,
       "function": "cmdSetup",
       "collection": "users",
@@ -1673,7 +1673,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 303,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -1718,7 +1718,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 321,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -1746,7 +1746,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 325,
       "function": "cmdSetup",
       "collection": "users",
@@ -1795,7 +1795,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 326,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -1823,7 +1823,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 341,
       "function": "cmdSetup",
       "collection": "users",
@@ -1851,7 +1851,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 342,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -1879,7 +1879,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 346,
       "function": "cmdSetup",
       "collection": "tenant_memberships",
@@ -1911,7 +1911,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 347,
       "function": "cmdSetup",
       "collection": "users",
@@ -1939,7 +1939,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 348,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -1967,7 +1967,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 361,
       "function": "cmdSetup",
       "collection": "system_config",
@@ -1998,7 +1998,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 362,
       "function": "cmdSetup",
       "collection": "tenant_memberships",
@@ -2026,7 +2026,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 363,
       "function": "cmdSetup",
       "collection": "users",
@@ -2054,7 +2054,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 364,
       "function": "cmdSetup",
       "collection": "tenants",
@@ -2082,7 +2082,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 379,
       "function": "cmdSetup",
       "collection": "messages",
@@ -2115,7 +2115,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 417,
       "function": "cmdChangePassword",
       "collection": "users",
@@ -2143,7 +2143,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 447,
       "function": "cmdChangePassword",
       "collection": "users",
@@ -2171,7 +2171,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 460,
       "function": "cmdChangePassword",
       "collection": "refresh_tokens",
@@ -2199,7 +2199,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 515,
       "function": "cmdSendMessage",
       "collection": "users",
@@ -2227,7 +2227,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 531,
       "function": "cmdSendMessage",
       "collection": "messages",
@@ -2260,7 +2260,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 587,
       "function": "cmdConfigList",
       "collection": "config_vars",
@@ -2286,7 +2286,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 635,
       "function": "cmdConfigGet",
       "collection": "config_vars",
@@ -2314,7 +2314,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 665,
       "function": "cmdConfigSet",
       "collection": "config_vars",
@@ -2342,7 +2342,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 676,
       "function": "cmdConfigSet",
       "collection": "config_vars",
@@ -2370,7 +2370,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 713,
       "function": "cmdConfigReset",
       "collection": "config_vars",
@@ -2398,7 +2398,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 724,
       "function": "cmdConfigReset",
       "collection": "config_vars",
@@ -2426,7 +2426,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 760,
       "function": "cmdTransferRootOwner",
       "collection": "tenants",
@@ -2454,7 +2454,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 768,
       "function": "cmdTransferRootOwner",
       "collection": "users",
@@ -2482,7 +2482,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 775,
       "function": "cmdTransferRootOwner",
       "collection": "tenant_memberships",
@@ -2511,7 +2511,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 791,
       "function": "cmdTransferRootOwner",
       "collection": "tenant_memberships",
@@ -2540,7 +2540,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 800,
       "function": "cmdTransferRootOwner",
       "collection": "users",
@@ -2568,7 +2568,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 831,
       "function": "cmdTransferRootOwner",
       "collection": "tenant_memberships",
@@ -2596,7 +2596,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 841,
       "function": "cmdTransferRootOwner",
       "collection": "tenant_memberships",
@@ -2624,7 +2624,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 847,
       "function": "cmdTransferRootOwner",
       "collection": "tenant_memberships",
@@ -2652,7 +2652,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 862,
       "function": "cmdTransferRootOwner",
       "collection": "system_logs",
@@ -2687,7 +2687,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 885,
       "function": "cmdVersion",
       "collection": "system_config",
@@ -2713,7 +2713,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 931,
       "function": "cmdStatus",
       "collection": "system_config",
@@ -2739,7 +2739,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 946,
       "function": "cmdStatus",
       "collection": "users",
@@ -2765,7 +2765,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/lastsaas/main.go",
+      "file": "backend/cmd/lastsaas/main.go",
       "line": 950,
       "function": "cmdStatus",
       "collection": "tenants",
@@ -2791,7 +2791,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "cmd/server/main.go",
+      "file": "backend/cmd/server/main.go",
       "line": 801,
       "function": "main",
       "collection": "branding_config",
@@ -2817,7 +2817,7 @@
       "suppression_reason": "cli-tool"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 51,
       "function": "isRootTenantOwner",
       "collection": "tenant_memberships",
@@ -2846,7 +2846,7 @@
       "suppression_reason": "user-scoped"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 64,
       "function": "isRootTenantOwner",
       "collection": "tenant_memberships",
@@ -2875,7 +2875,7 @@
       "suppression_reason": "user-scoped"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 68,
       "function": "isRootTenantOwner",
       "collection": "tenants",
@@ -2903,7 +2903,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 176,
       "function": "ListTenants",
       "collection": "tenants",
@@ -2933,7 +2933,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 187,
       "function": "ListTenants",
       "collection": "tenants",
@@ -2963,7 +2963,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 211,
       "function": "ListTenants",
       "collection": "tenant_memberships",
@@ -2991,7 +2991,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 228,
       "function": "ListTenants",
       "collection": "plans",
@@ -3017,7 +3017,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 312,
       "function": "ExportTenantsCSV",
       "collection": "tenants",
@@ -3047,7 +3047,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 336,
       "function": "ExportTenantsCSV",
       "collection": "tenant_memberships",
@@ -3075,7 +3075,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 353,
       "function": "ExportTenantsCSV",
       "collection": "plans",
@@ -3101,7 +3101,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 418,
       "function": "GetTenant",
       "collection": "tenants",
@@ -3129,7 +3129,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 424,
       "function": "GetTenant",
       "collection": "tenant_memberships",
@@ -3157,7 +3157,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 441,
       "function": "GetTenant",
       "collection": "users",
@@ -3185,7 +3185,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 483,
       "function": "UpdateTenantStatus",
       "collection": "tenants",
@@ -3213,7 +3213,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 502,
       "function": "UpdateTenantStatus",
       "collection": "tenants",
@@ -3241,7 +3241,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 581,
       "function": "ListUsers",
       "collection": "users",
@@ -3270,7 +3270,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 592,
       "function": "ListUsers",
       "collection": "users",
@@ -3299,7 +3299,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 616,
       "function": "ListUsers",
       "collection": "tenant_memberships",
@@ -3327,7 +3327,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 678,
       "function": "ExportUsersCSV",
       "collection": "users",
@@ -3356,7 +3356,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 702,
       "function": "ExportUsersCSV",
       "collection": "tenant_memberships",
@@ -3384,7 +3384,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 774,
       "function": "UpdateUserStatus",
       "collection": "users",
@@ -3412,7 +3412,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 817,
       "function": "GetDashboard",
       "collection": "users",
@@ -3438,7 +3438,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 822,
       "function": "GetDashboard",
       "collection": "tenants",
@@ -3464,7 +3464,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 943,
       "function": "GetUser",
       "collection": "users",
@@ -3492,7 +3492,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 948,
       "function": "GetUser",
       "collection": "tenant_memberships",
@@ -3520,7 +3520,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 963,
       "function": "GetUser",
       "collection": "plans",
@@ -3546,7 +3546,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 992,
       "function": "GetUser",
       "collection": "tenants",
@@ -3574,7 +3574,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1079,
       "function": "UpdateUser",
       "collection": "users",
@@ -3602,7 +3602,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1098,
       "function": "UpdateUser",
       "collection": "users",
@@ -3631,7 +3631,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1121,
       "function": "UpdateUser",
       "collection": "users",
@@ -3659,7 +3659,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1165,
       "function": "UpdateUserRole",
       "collection": "tenants",
@@ -3687,7 +3687,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1182,
       "function": "UpdateUserRole",
       "collection": "tenant_memberships",
@@ -3716,7 +3716,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1186,
       "function": "UpdateUserRole",
       "collection": "tenant_memberships",
@@ -3744,7 +3744,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1193,
       "function": "UpdateUserRole",
       "collection": "tenant_memberships",
@@ -3773,7 +3773,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1243,
       "function": "PreflightDeleteUser",
       "collection": "tenant_memberships",
@@ -3802,7 +3802,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1264,
       "function": "PreflightDeleteUser",
       "collection": "tenants",
@@ -3830,7 +3830,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1280,
       "function": "PreflightDeleteUser",
       "collection": "tenant_memberships",
@@ -3859,7 +3859,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1301,
       "function": "PreflightDeleteUser",
       "collection": "users",
@@ -3887,7 +3887,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1358,
       "function": "DeleteUser",
       "collection": "users",
@@ -3915,7 +3915,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1378,
       "function": "DeleteUser",
       "collection": "tenant_memberships",
@@ -3943,7 +3943,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1398,
       "function": "DeleteUser",
       "collection": "tenants",
@@ -3971,7 +3971,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1414,
       "function": "DeleteUser",
       "collection": "tenant_memberships",
@@ -4000,7 +4000,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1430,
       "function": "DeleteUser",
       "collection": "tenant_memberships",
@@ -4029,7 +4029,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1454,
       "function": "DeleteUser",
       "collection": "tenant_memberships",
@@ -4057,7 +4057,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1457,
       "function": "DeleteUser",
       "collection": "tenants",
@@ -4085,7 +4085,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1460,
       "function": "DeleteUser",
       "collection": "invitations",
@@ -4113,7 +4113,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1479,
       "function": "DeleteUser",
       "collection": "tenant_memberships",
@@ -4141,7 +4141,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1482,
       "function": "DeleteUser",
       "collection": "refresh_tokens",
@@ -4169,7 +4169,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1485,
       "function": "DeleteUser",
       "collection": "messages",
@@ -4197,7 +4197,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1488,
       "function": "DeleteUser",
       "collection": "users",
@@ -4225,7 +4225,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1529,
       "function": "UpdateTenant",
       "collection": "tenants",
@@ -4253,7 +4253,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1587,
       "function": "UpdateTenant",
       "collection": "tenants",
@@ -4281,7 +4281,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1619,
       "function": "ImpersonateUser",
       "collection": "users",
@@ -4309,7 +4309,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1626,
       "function": "ImpersonateUser",
       "collection": "tenants",
@@ -4337,7 +4337,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1628,
       "function": "ImpersonateUser",
       "collection": "tenant_memberships",
@@ -4367,7 +4367,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1656,
       "function": "ImpersonateUser",
       "collection": "impersonation_logs",
@@ -4401,7 +4401,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1667,
       "function": "ImpersonateUser",
       "collection": "tenant_memberships",
@@ -4429,7 +4429,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1680,
       "function": "ImpersonateUser",
       "collection": "tenants",
@@ -4457,7 +4457,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1703,
       "function": "getRootTenant",
       "collection": "tenants",
@@ -4485,7 +4485,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1719,
       "function": "ListRootMembers",
       "collection": "tenant_memberships",
@@ -4513,7 +4513,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1739,
       "function": "ListRootMembers",
       "collection": "users",
@@ -4541,7 +4541,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1770,
       "function": "ListRootMembers",
       "collection": "invitations",
@@ -4571,7 +4571,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1837,
       "function": "InviteRootMember",
       "collection": "users",
@@ -4599,7 +4599,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1838,
       "function": "InviteRootMember",
       "collection": "tenant_memberships",
@@ -4628,7 +4628,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1853,
       "function": "InviteRootMember",
       "collection": "invitations",
@@ -4659,7 +4659,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1885,
       "function": "InviteRootMember",
       "collection": "invitations",
@@ -4694,7 +4694,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1946,
       "function": "RemoveRootMember",
       "collection": "tenant_memberships",
@@ -4723,7 +4723,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1964,
       "function": "RemoveRootMember",
       "collection": "tenant_memberships",
@@ -4751,7 +4751,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 2032,
       "function": "ChangeRootMemberRole",
       "collection": "tenant_memberships",
@@ -4780,7 +4780,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 2074,
       "function": "CancelRootInvitation",
       "collection": "invitations",
@@ -4810,7 +4810,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/announcements.go",
+      "file": "backend/internal/api/handlers/announcements.go",
       "line": 33,
       "function": "ListPublic",
       "collection": "announcements",
@@ -4838,7 +4838,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/announcements.go",
+      "file": "backend/internal/api/handlers/announcements.go",
       "line": 54,
       "function": "ListAll",
       "collection": "announcements",
@@ -4864,7 +4864,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/announcements.go",
+      "file": "backend/internal/api/handlers/announcements.go",
       "line": 105,
       "function": "Create",
       "collection": "announcements",
@@ -4897,7 +4897,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/announcements.go",
+      "file": "backend/internal/api/handlers/announcements.go",
       "line": 152,
       "function": "Update",
       "collection": "announcements",
@@ -4925,7 +4925,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/announcements.go",
+      "file": "backend/internal/api/handlers/announcements.go",
       "line": 168,
       "function": "Delete",
       "collection": "announcements",
@@ -4953,7 +4953,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/apikeys.go",
+      "file": "backend/internal/api/handlers/apikeys.go",
       "line": 45,
       "function": "ListAPIKeys",
       "collection": "api_keys",
@@ -4981,7 +4981,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/apikeys.go",
+      "file": "backend/internal/api/handlers/apikeys.go",
       "line": 60,
       "function": "ListAPIKeys",
       "collection": "api_keys",
@@ -5009,7 +5009,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/apikeys.go",
+      "file": "backend/internal/api/handlers/apikeys.go",
       "line": 127,
       "function": "CreateAPIKey",
       "collection": "api_keys",
@@ -5044,7 +5044,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/apikeys.go",
+      "file": "backend/internal/api/handlers/apikeys.go",
       "line": 166,
       "function": "DeleteAPIKey",
       "collection": "api_keys",
@@ -5072,7 +5072,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 223,
       "function": "Register",
       "collection": "users",
@@ -5100,7 +5100,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 252,
       "function": "Register",
       "collection": "users",
@@ -5149,7 +5149,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 330,
       "function": "Login",
       "collection": "users",
@@ -5177,7 +5177,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 359,
       "function": "Login",
       "collection": "users",
@@ -5206,7 +5206,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 367,
       "function": "Login",
       "collection": "users",
@@ -5234,7 +5234,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 387,
       "function": "Login",
       "collection": "users",
@@ -5262,7 +5262,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 453,
       "function": "Logout",
       "collection": "revoked_tokens",
@@ -5292,7 +5292,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 470,
       "function": "Logout",
       "collection": "refresh_tokens",
@@ -5321,7 +5321,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 503,
       "function": "Refresh",
       "collection": "refresh_tokens",
@@ -5349,7 +5349,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 514,
       "function": "Refresh",
       "collection": "refresh_tokens",
@@ -5377,7 +5377,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 525,
       "function": "Refresh",
       "collection": "refresh_tokens",
@@ -5405,7 +5405,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 537,
       "function": "Refresh",
       "collection": "users",
@@ -5434,7 +5434,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 555,
       "function": "Refresh",
       "collection": "refresh_tokens",
@@ -5462,7 +5462,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 601,
       "function": "VerifyEmail",
       "collection": "verification_tokens",
@@ -5493,7 +5493,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 616,
       "function": "VerifyEmail",
       "collection": "users",
@@ -5521,7 +5521,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 651,
       "function": "ResendVerification",
       "collection": "users",
@@ -5549,7 +5549,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 691,
       "function": "ForgotPassword",
       "collection": "users",
@@ -5577,7 +5577,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 696,
       "function": "ForgotPassword",
       "collection": "verification_tokens",
@@ -5607,7 +5607,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 711,
       "function": "ForgotPassword",
       "collection": "verification_tokens",
@@ -5640,7 +5640,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 746,
       "function": "ResetPassword",
       "collection": "verification_tokens",
@@ -5671,7 +5671,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 767,
       "function": "ResetPassword",
       "collection": "users",
@@ -5699,7 +5699,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 777,
       "function": "ResetPassword",
       "collection": "refresh_tokens",
@@ -5728,7 +5728,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 837,
       "function": "ChangePassword",
       "collection": "users",
@@ -5756,7 +5756,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 844,
       "function": "ChangePassword",
       "collection": "refresh_tokens",
@@ -5785,7 +5785,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 889,
       "function": "MFASetup",
       "collection": "users",
@@ -5813,7 +5813,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 920,
       "function": "MFAVerifySetup",
       "collection": "users",
@@ -5841,7 +5841,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 944,
       "function": "MFAVerifySetup",
       "collection": "users",
@@ -5869,7 +5869,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 981,
       "function": "MFADisable",
       "collection": "users",
@@ -5897,7 +5897,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1001,
       "function": "MFADisable",
       "collection": "users",
@@ -5925,7 +5925,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1051,
       "function": "MFAChallenge",
       "collection": "users",
@@ -5953,7 +5953,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1071,
       "function": "MFAChallenge",
       "collection": "users",
@@ -5981,7 +5981,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1127,
       "function": "MFARegenerateRecoveryCodes",
       "collection": "users",
@@ -6009,7 +6009,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1148,
       "function": "MFARegenerateRecoveryCodes",
       "collection": "users",
@@ -6037,7 +6037,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1190,
       "function": "MagicLinkRequest",
       "collection": "users",
@@ -6065,7 +6065,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1204,
       "function": "MagicLinkRequest",
       "collection": "verification_tokens",
@@ -6098,7 +6098,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1236,
       "function": "MagicLinkVerify",
       "collection": "verification_tokens",
@@ -6129,7 +6129,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1252,
       "function": "MagicLinkVerify",
       "collection": "users",
@@ -6158,7 +6158,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1258,
       "function": "MagicLinkVerify",
       "collection": "users",
@@ -6186,7 +6186,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1315,
       "function": "createAuthCodeRedirect",
       "collection": "auth_codes",
@@ -6219,7 +6219,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1336,
       "function": "ExchangeCode",
       "collection": "auth_codes",
@@ -6249,7 +6249,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1374,
       "function": "GoogleOAuth",
       "collection": "oauth_states",
@@ -6279,7 +6279,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1398,
       "function": "GoogleOAuthCallback",
       "collection": "oauth_states",
@@ -6308,7 +6308,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1423,
       "function": "GoogleOAuthCallback",
       "collection": "users",
@@ -6336,7 +6336,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1425,
       "function": "GoogleOAuthCallback",
       "collection": "users",
@@ -6364,7 +6364,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1440,
       "function": "GoogleOAuthCallback",
       "collection": "users",
@@ -6413,7 +6413,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1448,
       "function": "GoogleOAuthCallback",
       "collection": "users",
@@ -6441,7 +6441,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1454,
       "function": "GoogleOAuthCallback",
       "collection": "users",
@@ -6469,7 +6469,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1507,
       "function": "GitHubOAuth",
       "collection": "oauth_states",
@@ -6499,7 +6499,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1531,
       "function": "GitHubOAuthCallback",
       "collection": "oauth_states",
@@ -6528,7 +6528,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1557,
       "function": "GitHubOAuthCallback",
       "collection": "users",
@@ -6556,7 +6556,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1559,
       "function": "GitHubOAuthCallback",
       "collection": "users",
@@ -6584,7 +6584,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1578,
       "function": "GitHubOAuthCallback",
       "collection": "users",
@@ -6633,7 +6633,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1591,
       "function": "GitHubOAuthCallback",
       "collection": "users",
@@ -6661,7 +6661,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1597,
       "function": "GitHubOAuthCallback",
       "collection": "users",
@@ -6689,7 +6689,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1649,
       "function": "MicrosoftOAuth",
       "collection": "oauth_states",
@@ -6719,7 +6719,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1673,
       "function": "MicrosoftOAuthCallback",
       "collection": "oauth_states",
@@ -6748,7 +6748,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1704,
       "function": "MicrosoftOAuthCallback",
       "collection": "users",
@@ -6776,7 +6776,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1706,
       "function": "MicrosoftOAuthCallback",
       "collection": "users",
@@ -6804,7 +6804,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1725,
       "function": "MicrosoftOAuthCallback",
       "collection": "users",
@@ -6853,7 +6853,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1738,
       "function": "MicrosoftOAuthCallback",
       "collection": "users",
@@ -6881,7 +6881,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1744,
       "function": "MicrosoftOAuthCallback",
       "collection": "users",
@@ -6909,7 +6909,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1790,
       "function": "ListSessions",
       "collection": "refresh_tokens",
@@ -6939,7 +6939,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1861,
       "function": "RevokeSession",
       "collection": "refresh_tokens",
@@ -6968,7 +6968,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1881,
       "function": "RevokeAllSessions",
       "collection": "refresh_tokens",
@@ -6997,7 +6997,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1922,
       "function": "UpdatePreferences",
       "collection": "users",
@@ -7025,7 +7025,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1937,
       "function": "CompleteOnboarding",
       "collection": "users",
@@ -7053,7 +7053,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 1991,
       "function": "createPersonalTenant",
       "collection": "tenants",
@@ -7098,7 +7098,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2004,
       "function": "createPersonalTenant",
       "collection": "tenant_memberships",
@@ -7130,7 +7130,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2026,
       "function": "sendVerificationEmail",
       "collection": "verification_tokens",
@@ -7163,7 +7163,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2029,
       "function": "sendVerificationEmail",
       "collection": "users",
@@ -7191,7 +7191,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2048,
       "function": "getUserMemberships",
       "collection": "tenant_memberships",
@@ -7219,7 +7219,7 @@
       "suppression_reason": "user-scoped"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2068,
       "function": "getUserMemberships",
       "collection": "tenants",
@@ -7247,7 +7247,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2107,
       "function": "acceptInvitationForUser",
       "collection": "invitations",
@@ -7277,7 +7277,7 @@
       "suppression_reason": "auth-flow"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2118,
       "function": "acceptInvitationForUser",
       "collection": "users",
@@ -7305,7 +7305,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2126,
       "function": "acceptInvitationForUser",
       "collection": "invitations",
@@ -7334,7 +7334,7 @@
       "suppression_reason": "auth-flow"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2138,
       "function": "acceptInvitationForUser",
       "collection": "tenant_memberships",
@@ -7363,7 +7363,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2154,
       "function": "acceptInvitationForUser",
       "collection": "tenant_memberships",
@@ -7395,7 +7395,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2160,
       "function": "acceptInvitationForUser",
       "collection": "users",
@@ -7423,7 +7423,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2191,
       "function": "storeRefreshToken",
       "collection": "refresh_tokens",
@@ -7453,7 +7453,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2199,
       "function": "storeRefreshToken",
       "collection": "refresh_tokens",
@@ -7483,7 +7483,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2208,
       "function": "storeRefreshToken",
       "collection": "refresh_tokens",
@@ -7511,7 +7511,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2229,
       "function": "storeRefreshToken",
       "collection": "refresh_tokens",
@@ -7548,7 +7548,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2266,
       "function": "DeleteAccount",
       "collection": "tenant_memberships",
@@ -7576,7 +7576,7 @@
       "suppression_reason": "user-scoped"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2286,
       "function": "DeleteAccount",
       "collection": "tenants",
@@ -7604,7 +7604,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2295,
       "function": "DeleteAccount",
       "collection": "tenant_memberships",
@@ -7633,7 +7633,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2305,
       "function": "DeleteAccount",
       "collection": "tenant_memberships",
@@ -7661,7 +7661,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2308,
       "function": "DeleteAccount",
       "collection": "tenants",
@@ -7689,7 +7689,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2311,
       "function": "DeleteAccount",
       "collection": "invitations",
@@ -7717,7 +7717,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2327,
       "function": "DeleteAccount",
       "collection": "tenant_memberships",
@@ -7745,7 +7745,7 @@
       "suppression_reason": "user-scoped"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2330,
       "function": "DeleteAccount",
       "collection": "refresh_tokens",
@@ -7773,7 +7773,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2333,
       "function": "DeleteAccount",
       "collection": "messages",
@@ -7801,7 +7801,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2336,
       "function": "DeleteAccount",
       "collection": "users",
@@ -7829,7 +7829,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2366,
       "function": "ExportData",
       "collection": "tenant_memberships",
@@ -7857,7 +7857,7 @@
       "suppression_reason": "user-scoped"
     },
     {
-      "file": "internal/api/handlers/auth.go",
+      "file": "backend/internal/api/handlers/auth.go",
       "line": 2388,
       "function": "ExportData",
       "collection": "messages",
@@ -7885,7 +7885,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "line": 94,
       "function": "Checkout",
       "collection": "plans",
@@ -7899,7 +7899,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.Plans().FindOne(ctx, bson.M{\"_id\": planID}).Decode(&plan); err != nil {\n\t\t\trespondWithError(w, http.StatusNotFound, \"Plan not found\")\n\t\t\treturn\n\t\t}",
+      "filter_snippet": "if err := h.db.Plans().FindOne(ctx, bson.M{\"_id\": planID}).Decode(&plan); err != nil {\n                        respondWithError(w, http.StatusNotFound, \"Plan not found\")\n                        return\n                }",
       "note": "Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -7913,7 +7913,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "line": 122,
       "function": "Checkout",
       "collection": "tenants",
@@ -7927,7 +7927,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenant.ID}, bson.M{\n\t\t\t\t\"$set\": bson.M{\"billingWaived\": false, \"updatedAt\": time.Now()},\n\t\t\t})",
+      "filter_snippet": "h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenant.ID}, bson.M{\n                                \"$set\": bson.M{\"billingWaived\": false, \"updatedAt\": time.Now()},\n                        })",
       "note": "Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -7941,7 +7941,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "line": 138,
       "function": "Checkout",
       "collection": "tenant_memberships",
@@ -7969,7 +7969,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "line": 152,
       "function": "Checkout",
       "collection": "tenants",
@@ -7983,7 +7983,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenant.ID}, bson.M{\n\t\t\t\t\"$set\": setFields,\n\t\t\t\t\"$inc\": bson.M{\"purchasedCredits\": plan.BonusCredits},\n\t\t\t})",
+      "filter_snippet": "h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenant.ID}, bson.M{\n                                \"$set\": setFields,\n                                \"$inc\": bson.M{\"purchasedCredits\": plan.BonusCredits},\n                        })",
       "note": "Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -7997,7 +7997,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "line": 162,
       "function": "Checkout",
       "collection": "tenant_memberships",
@@ -8025,7 +8025,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "line": 313,
       "function": "Checkout",
       "collection": "credit_bundles",
@@ -8040,7 +8040,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.CreditBundles().FindOne(ctx, bson.M{\"_id\": bundleID, \"isActive\": true}).Decode(&bundle); err != nil {\n\t\t\trespondWithError(w, http.StatusNotFound, \"Bundle not found\")\n\t\t\treturn\n\t\t}",
+      "filter_snippet": "if err := h.db.CreditBundles().FindOne(ctx, bson.M{\"_id\": bundleID, \"isActive\": true}).Decode(&bundle); err != nil {\n                        respondWithError(w, http.StatusNotFound, \"Bundle not found\")\n                        return\n                }",
       "note": "Collection 'credit_bundles' maps to struct 'CreditBundle' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -8054,8 +8054,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 403,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 407,
       "function": "ListTransactions",
       "collection": "financial_transactions",
       "operation": "CountDocuments",
@@ -8082,8 +8082,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 414,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 418,
       "function": "ListTransactions",
       "collection": "financial_transactions",
       "operation": "Find",
@@ -8110,8 +8110,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 454,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 458,
       "function": "GetInvoice",
       "collection": "financial_transactions",
       "operation": "FindOne",
@@ -8125,7 +8125,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{\"_id\": txID, \"tenantId\": tenant.ID}).Decode(&tx); err != nil {\n\t\trespondWithError(w, http.StatusNotFound, \"Transaction not found\")\n\t\treturn\n\t}",
+      "filter_snippet": "if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{\"_id\": txID, \"tenantId\": tenant.ID}).Decode(&tx); err != nil {\n                respondWithError(w, http.StatusNotFound, \"Transaction not found\")\n                return\n        }",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -8139,8 +8139,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 483,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 487,
       "function": "GetInvoicePDF",
       "collection": "financial_transactions",
       "operation": "FindOne",
@@ -8154,7 +8154,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{\"_id\": txID, \"tenantId\": tenant.ID}).Decode(&tx); err != nil {\n\t\trespondWithError(w, http.StatusNotFound, \"Transaction not found\")\n\t\treturn\n\t}",
+      "filter_snippet": "if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{\"_id\": txID, \"tenantId\": tenant.ID}).Decode(&tx); err != nil {\n                respondWithError(w, http.StatusNotFound, \"Transaction not found\")\n                return\n        }",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -8168,8 +8168,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 654,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 658,
       "function": "CancelSubscription",
       "collection": "tenants",
       "operation": "UpdateOne",
@@ -8182,7 +8182,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": updates}); err != nil {\n\t\tslog.Error(\"Billing: failed to mark tenant subscription canceled\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to update tenant subscription status\")\n\t\treturn\n\t}",
+      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": updates}); err != nil {\n                slog.Error(\"Billing: failed to mark tenant subscription canceled\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                respondWithError(w, http.StatusInternalServerError, \"Failed to update tenant subscription status\")\n                return\n        }",
       "note": "Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -8196,8 +8196,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 733,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 737,
       "function": "AdminListTransactions",
       "collection": "financial_transactions",
       "operation": "CountDocuments",
@@ -8225,8 +8225,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 744,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 748,
       "function": "AdminListTransactions",
       "collection": "financial_transactions",
       "operation": "Find",
@@ -8254,8 +8254,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 801,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 805,
       "function": "AdminGetMetrics",
       "collection": "daily_metrics",
       "operation": "Find",
@@ -8282,8 +8282,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 893,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 897,
       "function": "computeLiveRevenue",
       "collection": "financial_transactions",
       "operation": "Aggregate",
@@ -8310,8 +8310,8 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 929,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 933,
       "function": "computeLiveARR",
       "collection": "tenants",
       "operation": "Aggregate",
@@ -8339,8 +8339,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 955,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 959,
       "function": "AdminCancelSubscription",
       "collection": "tenants",
       "operation": "FindOne",
@@ -8353,7 +8353,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": tenantID}).Decode(&tenant); err != nil {\n\t\trespondWithError(w, http.StatusNotFound, \"Tenant not found\")\n\t\treturn\n\t}",
+      "filter_snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": tenantID}).Decode(&tenant); err != nil {\n                respondWithError(w, http.StatusNotFound, \"Tenant not found\")\n                return\n        }",
       "note": "Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Admin handlers see ALL tenants by design \u2014 no tenantId filter needed.",
       "route_scope": "admin",
       "is_admin_handler": true,
@@ -8367,8 +8367,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 1001,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 1005,
       "function": "AdminCancelSubscription",
       "collection": "tenants",
       "operation": "UpdateOne",
@@ -8381,7 +8381,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenantID}, bson.M{\"$set\": updates}); err != nil {\n\t\t\tslog.Error(\"Admin: failed to mark tenant subscription canceled\", \"tenantId\", tenantID.Hex(), \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to update tenant subscription status\")\n\t\t\treturn\n\t\t}",
+      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(ctx, bson.M{\"_id\": tenantID}, bson.M{\"$set\": updates}); err != nil {\n                        slog.Error(\"Admin: failed to mark tenant subscription canceled\", \"tenantId\", tenantID.Hex(), \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to update tenant subscription status\")\n                        return\n     ...",
       "note": "Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Admin handlers see ALL tenants by design \u2014 no tenantId filter needed.",
       "route_scope": "admin",
       "is_admin_handler": true,
@@ -8395,8 +8395,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/billing.go",
-      "line": 1034,
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 1038,
       "function": "AdminUpdateSubscription",
       "collection": "tenants",
       "operation": "UpdateOne",
@@ -8423,7 +8423,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bootstrap.go",
+      "file": "backend/internal/api/handlers/bootstrap.go",
       "line": 36,
       "function": "refreshInitialized",
       "collection": "system_config",
@@ -8449,7 +8449,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/bootstrap.go",
+      "file": "backend/internal/api/handlers/bootstrap.go",
       "line": 66,
       "function": "refreshInitializedFromContext",
       "collection": "system_config",
@@ -8475,7 +8475,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 45,
       "function": "GetBranding",
       "collection": "branding_config",
@@ -8501,7 +8501,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 60,
       "function": "GetBranding",
       "collection": "branding_assets",
@@ -8529,7 +8529,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 64,
       "function": "GetBranding",
       "collection": "branding_assets",
@@ -8557,7 +8557,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 119,
       "function": "ServeAsset",
       "collection": "branding_assets",
@@ -8585,7 +8585,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 141,
       "function": "ServeMedia",
       "collection": "branding_assets",
@@ -8613,7 +8613,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 163,
       "function": "GetPublicPage",
       "collection": "custom_pages",
@@ -8642,7 +8642,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 182,
       "function": "ListPublicPages",
       "collection": "custom_pages",
@@ -8670,7 +8670,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 262,
       "function": "UpdateBranding",
       "collection": "branding_config",
@@ -8696,7 +8696,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 324,
       "function": "UploadAsset",
       "collection": "branding_assets",
@@ -8724,7 +8724,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 348,
       "function": "DeleteAsset",
       "collection": "branding_assets",
@@ -8752,7 +8752,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 368,
       "function": "ListMedia",
       "collection": "branding_assets",
@@ -8780,7 +8780,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 460,
       "function": "UploadMedia",
       "collection": "branding_assets",
@@ -8813,7 +8813,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 487,
       "function": "DeleteMedia",
       "collection": "branding_assets",
@@ -8841,7 +8841,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 505,
       "function": "AdminListPages",
       "collection": "custom_pages",
@@ -8867,7 +8867,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 543,
       "function": "CreatePage",
       "collection": "custom_pages",
@@ -8893,7 +8893,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 590,
       "function": "UpdatePage",
       "collection": "custom_pages",
@@ -8921,7 +8921,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/branding.go",
+      "file": "backend/internal/api/handlers/branding.go",
       "line": 616,
       "function": "DeletePage",
       "collection": "custom_pages",
@@ -8949,7 +8949,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 60,
       "function": "ListBundles",
       "collection": "credit_bundles",
@@ -8975,7 +8975,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 75,
       "function": "ListBundles",
       "collection": "credit_bundles",
@@ -9001,7 +9001,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 96,
       "function": "CreateBundle",
       "collection": "credit_bundles",
@@ -9029,7 +9029,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 117,
       "function": "CreateBundle",
       "collection": "credit_bundles",
@@ -9063,7 +9063,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 145,
       "function": "UpdateBundle",
       "collection": "credit_bundles",
@@ -9091,7 +9091,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 166,
       "function": "UpdateBundle",
       "collection": "credit_bundles",
@@ -9120,7 +9120,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 186,
       "function": "UpdateBundle",
       "collection": "credit_bundles",
@@ -9148,7 +9148,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 196,
       "function": "UpdateBundle",
       "collection": "credit_bundles",
@@ -9176,7 +9176,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 212,
       "function": "DeleteBundle",
       "collection": "credit_bundles",
@@ -9204,7 +9204,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 221,
       "function": "DeleteBundle",
       "collection": "credit_bundles",
@@ -9232,7 +9232,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/bundles.go",
+      "file": "backend/internal/api/handlers/bundles.go",
       "line": 236,
       "function": "ListBundlesPublic",
       "collection": "credit_bundles",
@@ -9260,7 +9260,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/config.go",
+      "file": "backend/internal/api/handlers/config.go",
       "line": 94,
       "function": "UpdateConfig",
       "collection": "config_vars",
@@ -9288,7 +9288,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/config.go",
+      "file": "backend/internal/api/handlers/config.go",
       "line": 162,
       "function": "CreateConfig",
       "collection": "config_vars",
@@ -9323,7 +9323,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/config.go",
+      "file": "backend/internal/api/handlers/config.go",
       "line": 192,
       "function": "DeleteConfig",
       "collection": "config_vars",
@@ -9351,7 +9351,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 50,
       "function": "ListEventDefinitions",
       "collection": "event_definitions",
@@ -9377,7 +9377,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 85,
       "function": "ListEventDefinitions",
       "collection": "telemetry_events",
@@ -9403,7 +9403,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 135,
       "function": "CreateEventDefinition",
       "collection": "event_definitions",
@@ -9431,7 +9431,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 161,
       "function": "CreateEventDefinition",
       "collection": "event_definitions",
@@ -9459,7 +9459,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 173,
       "function": "CreateEventDefinition",
       "collection": "event_definitions",
@@ -9491,7 +9491,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 212,
       "function": "UpdateEventDefinition",
       "collection": "event_definitions",
@@ -9519,7 +9519,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 219,
       "function": "UpdateEventDefinition",
       "collection": "event_definitions",
@@ -9548,7 +9548,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 249,
       "function": "UpdateEventDefinition",
       "collection": "event_definitions",
@@ -9576,7 +9576,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 269,
       "function": "UpdateEventDefinition",
       "collection": "event_definitions",
@@ -9604,7 +9604,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 278,
       "function": "UpdateEventDefinition",
       "collection": "event_definitions",
@@ -9632,7 +9632,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 296,
       "function": "DeleteEventDefinition",
       "collection": "event_definitions",
@@ -9660,7 +9660,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 302,
       "function": "DeleteEventDefinition",
       "collection": "event_definitions",
@@ -9688,7 +9688,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 307,
       "function": "DeleteEventDefinition",
       "collection": "event_definitions",
@@ -9716,7 +9716,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 321,
       "function": "GetSankeyData",
       "collection": "event_definitions",
@@ -9742,7 +9742,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 399,
       "function": "GetSankeyData",
       "collection": "telemetry_events",
@@ -9768,7 +9768,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 463,
       "function": "wouldCreateCycle",
       "collection": "event_definitions",
@@ -9796,8 +9796,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/logs.go",
-      "line": 111,
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 115,
       "function": "ListLogs",
       "collection": "system_logs",
       "operation": "EstimatedDocumentCount",
@@ -9822,8 +9822,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/logs.go",
-      "line": 113,
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 117,
       "function": "ListLogs",
       "collection": "system_logs",
       "operation": "CountDocuments",
@@ -9848,8 +9848,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/logs.go",
-      "line": 125,
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 129,
       "function": "ListLogs",
       "collection": "system_logs",
       "operation": "Find",
@@ -9874,8 +9874,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/logs.go",
-      "line": 156,
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 160,
       "function": "SeverityCounts",
       "collection": "system_logs",
       "operation": "Aggregate",
@@ -9900,8 +9900,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/logs.go",
-      "line": 196,
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 200,
       "function": "ExportCSV",
       "collection": "system_logs",
       "operation": "Find",
@@ -9926,7 +9926,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/messages.go",
+      "file": "backend/internal/api/handlers/messages.go",
       "line": 36,
       "function": "ListMessages",
       "collection": "messages",
@@ -9954,7 +9954,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/messages.go",
+      "file": "backend/internal/api/handlers/messages.go",
       "line": 64,
       "function": "UnreadCount",
       "collection": "messages",
@@ -9983,7 +9983,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/messages.go",
+      "file": "backend/internal/api/handlers/messages.go",
       "line": 88,
       "function": "MarkRead",
       "collection": "messages",
@@ -10012,7 +10012,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 48,
       "function": "ListPlans",
       "collection": "plans",
@@ -10038,7 +10038,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 66,
       "function": "ListPlans",
       "collection": "tenants",
@@ -10064,7 +10064,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 93,
       "function": "ListPlans",
       "collection": "plans",
@@ -10090,7 +10090,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 110,
       "function": "GetPlan",
       "collection": "plans",
@@ -10118,7 +10118,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 123,
       "function": "ListEntitlementKeys",
       "collection": "plans",
@@ -10144,7 +10144,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 253,
       "function": "CreatePlan",
       "collection": "plans",
@@ -10172,7 +10172,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 295,
       "function": "CreatePlan",
       "collection": "plans",
@@ -10218,7 +10218,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 323,
       "function": "UpdatePlan",
       "collection": "plans",
@@ -10246,7 +10246,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 350,
       "function": "UpdatePlan",
       "collection": "plans",
@@ -10275,7 +10275,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 368,
       "function": "UpdatePlan",
       "collection": "stripe_mappings",
@@ -10303,7 +10303,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 393,
       "function": "UpdatePlan",
       "collection": "plans",
@@ -10331,7 +10331,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 404,
       "function": "UpdatePlan",
       "collection": "plans",
@@ -10359,7 +10359,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 408,
       "function": "UpdatePlan",
       "collection": "tenants",
@@ -10387,7 +10387,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 446,
       "function": "DeletePlan",
       "collection": "plans",
@@ -10415,7 +10415,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 460,
       "function": "DeletePlan",
       "collection": "tenants",
@@ -10443,7 +10443,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 470,
       "function": "DeletePlan",
       "collection": "plans",
@@ -10471,7 +10471,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 491,
       "function": "ArchivePlan",
       "collection": "plans",
@@ -10499,7 +10499,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 505,
       "function": "ArchivePlan",
       "collection": "plans",
@@ -10527,7 +10527,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 526,
       "function": "UnarchivePlan",
       "collection": "plans",
@@ -10555,7 +10555,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 540,
       "function": "UnarchivePlan",
       "collection": "plans",
@@ -10583,7 +10583,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 576,
       "function": "AssignPlan",
       "collection": "tenants",
@@ -10611,7 +10611,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 598,
       "function": "AssignPlan",
       "collection": "plans",
@@ -10639,7 +10639,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 627,
       "function": "AssignPlan",
       "collection": "plans",
@@ -10667,7 +10667,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 671,
       "function": "AssignPlan",
       "collection": "tenants",
@@ -10695,7 +10695,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 703,
       "function": "ListPlansPublic",
       "collection": "tenants",
@@ -10723,7 +10723,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 714,
       "function": "ListPlansPublic",
       "collection": "tenant_memberships",
@@ -10752,7 +10752,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 737,
       "function": "ListPlansPublic",
       "collection": "plans",
@@ -10780,7 +10780,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 817,
       "function": "lookupPlanForTenant",
       "collection": "plans",
@@ -10808,7 +10808,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/plans.go",
+      "file": "backend/internal/api/handlers/plans.go",
       "line": 820,
       "function": "lookupPlanForTenant",
       "collection": "plans",
@@ -10836,7 +10836,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 115,
       "function": "buildProductNameMap",
       "collection": "stripe_mappings",
@@ -10862,7 +10862,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 146,
       "function": "buildProductNameMap",
       "collection": "plans",
@@ -10890,7 +10890,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 166,
       "function": "buildProductNameMap",
       "collection": "credit_bundles",
@@ -10918,7 +10918,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 200,
       "function": "ListEligibleProducts",
       "collection": "plans",
@@ -10946,7 +10946,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 226,
       "function": "ListEligibleProducts",
       "collection": "credit_bundles",
@@ -10974,7 +10974,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 380,
       "function": "resolveStripeProducts",
       "collection": "plans",
@@ -11002,7 +11002,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 418,
       "function": "resolveStripeProducts",
       "collection": "stripe_mappings",
@@ -11031,7 +11031,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 428,
       "function": "resolveStripeProducts",
       "collection": "credit_bundles",
@@ -11059,7 +11059,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/promotions.go",
+      "file": "backend/internal/api/handlers/promotions.go",
       "line": 438,
       "function": "resolveStripeProducts",
       "collection": "stripe_mappings",
@@ -11088,7 +11088,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 74,
       "function": "ListMembers",
       "collection": "tenant_memberships",
@@ -11116,7 +11116,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 94,
       "function": "ListMembers",
       "collection": "users",
@@ -11144,7 +11144,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 171,
       "function": "InviteMember",
       "collection": "users",
@@ -11158,7 +11158,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.Users().FindOne(r.Context(), bson.M{\"email\": req.Email}).Decode(&existingUser); err == nil {\n\t\tcount, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\n\t\t\t\"userId\":   existingUser.ID,\n\t\t\t\"tenantId\": tenant.ID,\n\t\t})",
+      "filter_snippet": "if err := h.db.Users().FindOne(r.Context(), bson.M{\"email\": req.Email}).Decode(&existingUser); err == nil {\n                count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\n                        \"userId\":   existingUser.ID,\n                        \"tenantId\": tenant.ID,\n                })",
       "note": "Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11172,7 +11172,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 172,
       "function": "InviteMember",
       "collection": "tenant_memberships",
@@ -11187,7 +11187,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\n\t\t\t\"userId\":   existingUser.ID,\n\t\t\t\"tenantId\": tenant.ID,\n\t\t})",
+      "filter_snippet": "count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\n                        \"userId\":   existingUser.ID,\n                        \"tenantId\": tenant.ID,\n                })",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11201,7 +11201,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 187,
       "function": "InviteMember",
       "collection": "invitations",
@@ -11218,7 +11218,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "invCount, err := h.db.Invitations().CountDocuments(r.Context(), bson.M{\n\t\t\"tenantId\":  tenant.ID,\n\t\t\"email\":     req.Email,\n\t\t\"status\":    models.InvitationPending,\n\t\t\"expiresAt\": bson.M{\"$gt\": time.Now()},",
+      "filter_snippet": "invCount, err := h.db.Invitations().CountDocuments(r.Context(), bson.M{\n                \"tenantId\":  tenant.ID,\n                \"email\":     req.Email,\n                \"status\":    models.InvitationPending,\n                \"expiresAt\": bson.M{\"$gt\": time.Now()},",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11232,7 +11232,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 205,
       "function": "InviteMember",
       "collection": "plans",
@@ -11246,7 +11246,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if err := h.db.Plans().FindOne(r.Context(), bson.M{\"_id\": *tenant.PlanID}).Decode(&tenantPlan); err != nil {\n\t\t\tslog.Warn(\"InviteMember: failed to load tenant plan by ID\", \"tenantId\", tenant.ID.Hex(), \"planId\", tenant.PlanID.Hex(), \"error\", err)\n\t\t}",
+      "filter_snippet": "if err := h.db.Plans().FindOne(r.Context(), bson.M{\"_id\": *tenant.PlanID}).Decode(&tenantPlan); err != nil {\n                        slog.Warn(\"InviteMember: failed to load tenant plan by ID\", \"tenantId\", tenant.ID.Hex(), \"planId\", tenant.PlanID.Hex(), \"error\", err)\n                }",
       "note": "Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11260,7 +11260,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 209,
       "function": "InviteMember",
       "collection": "plans",
@@ -11274,7 +11274,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": false,
-      "filter_snippet": "if err := h.db.Plans().FindOne(r.Context(), bson.M{\"isSystem\": true}).Decode(&tenantPlan); err != nil {\n\t\t\tslog.Warn(\"InviteMember: failed to load system plan\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t}",
+      "filter_snippet": "if err := h.db.Plans().FindOne(r.Context(), bson.M{\"isSystem\": true}).Decode(&tenantPlan); err != nil {\n                        slog.Warn(\"InviteMember: failed to load system plan\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                }",
       "note": "Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11288,7 +11288,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 231,
       "function": "InviteMember",
       "collection": "invitations",
@@ -11309,7 +11309,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n\t\t\treturn\n\t\t}",
+      "filter_snippet": "if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n                        return\n                }",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11323,7 +11323,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 236,
       "function": "InviteMember",
       "collection": "tenant_memberships",
@@ -11351,7 +11351,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 241,
       "function": "InviteMember",
       "collection": "invitations",
@@ -11367,7 +11367,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "pendingCount, err := h.db.Invitations().CountDocuments(r.Context(), bson.M{\n\t\t\t\"tenantId\":  tenant.ID,\n\t\t\t\"status\":    models.InvitationPending,\n\t\t\t\"expiresAt\": bson.M{\"$gt\": now},\n\t\t})",
+      "filter_snippet": "pendingCount, err := h.db.Invitations().CountDocuments(r.Context(), bson.M{\n                        \"tenantId\":  tenant.ID,\n                        \"status\":    models.InvitationPending,\n                        \"expiresAt\": bson.M{\"$gt\": now},\n                })",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11381,7 +11381,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 252,
       "function": "InviteMember",
       "collection": "invitations",
@@ -11395,7 +11395,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Invitations().DeleteOne(r.Context(), bson.M{\"_id\": invitation.ID}); err != nil {\n\t\t\t\tslog.Error(\"InviteMember: failed to roll back invitation after user limit exceeded\", \"invitationId\", invitation.ID.Hex(), \"error\", err)\n\t\t\t}",
+      "filter_snippet": "if _, err := h.db.Invitations().DeleteOne(r.Context(), bson.M{\"_id\": invitation.ID}); err != nil {\n                                slog.Error(\"InviteMember: failed to roll back invitation after user limit exceeded\", \"invitationId\", invitation.ID.Hex(), \"error\", err)\n                        }",
       "note": "Filter contains a globally-unique key (_id) \u2014 the query will only ever return one document regardless of tenant.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11409,7 +11409,7 @@
       "suppression_reason": "safe-unique-key"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 263,
       "function": "InviteMember",
       "collection": "invitations",
@@ -11430,7 +11430,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n\t\t\treturn\n\t\t}",
+      "filter_snippet": "if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n                        return\n                }",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11444,7 +11444,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 271,
       "function": "InviteMember",
       "collection": "tenant_memberships",
@@ -11472,7 +11472,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 283,
       "function": "InviteMember",
       "collection": "tenants",
@@ -11486,7 +11486,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(r.Context(), bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": bson.M{\"seatQuantity\": newSeats, \"updatedAt\": time.Now()}}); err != nil {\n\t\t\t\tslog.Error(\"InviteMember: failed to persist seat quantity\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t\t}",
+      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(r.Context(), bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": bson.M{\"seatQuantity\": newSeats, \"updatedAt\": time.Now()}}); err != nil {\n                                slog.Error(\"InviteMember: failed to persist seat quantity\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                        }",
       "note": "Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11500,7 +11500,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 344,
       "function": "RemoveMember",
       "collection": "tenant_memberships",
@@ -11515,7 +11515,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "if err := h.db.TenantMemberships().FindOne(r.Context(), bson.M{\n\t\t\"userId\":   targetUserID,\n\t\t\"tenantId\": tenant.ID,\n\t}).Decode(&targetMembership); err != nil {\n\t\trespondWithError(w, http.StatusNotFound, \"Member not found\")",
+      "filter_snippet": "if err := h.db.TenantMemberships().FindOne(r.Context(), bson.M{\n                \"userId\":   targetUserID,\n                \"tenantId\": tenant.ID,\n        }).Decode(&targetMembership); err != nil {\n                respondWithError(w, http.StatusNotFound, \"Member not found\")",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11529,7 +11529,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 364,
       "function": "RemoveMember",
       "collection": "tenant_memberships",
@@ -11543,7 +11543,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.TenantMemberships().DeleteOne(r.Context(), bson.M{\"_id\": targetMembership.ID}); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to remove member\")\n\t\treturn\n\t}",
+      "filter_snippet": "if _, err := h.db.TenantMemberships().DeleteOne(r.Context(), bson.M{\"_id\": targetMembership.ID}); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to remove member\")\n                return\n        }",
       "note": "Filter contains a globally-unique key (_id) \u2014 the query will only ever return one document regardless of tenant.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11557,7 +11557,7 @@
       "suppression_reason": "safe-unique-key"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 372,
       "function": "RemoveMember",
       "collection": "plans",
@@ -11571,7 +11571,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if h.db.Plans().FindOne(r.Context(), bson.M{\"_id\": *tenant.PlanID}).Decode(&plan) == nil && plan.PricingModel == models.PricingModelPerSeat {\n\t\t\tmemberCount, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\"tenantId\": tenant.ID})\n\t\t\tif err != nil {\n\t\t\t\tslog.Warn(\"RemoveMember: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t\t...",
+      "filter_snippet": "if h.db.Plans().FindOne(r.Context(), bson.M{\"_id\": *tenant.PlanID}).Decode(&plan) == nil && plan.PricingModel == models.PricingModelPerSeat {\n                        memberCount, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\"tenantId\": tenant.ID})\n                        if err != nil {\n                                slog.Warn(\"RemoveMember: failed to count tenant members...",
       "note": "Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11585,7 +11585,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 373,
       "function": "RemoveMember",
       "collection": "tenant_memberships",
@@ -11613,7 +11613,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 388,
       "function": "RemoveMember",
       "collection": "tenants",
@@ -11627,7 +11627,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(r.Context(), bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": bson.M{\"seatQuantity\": newSeats, \"updatedAt\": time.Now()}}); err != nil {\n\t\t\t\t\tslog.Error(\"RemoveMember: failed to persist seat quantity\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t\t\t}",
+      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(r.Context(), bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": bson.M{\"seatQuantity\": newSeats, \"updatedAt\": time.Now()}}); err != nil {\n                                        slog.Error(\"RemoveMember: failed to persist seat quantity\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                                }",
       "note": "Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11641,7 +11641,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 456,
       "function": "ChangeRole",
       "collection": "tenant_memberships",
@@ -11656,7 +11656,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "result, err := h.db.TenantMemberships().UpdateOne(r.Context(),\n\t\tbson.M{\"userId\": targetUserID, \"tenantId\": tenant.ID},\n\t\tbson.M{\"$set\": bson.M{\"role\": req.Role, \"updatedAt\": time.Now()}},\n\t)",
+      "filter_snippet": "result, err := h.db.TenantMemberships().UpdateOne(r.Context(),\n                bson.M{\"userId\": targetUserID, \"tenantId\": tenant.ID},\n                bson.M{\"$set\": bson.M{\"role\": req.Role, \"updatedAt\": time.Now()}},\n        )",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11670,7 +11670,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 508,
       "function": "TransferOwnership",
       "collection": "tenant_memberships",
@@ -11685,7 +11685,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\n\t\t\"userId\":   targetUserID,\n\t\t\"tenantId\": tenant.ID,\n\t})",
+      "filter_snippet": "count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{\n                \"userId\":   targetUserID,\n                \"tenantId\": tenant.ID,\n        })",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11699,7 +11699,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 524,
       "function": "TransferOwnership",
       "collection": "tenant_memberships",
@@ -11714,7 +11714,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),\n\t\tbson.M{\"userId\": targetUserID, \"tenantId\": tenant.ID},\n\t\tbson.M{\"$set\": bson.M{\"role\": models.RoleOwner, \"updatedAt\": now}},\n\t); err != nil {\n\t\tslog.Error(\"TransferOwnership: failed to promote new owner\", \"error\", err)",
+      "filter_snippet": "if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),\n                bson.M{\"userId\": targetUserID, \"tenantId\": tenant.ID},\n                bson.M{\"$set\": bson.M{\"role\": models.RoleOwner, \"updatedAt\": now}},\n        ); err != nil {\n                slog.Error(\"TransferOwnership: failed to promote new owner\", \"error\", err)",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11728,7 +11728,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/tenant.go",
       "line": 534,
       "function": "TransferOwnership",
       "collection": "tenant_memberships",
@@ -11743,7 +11743,7 @@
       "is_violation": false,
       "is_exempt_collection": false,
       "safe_key_filter": false,
-      "filter_snippet": "if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),\n\t\tbson.M{\"userId\": currentMembership.UserID, \"tenantId\": tenant.ID},\n\t\tbson.M{\"$set\": bson.M{\"role\": models.RoleAdmin, \"updatedAt\": now}},\n\t); err != nil {\n\t\tslog.Error(\"TransferOwnership: failed to demote old owner\", \"error\", err)",
+      "filter_snippet": "if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),\n                bson.M{\"userId\": currentMembership.UserID, \"tenantId\": tenant.ID},\n                bson.M{\"$set\": bson.M{\"role\": models.RoleAdmin, \"updatedAt\": now}},\n        ); err != nil {\n                slog.Error(\"TransferOwnership: failed to demote old owner\", \"error\", err)",
       "note": "Filter contains tenantId.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11757,8 +11757,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
-      "line": 593,
+      "file": "backend/internal/api/handlers/tenant.go",
+      "line": 597,
       "function": "GetActivity",
       "collection": "system_logs",
       "operation": "Find",
@@ -11787,8 +11787,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
-      "line": 606,
+      "file": "backend/internal/api/handlers/tenant.go",
+      "line": 610,
       "function": "GetActivity",
       "collection": "system_logs",
       "operation": "CountDocuments",
@@ -11817,8 +11817,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/tenant.go",
-      "line": 642,
+      "file": "backend/internal/api/handlers/tenant.go",
+      "line": 646,
       "function": "UpdateTenantSettings",
       "collection": "tenants",
       "operation": "UpdateOne",
@@ -11831,7 +11831,7 @@
       "is_violation": false,
       "is_exempt_collection": true,
       "safe_key_filter": true,
-      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(r.Context(), bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": updates}); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to update tenant settings\")\n\t\treturn\n\t}",
+      "filter_snippet": "if _, err := h.db.Tenants().UpdateOne(r.Context(), bson.M{\"_id\": tenant.ID}, bson.M{\"$set\": updates}); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to update tenant settings\")\n                return\n        }",
       "note": "Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson field \u2014 this collection is global by design.",
       "route_scope": "tenant",
       "is_admin_handler": false,
@@ -11845,7 +11845,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/usage.go",
+      "file": "backend/internal/api/handlers/usage.go",
       "line": 90,
       "function": "RecordUsage",
       "collection": "tenants",
@@ -11874,7 +11874,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/usage.go",
+      "file": "backend/internal/api/handlers/usage.go",
       "line": 100,
       "function": "RecordUsage",
       "collection": "tenants",
@@ -11903,7 +11903,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/usage.go",
+      "file": "backend/internal/api/handlers/usage.go",
       "line": 114,
       "function": "RecordUsage",
       "collection": "usage_events",
@@ -11936,7 +11936,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/usage.go",
+      "file": "backend/internal/api/handlers/usage.go",
       "line": 169,
       "function": "GetSummary",
       "collection": "usage_events",
@@ -11965,7 +11965,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/usage.go",
+      "file": "backend/internal/api/handlers/usage.go",
       "line": 196,
       "function": "GetSummary",
       "collection": "tenants",
@@ -11993,7 +11993,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 71,
       "function": "HandleWebhook",
       "collection": "webhook_events",
@@ -12021,7 +12021,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 132,
       "function": "HandleWebhook",
       "collection": "webhook_events",
@@ -12049,7 +12049,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 138,
       "function": "HandleWebhook",
       "collection": "webhook_events",
@@ -12077,7 +12077,7 @@
       "suppression_reason": "public-endpoint"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 170,
       "function": "handleCheckoutCompleted",
       "collection": "tenants",
@@ -12105,7 +12105,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 182,
       "function": "handleCheckoutCompleted",
       "collection": "tenants",
@@ -12134,7 +12134,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 205,
       "function": "handleCheckoutCompleted",
       "collection": "plans",
@@ -12162,7 +12162,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 239,
       "function": "handleCheckoutCompleted",
       "collection": "users",
@@ -12190,7 +12190,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 255,
       "function": "handleCheckoutCompleted",
       "collection": "tenants",
@@ -12218,7 +12218,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 322,
       "function": "handleCheckoutCompleted",
       "collection": "credit_bundles",
@@ -12246,7 +12246,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 328,
       "function": "handleCheckoutCompleted",
       "collection": "tenants",
@@ -12274,7 +12274,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 391,
       "function": "handleInvoicePaid",
       "collection": "tenants",
@@ -12302,7 +12302,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 397,
       "function": "handleInvoicePaid",
       "collection": "tenants",
@@ -12330,7 +12330,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 407,
       "function": "handleInvoicePaid",
       "collection": "plans",
@@ -12358,7 +12358,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 409,
       "function": "handleInvoicePaid",
       "collection": "tenants",
@@ -12386,7 +12386,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 415,
       "function": "handleInvoicePaid",
       "collection": "tenants",
@@ -12414,7 +12414,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 436,
       "function": "handleInvoicePaid",
       "collection": "tenant_memberships",
@@ -12443,7 +12443,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 443,
       "function": "handleInvoicePaid",
       "collection": "plans",
@@ -12471,7 +12471,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 482,
       "function": "handleInvoicePaymentFailed",
       "collection": "tenants",
@@ -12499,7 +12499,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 488,
       "function": "handleInvoicePaymentFailed",
       "collection": "tenants",
@@ -12527,7 +12527,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 497,
       "function": "handleInvoicePaymentFailed",
       "collection": "tenant_memberships",
@@ -12555,7 +12555,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 519,
       "function": "handleInvoicePaymentFailed",
       "collection": "messages",
@@ -12588,7 +12588,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 551,
       "function": "handleSubscriptionUpdated",
       "collection": "tenants",
@@ -12616,7 +12616,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 583,
       "function": "handleSubscriptionUpdated",
       "collection": "plans",
@@ -12644,7 +12644,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 598,
       "function": "handleSubscriptionUpdated",
       "collection": "tenants",
@@ -12672,7 +12672,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 613,
       "function": "handleSubscriptionDeleted",
       "collection": "tenants",
@@ -12700,7 +12700,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 619,
       "function": "handleSubscriptionDeleted",
       "collection": "plans",
@@ -12728,7 +12728,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 635,
       "function": "handleSubscriptionDeleted",
       "collection": "tenants",
@@ -12756,7 +12756,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 675,
       "function": "handleChargeRefunded",
       "collection": "tenants",
@@ -12784,7 +12784,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 688,
       "function": "handleChargeRefunded",
       "collection": "tenant_memberships",
@@ -12813,7 +12813,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 726,
       "function": "handleDisputeCreated",
       "collection": "tenants",
@@ -12841,7 +12841,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 732,
       "function": "handleDisputeCreated",
       "collection": "tenants",
@@ -12869,7 +12869,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 771,
       "function": "handleDisputeClosed",
       "collection": "tenants",
@@ -12897,7 +12897,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 779,
       "function": "handleDisputeClosed",
       "collection": "tenants",
@@ -12925,7 +12925,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 841,
       "function": "recordTransaction",
       "collection": "financial_transactions",
@@ -12970,7 +12970,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 45,
       "function": "ListWebhooks",
       "collection": "webhooks",
@@ -12998,7 +12998,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 71,
       "function": "ListWebhooks",
       "collection": "webhook_deliveries",
@@ -13027,7 +13027,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 83,
       "function": "ListWebhooks",
       "collection": "webhook_deliveries",
@@ -13055,7 +13055,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 88,
       "function": "ListWebhooks",
       "collection": "webhooks",
@@ -13083,7 +13083,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 105,
       "function": "GetWebhook",
       "collection": "webhooks",
@@ -13112,7 +13112,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 111,
       "function": "GetWebhook",
       "collection": "webhook_deliveries",
@@ -13140,7 +13140,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 279,
       "function": "CreateWebhook",
       "collection": "webhooks",
@@ -13177,7 +13177,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 320,
       "function": "UpdateWebhook",
       "collection": "webhooks",
@@ -13205,7 +13205,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 340,
       "function": "UpdateWebhook",
       "collection": "webhooks",
@@ -13233,7 +13233,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 356,
       "function": "DeleteWebhook",
       "collection": "webhooks",
@@ -13261,7 +13261,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 393,
       "function": "RegenerateSecret",
       "collection": "webhooks",
@@ -13289,7 +13289,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 421,
       "function": "TestWebhook",
       "collection": "webhooks",
@@ -13318,7 +13318,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/configstore/seed.go",
+      "file": "backend/internal/configstore/seed.go",
       "line": 380,
       "function": "Seed",
       "collection": "config_vars",
@@ -13346,7 +13346,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/configstore/seed.go",
+      "file": "backend/internal/configstore/seed.go",
       "line": 384,
       "function": "Seed",
       "collection": "config_vars",
@@ -13372,7 +13372,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/configstore/store.go",
+      "file": "backend/internal/configstore/store.go",
       "line": 34,
       "function": "Load",
       "collection": "config_vars",
@@ -13398,7 +13398,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/configstore/store.go",
+      "file": "backend/internal/configstore/store.go",
       "line": 90,
       "function": "Set",
       "collection": "config_vars",
@@ -13426,7 +13426,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/configstore/store.go",
+      "file": "backend/internal/configstore/store.go",
       "line": 106,
       "function": "Reload",
       "collection": "config_vars",
@@ -13454,7 +13454,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/health/health.go",
+      "file": "backend/internal/health/health.go",
       "line": 138,
       "function": "registerNode",
       "collection": "system_nodes",
@@ -13482,7 +13482,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/health/health.go",
+      "file": "backend/internal/health/health.go",
       "line": 165,
       "function": "heartbeat",
       "collection": "system_nodes",
@@ -13510,7 +13510,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/health/health.go",
+      "file": "backend/internal/health/health.go",
       "line": 300,
       "function": "collectAndStore",
       "collection": "system_metrics",
@@ -13547,7 +13547,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 28,
       "function": "ListNodes",
       "collection": "system_nodes",
@@ -13575,7 +13575,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 35,
       "function": "ListNodes",
       "collection": "system_nodes",
@@ -13601,7 +13601,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 55,
       "function": "GetMetrics",
       "collection": "system_metrics",
@@ -13630,7 +13630,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 74,
       "function": "GetAggregateMetrics",
       "collection": "system_metrics",
@@ -13658,7 +13658,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 98,
       "function": "GetCurrentMetrics",
       "collection": "system_metrics",
@@ -13686,7 +13686,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 120,
       "function": "GetIntegrationCounts24h",
       "collection": "system_metrics",
@@ -13712,7 +13712,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 112,
       "function": "tryAcquireOrRenew",
       "collection": "leader_locks",
@@ -13742,7 +13742,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 148,
       "function": "isLeader",
       "collection": "leader_locks",
@@ -13770,7 +13770,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 158,
       "function": "releaseLock",
       "collection": "leader_locks",
@@ -13799,7 +13799,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 192,
       "function": "collectDaily",
       "collection": "users",
@@ -13827,7 +13827,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 227,
       "function": "collectDaily",
       "collection": "financial_transactions",
@@ -13855,7 +13855,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 263,
       "function": "collectDaily",
       "collection": "tenants",
@@ -13884,7 +13884,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/metrics/metrics.go",
+      "file": "backend/internal/metrics/metrics.go",
       "line": 280,
       "function": "collectDaily",
       "collection": "daily_metrics",
@@ -13912,7 +13912,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/middleware/auth.go",
+      "file": "backend/internal/middleware/auth.go",
       "line": 90,
       "function": "authenticateJWT",
       "collection": "users",
@@ -13940,7 +13940,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/auth.go",
+      "file": "backend/internal/middleware/auth.go",
       "line": 113,
       "function": "authenticateAPIKey",
       "collection": "api_keys",
@@ -13969,7 +13969,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/auth.go",
+      "file": "backend/internal/middleware/auth.go",
       "line": 124,
       "function": "authenticateAPIKey",
       "collection": "users",
@@ -13997,7 +13997,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/auth.go",
+      "file": "backend/internal/middleware/auth.go",
       "line": 135,
       "function": "authenticateAPIKey",
       "collection": "tenants",
@@ -14025,7 +14025,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/auth.go",
+      "file": "backend/internal/middleware/auth.go",
       "line": 155,
       "function": "authenticateAPIKey",
       "collection": "api_keys",
@@ -14053,7 +14053,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/auth.go",
+      "file": "backend/internal/middleware/auth.go",
       "line": 168,
       "function": "isTokenRevoked",
       "collection": "revoked_tokens",
@@ -14081,7 +14081,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/ratelimit.go",
+      "file": "backend/internal/middleware/ratelimit.go",
       "line": 156,
       "function": "allowDistributed",
       "collection": "<unknown>",
@@ -14110,7 +14110,7 @@
       "suppression_reason": "safe-unique-key"
     },
     {
-      "file": "internal/middleware/ratelimit.go",
+      "file": "backend/internal/middleware/ratelimit.go",
       "line": 165,
       "function": "allowDistributed",
       "collection": "<unknown>",
@@ -14138,7 +14138,7 @@
       "suppression_reason": "safe-unique-key"
     },
     {
-      "file": "internal/middleware/tenant.go",
+      "file": "backend/internal/middleware/tenant.go",
       "line": 51,
       "function": "RequireTenant",
       "collection": "tenants",
@@ -14167,7 +14167,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/middleware/tenant.go",
+      "file": "backend/internal/middleware/tenant.go",
       "line": 64,
       "function": "RequireTenant",
       "collection": "tenant_memberships",
@@ -14196,7 +14196,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/middleware/tenant.go",
+      "file": "backend/internal/middleware/tenant.go",
       "line": 141,
       "function": "RequireEntitlement",
       "collection": "plans",
@@ -14224,7 +14224,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/planstore/seed.go",
+      "file": "backend/internal/planstore/seed.go",
       "line": 19,
       "function": "Seed",
       "collection": "plans",
@@ -14252,7 +14252,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/planstore/seed.go",
+      "file": "backend/internal/planstore/seed.go",
       "line": 36,
       "function": "Seed",
       "collection": "plans",
@@ -14298,7 +14298,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/stripe/stripe.go",
+      "file": "backend/internal/stripe/stripe.go",
       "line": 82,
       "function": "GetOrCreateCustomer",
       "collection": "tenants",
@@ -14326,7 +14326,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/stripe/stripe.go",
+      "file": "backend/internal/stripe/stripe.go",
       "line": 100,
       "function": "GetOrCreatePrice",
       "collection": "stripe_mappings",
@@ -14355,7 +14355,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/stripe/stripe.go",
+      "file": "backend/internal/stripe/stripe.go",
       "line": 143,
       "function": "GetOrCreatePrice",
       "collection": "stripe_mappings",
@@ -14387,7 +14387,7 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/stripe/stripe.go",
+      "file": "backend/internal/stripe/stripe.go",
       "line": 352,
       "function": "NextInvoiceNumber",
       "collection": "counters",
@@ -14415,7 +14415,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/syslog/syslog.go",
+      "file": "backend/internal/syslog/syslog.go",
       "line": 97,
       "function": "log",
       "collection": "system_logs",
@@ -14450,7 +14450,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/syslog/syslog.go",
+      "file": "backend/internal/syslog/syslog.go",
       "line": 114,
       "function": "log",
       "collection": "system_logs",
@@ -14485,7 +14485,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/syslog/syslog.go",
+      "file": "backend/internal/syslog/syslog.go",
       "line": 137,
       "function": "logCategorized",
       "collection": "system_logs",
@@ -14520,7 +14520,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/syslog/syslog.go",
+      "file": "backend/internal/syslog/syslog.go",
       "line": 154,
       "function": "logCategorized",
       "collection": "system_logs",
@@ -14555,7 +14555,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/syslog/syslog.go",
+      "file": "backend/internal/syslog/syslog.go",
       "line": 234,
       "function": "LogTenantActivity",
       "collection": "system_logs",
@@ -14590,7 +14590,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/telemetry/service.go",
+      "file": "backend/internal/telemetry/service.go",
       "line": 82,
       "function": "flushLoop",
       "collection": "telemetry_events",
@@ -14616,7 +14616,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/telemetry/service.go",
+      "file": "backend/internal/telemetry/service.go",
       "line": 188,
       "function": "TrackBatch",
       "collection": "telemetry_events",
@@ -14642,8 +14642,8 @@
       "suppression_reason": "struct-supports-tenant-id"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 320,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 324,
       "function": "FunnelMetrics",
       "collection": "users",
       "operation": "CountDocuments",
@@ -14670,8 +14670,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 338,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 342,
       "function": "FunnelMetrics",
       "collection": "telemetry_events",
       "operation": "CountDocuments",
@@ -14699,8 +14699,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 347,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 351,
       "function": "FunnelMetrics",
       "collection": "financial_transactions",
       "operation": "CountDocuments",
@@ -14728,14 +14728,16 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 356,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 360,
       "function": "FunnelMetrics",
       "collection": "telemetry_events",
       "operation": "CountDocuments",
-      "filter_fields": [],
+      "filter_fields": [
+        "eventName"
+      ],
       "has_tenant_id": false,
-      "filter_source": "variable:unknown:mergeBson(dateFilter, bson.M{\n          ",
+      "filter_source": "variable:tracer:mergeBson(dateFilter, bson.M{\n          ",
       "risk_level": "MEDIUM",
       "is_violation": false,
       "is_exempt_collection": false,
@@ -14754,8 +14756,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 447,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 451,
       "function": "RetentionCohorts",
       "collection": "users",
       "operation": "Aggregate",
@@ -14780,8 +14782,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 531,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 535,
       "function": "EngagementMetrics",
       "collection": "telemetry_events",
       "operation": "CountDocuments",
@@ -14809,8 +14811,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 596,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 600,
       "function": "computeKPIs",
       "collection": "tenants",
       "operation": "CountDocuments",
@@ -14838,8 +14840,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 605,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 609,
       "function": "computeKPIs",
       "collection": "users",
       "operation": "CountDocuments",
@@ -14864,8 +14866,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 621,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 625,
       "function": "computeKPIs",
       "collection": "tenants",
       "operation": "CountDocuments",
@@ -14892,8 +14894,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 627,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 631,
       "function": "computeKPIs",
       "collection": "tenants",
       "operation": "CountDocuments",
@@ -14920,8 +14922,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 640,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 644,
       "function": "computeKPIs",
       "collection": "tenants",
       "operation": "CountDocuments",
@@ -14948,8 +14950,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 646,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 650,
       "function": "computeKPIs",
       "collection": "tenants",
       "operation": "CountDocuments",
@@ -14976,8 +14978,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 703,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 711,
       "function": "CustomEventSummary",
       "collection": "telemetry_events",
       "operation": "CountDocuments",
@@ -15005,8 +15007,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 719,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 727,
       "function": "CustomEventSummary",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15031,8 +15033,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 756,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 764,
       "function": "ListEventTypes",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15057,8 +15059,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 795,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 803,
       "function": "countDistinct",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15083,8 +15085,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 813,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 821,
       "function": "getActiveTenantIDs",
       "collection": "tenants",
       "operation": "Find",
@@ -15112,8 +15114,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 838,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 846,
       "function": "getUserIDsForTenants",
       "collection": "tenant_memberships",
       "operation": "Find",
@@ -15140,8 +15142,8 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 905,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 913,
       "function": "weeklyActiveUsers",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15166,8 +15168,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 953,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 961,
       "function": "monthlyActiveUsers",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15192,8 +15194,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 991,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 999,
       "function": "topCustomEvents",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15218,8 +15220,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1022,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1030,
       "function": "creditConsumptionTrend",
       "collection": "usage_events",
       "operation": "Aggregate",
@@ -15244,8 +15246,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1098,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1106,
       "function": "calculateMRR",
       "collection": "tenants",
       "operation": "Aggregate",
@@ -15270,8 +15272,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1142,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1150,
       "function": "medianTimeToFirstPurchase",
       "collection": "financial_transactions",
       "operation": "Aggregate",
@@ -15296,8 +15298,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1192,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1200,
       "function": "planDistribution",
       "collection": "tenants",
       "operation": "Aggregate",
@@ -15322,8 +15324,8 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1228,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1236,
       "function": "mrrTrend",
       "collection": "daily_metrics",
       "operation": "Find",
@@ -15350,8 +15352,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1264,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1272,
       "function": "subscriberTrend",
       "collection": "financial_transactions",
       "operation": "Aggregate",
@@ -15376,8 +15378,8 @@
       "suppression_reason": "admin-handler"
     },
     {
-      "file": "internal/telemetry/service.go",
-      "line": 1285,
+      "file": "backend/internal/telemetry/service.go",
+      "line": 1293,
       "function": "aggregateDailyPoints",
       "collection": "telemetry_events",
       "operation": "Aggregate",
@@ -15402,7 +15404,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 98,
       "function": "MustConnectTestDB",
       "collection": "<unknown>",
@@ -15428,7 +15430,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 144,
       "function": "ConnectTestDB",
       "collection": "<unknown>",
@@ -15454,7 +15456,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 227,
       "function": "CleanupCollections",
       "collection": "<unknown>",
@@ -15480,7 +15482,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 270,
       "function": "CreateTestUser",
       "collection": "users",
@@ -15529,7 +15531,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 292,
       "function": "CreateTestTenant",
       "collection": "tenants",
@@ -15574,7 +15576,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 305,
       "function": "CreateTestTenant",
       "collection": "tenant_memberships",
@@ -15606,7 +15608,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 318,
       "function": "MarkSystemInitialized",
       "collection": "system_config",
@@ -15637,7 +15639,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 341,
       "function": "InsertTestLogs",
       "collection": "system_logs",
@@ -15672,7 +15674,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 352,
       "function": "CountDocuments",
       "collection": "<unknown>",
@@ -15698,7 +15700,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 392,
       "function": "CreateTestMembership",
       "collection": "tenant_memberships",
@@ -15730,7 +15732,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 416,
       "function": "CreateTestPlan",
       "collection": "plans",
@@ -15776,7 +15778,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 438,
       "function": "CreateTestAPIKey",
       "collection": "api_keys",
@@ -15811,7 +15813,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 462,
       "function": "CreateTestWebhook",
       "collection": "webhooks",
@@ -15848,7 +15850,7 @@
       "suppression_reason": "test-util"
     },
     {
-      "file": "internal/testutil/testutil.go",
+      "file": "backend/internal/testutil/testutil.go",
       "line": 485,
       "function": "CreateTestInvitation",
       "collection": "invitations",
@@ -15883,7 +15885,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/version/check.go",
+      "file": "backend/internal/version/check.go",
       "line": 28,
       "function": "CheckAndMigrate",
       "collection": "system_config",
@@ -15909,7 +15911,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/version/check.go",
+      "file": "backend/internal/version/check.go",
       "line": 50,
       "function": "CheckAndMigrate",
       "collection": "system_config",
@@ -15937,7 +15939,7 @@
       "suppression_reason": "global-by-design"
     },
     {
-      "file": "internal/version/check.go",
+      "file": "backend/internal/version/check.go",
       "line": 65,
       "function": "sendUpgradeMessage",
       "collection": "tenants",
@@ -15965,7 +15967,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/version/check.go",
+      "file": "backend/internal/version/check.go",
       "line": 72,
       "function": "sendUpgradeMessage",
       "collection": "tenant_memberships",
@@ -15994,7 +15996,7 @@
       "suppression_reason": ""
     },
     {
-      "file": "internal/version/check.go",
+      "file": "backend/internal/version/check.go",
       "line": 91,
       "function": "sendUpgradeMessage",
       "collection": "messages",
@@ -16027,7 +16029,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/webhooks/dispatcher.go",
+      "file": "backend/internal/webhooks/dispatcher.go",
       "line": 194,
       "function": "dispatch",
       "collection": "webhooks",
@@ -16056,7 +16058,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/webhooks/dispatcher.go",
+      "file": "backend/internal/webhooks/dispatcher.go",
       "line": 287,
       "function": "deliverWithRetry",
       "collection": "webhook_deliveries",
@@ -16093,7 +16095,7 @@
       "suppression_reason": "background-task"
     },
     {
-      "file": "internal/webhooks/dispatcher.go",
+      "file": "backend/internal/webhooks/dispatcher.go",
       "line": 421,
       "function": "DeliverTest",
       "collection": "webhook_deliveries",

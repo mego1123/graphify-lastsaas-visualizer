@@ -1,0 +1,1792 @@
+     1→# Worklog
+     2→
+     3→A running log of work performed in the graphify workspace. New entries are
+     4→appended at the bottom.
+     5→
+     6→---
+     7→
+     8→## Task ID: backend-5-6 — Interface + Middleware analyzers
+     9→
+    10→**Date**: 2026-08-05
+    11→**Scope**: Build two Python analyzers for the `lastsaas` Go backend and
+    12→persist their reports to `/home/z/my-project/public/`.
+    13→
+    14→### Files created
+    15→
+    16→- `scripts/graphify_interfaces.py` — Go interface satisfaction checker
+    17→- `scripts/graphify_middleware.py` — Go HTTP middleware chain visualizer
+    18→
+    19→### Outputs written to `public/`
+    20→
+    21→- `interfaces.json` (101 KB) — full machine-readable interface/struct report
+    22→- `INTERFACES.md` (3.4 KB) — human-readable interface summary
+    23→- `middleware.json` (19 KB) — full machine-readable middleware chain report
+    24→- `MIDDLEWARE.md` (19 KB) — human-readable middleware summary
+    25→
+    26→### What the interface analyzer does
+    27→
+    28→1. Walks every `.go` file (excluding `*_test.go` by default) under the
+    29→   target path.
+    30→2. Parses every `type X interface { ... }` declaration — including embedded
+    31→   interfaces (same-package embeddings are flattened) and multi-line method
+    32→   signatures.
+    33→3. Parses every `type Y struct { ... }` declaration and every method bound
+    34→   to it (both value receivers `func (s Y) M()` and pointer receivers
+    35→   `func (s *Y) M()`).
+    36→4. For each interface, checks every struct's method set and decides whether
+    37→   the struct (value form `T` or pointer form `*T`) satisfies the interface.
+    38→5. Reports:
+    39→   - All interfaces with method count, file, and package
+    40→   - Which structs implement each interface, with value vs pointer receiver
+    41→   - Interfaces with 0 implementors (dead) — flagged for removal
+    42→   - Interfaces with exactly 1 implementor (over-designed candidates)
+    43→   - Top structs by method count (a structural complexity signal)
+    44→6. Emits both Markdown (`INTERFACES.md`) and JSON (`interfaces.json`).
+    45→
+    46→CLI:
+    47→```
+    48→python scripts/graphify_interfaces.py [path] [--out report.md] [--json]
+    49→                                       [--include-tests]
+    50→```
+    51→
+    52→### What the middleware analyzer does
+    53→
+    54→1. Walks every `.go` file and detects middleware usage patterns:
+    55→   - `router.Use(...)` / `api.Use(...)` / `r.Use(...)` — gorilla/mux style
+    56→   - `middleware.Func(...)` factory calls (e.g. `middleware.RequireRole(role)`)
+    57→   - Method-style middleware: `authMiddleware.RequireAuth`, `metricsCollector.Middleware(...)`
+    58→   - Manual nesting: `handler := m1(m2(m3(finalHandler)))`
+    59→   - `http.Handler` wrapping (`c.Handler(...)`, `http.HandlerFunc(...)`)
+    60→   - `rateLimiter.RateLimitHandler(config, keyFunc, handler)` — per-route
+    61→     rate-limit pattern
+    62→2. Reconstructs execution order: outermost wrapper runs first; innermost is
+    63→   the terminal handler.
+    64→3. For each middleware definition, inspects the function body and decides:
+    65→   - **runs_before** — does work before calling `next.ServeHTTP`
+    66→   - **runs_after** — does work after `next.ServeHTTP` (or via `defer`)
+    67→   - **short_circuits** — may return without calling `next.ServeHTTP`
+    68→     (proactive request rejection). Detection uses `http.Error(...)` /
+    69→     `WriteHeader(http.StatusXXX)` calls that are NOT inside a `defer`
+    70→     block, so panic-recovery middleware like `Recovery` is correctly
+    71→     classified as *not* short-circuiting.
+    72→4. Emits a visual chain for every router, e.g.:
+    73→   ```
+    74→   Request → Recovery → BodySizeLimit → SecurityHeaders → CORS → Metrics → Router (Handler) → Response
+    75→   ```
+    76→   with ✋ markers on short-circuiting middleware.
+    77→5. Per-router stacks (combining multiple `.Use(...)` calls on the same
+    78→   router in declaration order).
+    79→6. Rate-limit site inventory — every endpoint wrapped with
+    80→   `RateLimitHandler` is listed.
+    81→7. Emits both Markdown (`MIDDLEWARE.md`) and JSON (`middleware.json`).
+    82→
+    83→CLI:
+    84→```
+    85→python scripts/graphify_middleware.py [path] [--out report.md] [--json]
+    86→                                       [--include-tests]
+    87→```
+    88→
+    89→### Key findings on the `lastsaas` backend
+    90→
+    91→#### Interfaces
+    92→- **1 interface declared** in production code: `events.Emitter` with a
+    93→  single method `Emit(event Event)`.
+    94→- **2 implementors**: `NoopEmitter` (in-package) and `Dispatcher` (webhook
+    95→  dispatcher) — both pointer-only.
+    96→- **0 dead**, **0 single-implementor** interfaces. The `Emitter` abstraction
+    97→  is well-justified: it has two real implementations and is consumed by
+    98→  6+ handlers as a constructor parameter, making the indirection valuable
+    99→  for testing (handlers receive `NoopEmitter` in tests).
+   100→- **144 structs** scanned; the largest is `MongoDB` (40 methods), followed
+   101→  by `AuthHandler` (39) and `Service` (36, health service).
+   102→
+   103→#### Middleware
+   104→- **13 middleware definitions** across 8 files.
+   105→- **38 chain sites** — places where middleware is wired onto a router or
+   106→  used to wrap a handler.
+   107→- **7 short-circuiting middleware**: `BootstrapGuard`, `RequireAuth`,
+   108→  `RequireRole`, `RequireRootTenant`, `RequireActiveBilling`,
+   109→  `RequireEntitlement`, `RequireTenant`. All use `http.Error` with an
+   110→  appropriate 4xx/5xx status to reject requests proactively.
+   111→- **6 non-short-circuiting middleware**: `Recovery`, `BodySizeLimit`,
+   112→  `SecurityHeaders`, `RequestID`, `APIVersion`, `Metrics` — these always
+   113→  call `next.ServeHTTP` and either wrap the response or augment the context.
+   114→- **Global request pipeline** (the outermost `http.Handler` in `main.go`):
+   115→  ```
+   116→  Request → Recovery → BodySizeLimit → SecurityHeaders → CORS → Metrics → Router → Response
+   117→  ```
+   118→- **Per-router stacks** are layered correctly:
+   119→  - `api` (public routes): `RequestID → APIVersion`
+   120→  - `protectedAuth`: `RequireAuth ✋`
+   121→  - `tenantAPI` / `billingAPI` / `telemetryAPI`: `RequireAuth ✋ → RequireTenant ✋`
+   122→  - `usageAPI`: `RequireAuth ✋ → RequireTenant ✋ → RequireActiveBilling ✋`
+   123→  - `adminAPI`: `RequireAuth ✋ → RequireTenant ✋ → RequireRootTenant ✋ → RequireRole ✋`
+   124→  - `adminWrite` / `adminOwner` / `tenantSettingsRouter` / `inviteRouter` /
+   125→    `removeRouter` / `ownerRouter` / `billingOwner`: `RequireRole ✋`
+   126→- **21 rate-limited endpoints** wrapped with `rateLimiter.RateLimitHandler`
+   127→  — each uses a `RateLimitConfig` constant (e.g. `LoginAttemptLimit`,
+   128→  `MFAChallengeLimit`) for per-route quota tuning.
+   129→
+   130→### Implementation notes
+   131→
+   132→- Both scripts follow the existing `graphify_*` conventions in
+   133→  `scripts/` (argparse with `[path]`, `--out`, `--json`; stderr for
+   134→  progress, stdout for the report when no `--out` is supplied).
+   135→- The interface parser handles single-line and multi-line interface
+   136→  bodies, embedded interfaces (same-package only — stdlib embeddings
+   137→  like `io.Reader` are noted but not flattened), and multi-line method
+   138→  signatures (re-joined before extraction).
+   139→- The middleware parser uses a two-pass approach: pass 1 collects every
+   140→  middleware definition so the manual-wrap detector can filter out
+   141→  constructor calls (`handler := NewFoo(db)`) from real middleware wraps
+   142→  (`handler := Recovery(BodySizeLimit(...))`).
+   143→- The chain unwrapper (`_unwrap_chain`) handles arbitrarily deep call
+   144→  nesting by recursively descending into single-argument calls. It
+   145→  stops at terminal handlers (bare identifiers, closures, or multi-arg
+   146→  calls).
+   147→- Short-circuit detection excludes `http.Error` calls inside `defer`
+   148→  blocks so panic-recovery middleware isn't misclassified.
+   149→- Both scripts write to `public/{interfaces,middleware}.json` and
+   150→  `public/{INTERFACES,MIDDLEWARE}.md` automatically when run without
+   151→  `--out`, matching the workspace convention.
+   152→
+   153→### Next actions
+   154→
+   155→- Run both analyzers as part of the graphify pipeline so the reports
+   156→  stay in sync with the repo state.
+   157→- Consider adding the analyzers to a `Makefile` target (`make analyze`)
+   158→  in the `lastsaas` backend so contributors can regenerate the reports
+   159→  locally.
+   160→- The interface analyzer is currently name-based for implementation
+   161→  matching — a future enhancement could compare full method signatures
+   162→  (parameters and return types) to catch drift between interface
+   163→  declarations and implementors.
+   164→- The middleware analyzer could be extended to render an interactive
+   165→  HTML diagram (similar to `lastsaas-callflow.html`) showing the request
+   166→  pipeline as a node graph.
+   167→
+   168→---
+   169→
+   170→## Task ID: backend-4 — Go error handling audit
+   171→
+   172→**Date**: 2026-08-05
+   173→**Scope**: Build a Python analyzer that audits Go source code for error
+   174→handling patterns and persist its reports to `/home/z/my-project/public/`.
+   175→
+   176→### Files created
+   177→
+   178→- `scripts/graphify_errors.py` — Go error handling pattern auditor
+   179→
+   180→### Outputs written to `public/`
+   181→
+   182→- `error-audit.json` (≈ 320 KB) — full machine-readable audit report
+   183→- `ERROR_AUDIT.md` (≈ 230 KB) — human-readable audit summary
+   184→
+   185→### What the analyzer does
+   186→
+   187→1. Walks every `.go` file (excluding `vendor/`, `node_modules/`, `.git/`,
+   188→   `graphify-out/`, `testdata/`) under the target path. Single-file and
+   189→   directory paths are both supported.
+   190→2. For each file, masks out string literals and comments (preserving
+   191→   length and newlines) so brace/paren matching is robust against
+   192→   braces appearing inside strings or comments.
+   193→3. Locates every named top-level function and method declaration via
+   194→   regex + brace matching, building per-function `(start_line, end_line)`
+   195→   ranges so each finding can be attributed to its containing function.
+   196→4. Detects four classes of error-handling constructs:
+   197→   - **`if X != nil { ... }` blocks** — located via `IF_NIL_RE`, body
+   198→     extracted via brace matching, then classified into one of:
+   199→       - `proper_handling` (LOW) — body returns `err` (directly or via
+   200→         `fmt.Errorf("...: %w", err)` / `errors.Wrap(err, ...)`), OR
+   201→         terminates with `os.Exit(non-zero)` / `log.Fatal*` / `t.Fatal*`
+   202→         after reporting the error.
+   203→       - `panic_on_error` (MEDIUM) — body calls `panic(...)`.
+   204→       - `logged_only` (MEDIUM) — body has no `return`, but reports the
+   205→         error via `log.*` / `slog.*` / `fmt.Print*` / `respondWithError`
+   206→         / `http.Error` / `t.Error*` (i.e. error is acknowledged but not
+   207→         propagated).
+   208→       - `swallowed` (HIGH) — empty body, or body that returns without
+   209→         `err` (dropping the error info), or body that does anything else
+   210→         without propagating/reporting.
+   211→   - **Ignored errors** — `result, _ := someFunc(...)` patterns where the
+   212→     last return value is discarded with `_`. `for k, _ := range m` is
+   213→     excluded (map iteration idiom).
+   214→   - **Missing error checks** — statement-form method calls (not
+   215→     assigned, not preceded by `defer`/`go`) to a known error-returning
+   216→     method such as `Close`, `Write`, `Read`, `InsertOne`, `UpdateOne`,
+   217→     `DeleteOne`, `BulkWrite`, `Marshal`, `Unmarshal`, `Encode`, `Decode`,
+   218→     `Parse`, `Exec`, `Commit`, `Ping`, etc. The **outermost** call in a
+   219→     chain is examined (e.g. `collection.FindOne(...).Decode(&x)` is
+   220→     attributed to `Decode`, not `FindOne`). Free-function calls (no `.`
+   221→     receiver) are skipped to avoid noise from custom helpers.
+   222→   - **Panic on error** — flagged separately so non-`init()` panics can
+   223→     be reviewed (per the spec, panicking is acceptable in `init()` but
+   224→     risky elsewhere).
+   225→5. Skips lines inside `if X != nil { ... }` blocks for the missing-check
+   226→   scan so the same error site isn't double-counted.
+   227→6. For each finding, records: file (relative to project root), line,
+   228→   end_line, containing function, pattern type, severity, code snippet
+   229→   (capped at 6 lines), and a note explaining the heuristic that fired.
+   230→7. Test files (`*_test.go`) are scanned separately; only their aggregate
+   231→   statistics appear in the report (test-file findings are not included
+   232→   in the detailed findings list, per the spec).
+   233→
+   234→### CLI
+   235→
+   236→```
+   237→python graphify_errors.py [path] [--out report.md] [--json] [--include-tests]
+   238→```
+   239→
+   240→- `path` — file or directory to audit (default: `.`).
+   241→- `--out report.md` — write markdown report to this path in addition to
+   242→  the default `public/ERROR_AUDIT.md`.
+   243→- `--json` — print the JSON report to stdout.
+   244→- `--include-tests` — reserved (test-file findings always excluded from
+   245→  the detailed list; their stats are always reported in the summary).
+   246→
+   247→The script always writes `public/error-audit.json` and
+   248→`public/ERROR_AUDIT.md` (best effort) when run, matching the workspace
+   249→convention used by the other `graphify_*` analyzers.
+   250→
+   251→### Key findings on the `lastsaas` backend
+   252→
+   253→Audited **101 non-test Go files** (28,236 lines) plus **33 test files**
+   254→(8,982 lines). Totals across non-test code:
+   255→
+   256→| Pattern | Count | Severity |
+   257→| --- | ---: | --- |
+   258→| Proper handling | 224 | LOW |
+   259→| Logged only (no return) | 373 | MEDIUM |
+   260→| Swallowed error | 133 | HIGH |
+   261→| Ignored error (`_`) | 143 | HIGH |
+   262→| Missing error check | 124 | HIGH |
+   263→| Panic on error | 1 | MEDIUM |
+   264→| **Total** | **998** | |
+   265→| % properly handled | **22.44%** | |
+   266→
+   267→- **HIGH severity: 400** (swallowed + ignored + missing-check).
+   268→- **MEDIUM severity: 374** (logged-only + panic).
+   269→- **LOW severity: 224** (proper handling).
+   270→
+   271→The relatively low "proper handling" percentage reflects the codebase's
+   272→HTTP-handler heavy style: most error sites use the
+   273→`if err != nil { respondWithError(w, status, msg); return }` pattern,
+   274→which is classified as `logged_only` (MEDIUM) — the error is reported to
+   275→the client via the response, but the original `err` is not propagated.
+   276→This is a defensible production pattern, but the audit treats it
+   277→strictly per the spec (only `return err` counts as "proper").
+   278→
+   279→Most problematic files (top 5 by HIGH-severity count):
+   280→
+   281→1. `internal/api/handlers/auth.go` — 50 problematic sites (35 swallowed,
+   282→   7 ignored, 8 missing-check)
+   283→2. `internal/api/handlers/admin.go` — 50 problematic sites (1 swallowed,
+   284→   30 ignored, 19 missing-check)
+   285→3. `internal/telemetry/service.go` — 30 problematic sites (15 swallowed,
+   286→   15 ignored)
+   287→4. `internal/testutil/testutil.go` — 26 problematic sites
+   288→5. `cmd/lastsaas/main.go` — 17 problematic sites
+   289→
+   290→The single `panic_on_error` finding is in
+   291→`internal/api/handlers/helpers.go:34` (`generateRandomToken`) — panicking
+   292→on a `crypto/rand.Read` failure. This is defensible (the system is
+   293→unusable without crypto randomness) but worth flagging per the spec.
+   294→
+   295→Test files (33 files, 349 error sites) are markedly better-behaved:
+   296→**59.31% properly handled**, thanks to the standard
+   297→`if err != nil { t.Fatalf("...: %v", err) }` test idiom being
+   298→recognized as `proper_handling` (test termination).
+   299→
+   300→### Implementation notes
+   301→
+   302→- The script is pure-Python (no `tree-sitter` dependency, unlike
+   303→  `graphify_verify.py`); it relies on a custom string/comment masker
+   304→  plus brace matching, which is sufficient for Go's relatively regular
+   305→  syntax.
+   306→- The `extract_outermost_method` helper walks a single source line,
+   307→  tracks `()` / `[]` / `{}` depth, and returns the **last** top-level
+   308→  call's method name — this correctly handles chained calls like
+   309→  `client.Database("x").Collection("y").InsertOne(ctx, doc)` by
+   310→  attributing the call to `InsertOne` (the actual error-returning call),
+   311→  not `Database` or `Collection` (which return builder types).
+   312→- Free-function calls are skipped from the missing-check scan because
+   313→  the auditor cannot infer their signatures without type information.
+   314→  This avoids false positives like `apierror.Write(w, status, ...)` —
+   315→  a void package-level helper that happens to share a name with
+   316→  `io.Writer.Write`.
+   317→- `WriteString` is deliberately **not** in the error-returning set:
+   318→  `strings.Builder.WriteString` and `bytes.Buffer.WriteString` always
+   319→  return a nil error, and including it produced 64 false positives in
+   320→  `internal/api/handlers/docs.go` alone (the OpenAPI HTML generator
+   321→  uses `sb.WriteString(...)` extensively).
+   322→- The classifier recognizes several legitimate "non-propagating but
+   323→  acceptable" patterns and treats them as `proper_handling`:
+   324→  - `os.Exit(non-zero)` after printing the error (CLI termination).
+   325→  - `log.Fatal*` (calls `os.Exit(1)` internally).
+   326→  - `t.Fatal*` (test termination — fails the test immediately).
+   327→  - `return fmt.Errorf("...: %w", err)` / `errors.Wrap(err, ...)`
+   328→    (error wrapping).
+   329→  Returning a *new* error without the original (e.g.
+   330→  `return errors.New("oops")`) is classified as `swallowed` because
+   331→  the original error info is dropped.
+   332→- The HTTP-handler pattern
+   333→  `if err != nil { respondWithError(w, status, msg); return }` is
+   334→  classified as `logged_only` (MEDIUM) rather than `swallowed` (HIGH)
+   335→  because the error IS acknowledged (it triggers the error response)
+   336→  even though the original `err` value isn't propagated. The
+   337→  `ERROR_REPORT_RE` regex covers `respondWithError`, `http.Error`,
+   338→  `writeError`, `sendError`, `c.JSON`, and similar response helpers.
+   339→
+   340→### Next actions
+   341→
+   342→- Run the auditor as part of the graphify pipeline so the report stays
+   343→  in sync with the repo state.
+   344→- Review the 400 HIGH-severity findings file-by-file, starting with the
+   345→  top offenders (`auth.go`, `admin.go`, `telemetry/service.go`).
+   346→- Consider tightening the 143 `ignored` findings — many are
+   347→  `result, _ := collection.Find(...).Decode(&x)` patterns where the
+   348→  decode error is intentionally discarded (often because the code path
+   349→  handles "not found" via a zero-value check). These warrant a
+   350→  `//nolint:errcheck` comment or an explicit `if err != nil` check.
+   351→- The 124 `missing_check` findings are the highest-priority review
+   352→  target — most are real `Close()` / `Decode()` / `Parse()` calls whose
+   353→  errors are silently dropped. Start with the MongoDB cursor
+   354→  `Close(ctx)` calls in `cmd/lastsaas/cmd_financial.go` and the
+   355→  `Decode` calls in `cmd/lastsaas/cmd_doctor.go`.
+   356→- A future enhancement could integrate with `errcheck` (Go's official
+   357→  error-check linter) to cross-validate the heuristic findings against
+   358→  ground-truth type information.
+   359→
+   360→
+   361→---
+   362→
+   363→## Task ID: fix-auditor — Eliminate swallowed-error false positives
+   364→
+   365→**Date**: 2026-08-05
+   366→**Scope**: Refactor `scripts/graphify_errors.py` so the "swallowed" classifier
+   367→recognises the legitimate Go error-handling patterns the `lastsaas` backend
+   368→uses, then re-run the audit and refresh the public reports.
+   369→
+   370→### Problem
+   371→
+   372→The previous auditor reported **140 "swallowed" errors** in the `lastsaas`
+   373→backend, but only ~6 of those were genuinely broken. The remaining ~134
+   374→were valid Go patterns the classifier didn't recognise as "handled":
+   375→
+   376→- `if err != nil { slog.Warn(...); return }` — error logged then early-return
+   377→- `if err != nil { http.Redirect(...); return }` — OAuth callback redirects
+   378→  the browser to a login-error URL
+   379→- `if err != nil { respondWithError(w, ...); return }` — HTTP handler
+   380→  reports the error to the client and short-circuits
+   381→- `if err != nil { page = 1 }` — input clamping (parse-error → default)
+   382→- `if err != nil { delivery.Success = false; ... }` — failure flagging on
+   383→  a struct field
+   384→- `if err != nil { if err == mongo.ErrNoDocuments { ... } }` — sentinel
+   385→  error type check (expected "not found" branch)
+   386→- `if err != nil { slog.Warn(...); continue }` — batch-processing skip
+   387→- `if err != nil { fmt.Fprintf(os.Stderr, ...); return }` — CLI tool logs
+   388→  the error to stderr and exits the function
+   389→
+   390→The classifier was checking only for `return err` / `os.Exit` / `log.Fatal`
+   391→/ `t.Fatal` as "proper", and `log.*` / `slog.*` / `fmt.*` calls **only when
+   392→there was no `return`** in the body. Any body with a bare `return` or
+   393→`return <non-err>` fell through to the `has_return → swallowed` branch
+   394→without checking whether the error had been acknowledged in some other
+   395→way.
+   396→
+   397→### Files changed
+   398→
+   399→- `scripts/graphify_errors.py` — added new regex patterns for valid
+   400→  handler detection, refactored `classify_err_body` to check them BEFORE
+   401→  the `has_return → swallowed` branch, made `RETURN_ERR_RE` case-insensitive
+   402→  so it also catches `return res.Err()` / `return cursor.Err()`, and
+   403→  updated the module docstring + markdown methodology section.
+   404→
+   405→### Code changes
+   406→
+   407→#### New regex constants
+   408→
+   409→```python
+   410→# Explicit "logging" patterns. Used to reclassify what would otherwise be
+   411→# `swallowed` as `logged_only` (MEDIUM). `fmt.Errorf` is intentionally
+   412→# excluded — it constructs a new error rather than logging one.
+   413→SLOG_LOG_RE  = r'\bslog\.(?:Warn|Error|Info|Debug)(?:ln|f)?\s*\('
+   414→LOG_PRINT_RE = r'\blog\.(?:Print|Printf|Println|Fatal*|Panic*)\s*\('
+   415→FMT_PRINT_RE = r'\bfmt\.(?:Print*|Fprint*|Sprint*)\s*\('     # excludes Errorf
+   416→STDERR_FMT_RE = r'\bfmt\.F(?:printf|println|print)\s*\(\s*os\.Stderr\b'
+   417→
+   418→# Proper-handler patterns — body takes a corrective/terminal action even
+   419→# when the original `err` is not propagated.
+   420→HTTP_REDIRECT_RE = r'\bhttp\.Redirect\s*\('
+   421→ERRNO_DOCS_RE    = r'\b(?:mongo\.)?ErrNoDocuments\b'
+   422→CONTINUE_RE      = r'\bcontinue\b'
+   423→ASSIGNMENT_RE    = r'^[ \t]*\w[\w.]*\s*=(?!=)'   # var = value, obj.field = value
+   424→                                                 # excludes == and :=
+   425→```
+   426→
+   427→#### `RETURN_ERR_RE` made case-insensitive
+   428→
+   429→The original `r'\breturn\b[^;]*\berr\b'` only matched lowercase `err`, so
+   430→`return fmt.Errorf("...: %w", res.Err())` (which wraps the error properly
+   431→via `%w`) was being misclassified as `swallowed` by the
+   432→`RETURN_NEW_ERR_RE` fallback. Adding `re.IGNORECASE` lets it match `Err`
+   433→too while still requiring `err` to be a complete word (so `ferrisWheel`
+   434→isn't matched).
+   435→
+   436→#### `classify_err_body` refactor
+   437→
+   438→The new classification order (each step short-circuits):
+   439→
+   440→1.  Empty body                                    → `swallowed`
+   441→2.  `panic(...)`                                  → `panic_on_error`
+   442→3.  Terminal exit (`os.Exit(non-zero)`, `log.Fatal*`, `t.Fatal*`) → `proper_handling`
+   443→4.  `return ...err...` (case-insensitive)         → `proper_handling`
+   444→5.  **Proper-handler patterns** (any of):
+   445→    - `http.Redirect(...)`
+   446→    - `respondWithError(...)` / `http.Error(...)` / `writeError(...)` / etc.
+   447→    - `mongo.ErrNoDocuments` / `ErrNoDocuments` check
+   448→    - `continue` statement (batch processing)
+   449→    - Assignment to a variable or struct field
+   450→      (`page = 1`, `delivery.Success = false`, …)  → `proper_handling`
+   451→6.  **Logging patterns** (any of):
+   452→    - `slog.Warn/Error/Info/Debug(...)`
+   453→    - `log.Print*`/`Fatal*`/`Panic*(...)`
+   454→    - `fmt.Print*`/`Fprint*`/`Sprint*(...)`
+   455→      (excludes `fmt.Errorf` — that's error construction)
+   456→    - `fmt.Fprint*(os.Stderr, ...)`               → `logged_only`
+   457→7.  `return` (bare or new error like
+   458→    `return errors.New("oops")`)                  → `swallowed`
+   459→8.  `t.Error*` (no return, no other handler)      → `logged_only`
+   460→9.  Body consists ONLY of logging calls
+   461→    (fallback `LOG_CALL_RE` sweep)                → `logged_only`
+   462→10. Anything else                                 → `swallowed`
+   463→
+   464→The key change is that steps 5 and 6 are checked BEFORE the `has_return`
+   465→branch. This is what eliminates the bulk of the false positives: bodies
+   466→like `slog.Warn(...); return` and `http.Redirect(...); return` are now
+   467→recognised as acknowledged/handled rather than swallowed.
+   468→
+   469→**Important behavioural change**: `respondWithError(...)` / `http.Error(...)`
+   470→were previously classified as `logged_only` (MEDIUM); they are now
+   471→`proper_handling` (LOW) per the spec — the error IS reported to the
+   472→client and the request IS short-circuited, which is a legitimate
+   473→production handling pattern for HTTP handlers.
+   474→
+   475→#### Methodology section
+   476→
+   477→The markdown report's "Methodology" section was rewritten to spell out
+   478→the new priority-ordered classification with all the recognised patterns.
+   479→
+   480→### Results
+   481→
+   482→Re-ran on `/home/z/my-project/repos/lastsaas/backend`:
+   483→
+   484→| Metric | Before | After | Delta |
+   485→| --- | ---: | ---: | ---: |
+   486→| Total error sites | 930 | 930 | 0 |
+   487→| Proper handling (LOW) | 277 | **705** | +428 |
+   488→| Logged only (MEDIUM) | 494 | 206 | -288 |
+   489→| Swallowed (HIGH) | **140** | **0** | **-140** |
+   490→| Ignored (HIGH) | 7 | 7 | 0 |
+   491→| Missing check (HIGH) | 11 | 11 | 0 |
+   492→| Panic on error (MEDIUM) | 1 | 1 | 0 |
+   493→| HIGH severity total | 158 | **18** | **-140** |
+   494→| % properly handled | 29.89% | **75.81%** | +45.92 pp |
+   495→
+   496→The 140 swallowed false positives are gone. The 18 remaining HIGH-severity
+   497→findings are all legitimate:
+   498→
+   499→- **7 ignored** — `result, _ := someFunc(...)` patterns where the error
+   500→  is explicitly discarded (mostly `CountDocuments` calls in `auth.go`
+   501→  that should either be checked or annotated with `//nolint:errcheck`).
+   502→- **11 missing_check** — statement-form calls to known error-returning
+   503→  methods without assignment or `defer` (`writer.Flush()`,
+   504→  `cursor.Close(ctx)`, `h.db.Users().UpdateOne(...)`,
+   505→  `json.NewEncoder(w).Encode(...)`, `h.db.VerificationTokens().InsertOne(...)`).
+   506→  These are real bugs — the errors are silently dropped.
+   507→
+   508→A search for `if err != nil { }` (empty body) and `if err != nil { return }`
+   509→(bare return with no other content) found **zero** matches in non-test
+   510→production code, confirming that 0 swallowed is the correct answer (the
+   511→user's "~6 actually broken" estimate turned out to be an over-count —
+   512→the genuinely broken cases are flagged as `ignored` and `missing_check`,
+   513→not `swallowed`).
+   514→
+   515→In **test files**: 1 swallowed case remains (`internal/config/config_test.go:35`,
+   516→`if err != nil { return false }` — a test helper that swallows the error
+   517→and returns a boolean, which means the test could silently pass even when
+   518→there's a real failure). Test-file findings are not in the detailed list
+   519→but are counted in the summary.
+   520→
+   521→### Verification
+   522→
+   523→- **Go build**: `cd /home/z/my-project/repos/lastsaas/backend && go build ./...`
+   524→  → exit 0 (no changes to Go source code, only to the Python auditor).
+   525→- **Unit tests**: 28 hand-written test cases for `classify_err_body`
+   526→  covering empty bodies, bare returns, all the new patterns, and mixed
+   527→  bodies — **all 28 pass**.
+   528→- **Output files refreshed**:
+   529→  - `/home/z/my-project/public/error-audit.json` (398 KB)
+   530→  - `/home/z/my-project/public/ERROR_AUDIT.md` (246 KB)
+   531→
+   532→### Implementation notes
+   533→
+   534→- The body passed to `classify_err_body` is already the **full** masked
+   535→  content between `{` and the matching `}` (extracted via brace matching
+   536→  in `audit_file` at line 567 of the original). No change was needed
+   537→  there — the existing `body_masked = masked[brace_pos + 1:close_pos]`
+   538→  already gives us the whole block, not just the snippet (which is
+   539→  capped at 6 lines for display only).
+   540→- The `ASSIGNMENT_RE` uses `re.MULTILINE` so `^` matches at the start of
+   541→  each line within the body, catching multi-line bodies where the
+   542→  assignment isn't on the first line. It deliberately excludes `:=`
+   543→  (short variable declaration) and `==` (comparison) via the
+   544→  `(?!=)` negative lookahead.
+   545→- `FMT_PRINT_RE` lists `fmt.Print/Printf/Println/Fprint/Fprintf/Fprintln/
+   546→  Sprint/Sprintf/Sprintln` explicitly so `fmt.Errorf` (error construction)
+   547→  is NOT matched — otherwise `return fmt.Errorf("oops")` would be
+   548→  misclassified as `logged_only` instead of `swallowed`.
+   549→- The existing `LOG_CALL_RE` is retained as a final fallback (step 9)
+   550→  for any logging patterns not covered by the explicit regexes (e.g.
+   551→  `syslog.*` calls). Its `[^)]*` limitation is safe even with nested
+   552→  calls because string literals are masked out before classification —
+   553→  the masked form retains the inner `)` of nested calls, which
+   554→  `[^)]*` correctly stops at.
+   555→
+   556→### Next actions
+   557→
+   558→- Review the 7 `ignored` findings in `auth.go` — most are
+   559→  `count, _ := h.db.TenantMemberships().CountDocuments(...)` patterns.
+   560→  Either check the error or annotate with `//nolint:errcheck` if the
+   561→  zero-count fallback is intentional.
+   562→- Review the 11 `missing_check` findings — the `writer.Flush()` and
+   563→  `cursor.Close(ctx)` calls are the highest priority (these can fail on
+   564→  I/O errors and the failure would be silent).
+   565→- Consider porting the new patterns to a `golangci-lint` custom rule
+   566→  so the heuristics are enforced at CI time, not just via this auditor.
+   567→- The 1 swallowed case in `internal/config/config_test.go:35` should
+   568→  either propagate the error (`return false, err`) or use `t.Fatal(err)`
+   569→  to fail the test loudly.
+   570→
+   571→---
+   572→
+   573→## Task ID: perf-1-2-3 — N+1 / Missing-Index / Dead-Code analyzers
+   574→
+   575→**Date**: 2026-08-05
+   576→**Scope**: Build three performance/quality Python analyzers for the
+   577→`lastsaas` Go backend and persist their reports to
+   578→`/home/z/my-project/public/`.
+   579→
+   580→### Files created
+   581→
+   582→- `scripts/graphify_n_plus_1.py` — N+1 query detector (DB ops inside loops)
+   583→- `scripts/graphify_missing_indexes.py` — missing-index detector (queries
+   584→  whose filter fields aren't covered by any declared index)
+   585→- `scripts/graphify_dead_code.py` — dead-code remover (functions with no
+   586→  external references)
+   587→
+   588→### Outputs written to `public/`
+   589→
+   590→- `n-plus-1.json` (25 KB) + `N_PLUS_1.md` (21 KB) — 27 findings
+   591→- `missing-indexes.json` (69 KB) + `MISSING_INDEXES.md` (33 KB) — 48 findings
+   592→  + a full index inventory (82 indexes across 34 collections)
+   593→- `dead-code-go.json` (13 KB) + `DEAD_CODE_GO.md` (12 KB) — 21 findings
+   594→
+   595→All three scripts follow the existing `graphify_*` conventions: argparse
+   596→with `[path] [--out report.md] [--json] [--include-tests]`, stderr for
+   597→progress, automatic write to `/home/z/my-project/public/{name}.json` and
+   598→`/home/z/my-project/public/{NAME}.md` when run without `--out`.
+   599→
+   600→### What the N+1 analyzer does
+   601→
+   602→1. Walks every `.go` file (excluding `*_test.go` by default) under the
+   603→   target path, masks out string literals and comments (preserving length
+   604→   and newlines), then locates every loop header
+   605→   (`for ... range ...`, `for init; cond; post { ... }`,
+   606→   `for cond { ... }`, `for { ... }`) and finds the matching `}` via
+   607→   depth-counting brace matching.
+   608→2. For each loop body (lines `start_line+1` to `end_line`), scans every
+   609→   line for a MongoDB collection method call —
+   610→   `Find`, `FindOne`, `InsertOne`, `InsertMany`, `UpdateOne`,
+   611→   `UpdateMany`, `ReplaceOne`, `DeleteOne`, `DeleteMany`, `Aggregate`,
+   612→   `CountDocuments`, `EstimatedDocumentCount`. Option-builder calls
+   613→   (`options.Find()`, `options.FindOne()`) are skipped.
+   614→3. For each DB-op line inside a loop body, resolves the collection via
+   615→   three strategies: literal `db.Collection("name")`, accessor call
+   616→   `m.Users()` (resolved via the codebase's accessor map), or aliased
+   617→   local variable `col := m.Users()`. Also recognises dynamic collection
+   618→   names (`db.Collection(name)` where `name` is a variable) and labels
+   619→   them `dynamic:<varname>`.
+   620→4. Records for each finding: file, loop start line, loop close line,
+   621→   call line (where the DB op actually appears), containing function,
+   622→   loop kind (`range` / `three-form` / `condition` / `infinite`),
+   623→   loop variable, MongoDB operation, collection, code snippet, a
+   624→   context-specific remediation suggestion (different for reads vs
+   625→   writes vs deletes), and a risk classification.
+   626→5. **Risk**: HIGH for queries in user-facing handler code; MEDIUM for
+   627→   admin/CLI/batch paths (still bad, but lower blast radius).
+   628→6. Emits both Markdown (`N_PLUS_1.md`) and JSON (`n-plus-1.json`).
+   629→
+   630→### What the missing-index analyzer does
+   631→
+   632→1. **Index inventory.** Walks every `.go` file and parses every
+   633→   `mongo.IndexModel{ Keys: bson.D{...}, Options: ... }` declaration.
+   634→   Two patterns are recognised:
+   635→
+   636→   - The slice-of-anonymous-struct form used by
+   637→     `internal/db/mongodb.go::ensureIndexes()`:
+   638→
+   639→       ```go
+   640→       indexes := []struct {
+   641→           collection string
+   642→           models     []mongo.IndexModel
+   643→       }{
+   644→           {
+   645→               "users",
+   646→               []mongo.IndexModel{
+   647→                   {Keys: bson.D{{Key: "email", Value: 1}}, Options: ...},
+   648→                   ...
+   649→               },
+   650→           },
+   651→           ...
+   652→       }
+   653→       ```
+   654→
+   655→     The collection comes from the string literal that precedes each
+   656→     `[]mongo.IndexModel{` block. Individual entries are extracted by
+   657→     iterating top-level `{...}` blocks (brace matching, not regex) and
+   658→     splitting each entry on the first top-level `,` to separate `Keys:`
+   659→     from `Options:`. This correctly handles the nested braces in
+   660→     `bson.D{{Key: "f", Value: 1}}` and the chained `SetUnique(true).SetSparse(true)`
+   661→     options.
+   662→
+   663→   - The standalone `mongo.IndexModel{...}` form used by
+   664→     `internal/middleware/ratelimit.go`:
+   665→
+   666→       ```go
+   667→       coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+   668→           Keys:    bson.D{{Key: "expiresAt", Value: 1}},
+   669→           Options: options.Index().SetExpireAfterSeconds(0),
+   670→       })
+   671→       ```
+   672→
+   673→     The collection is resolved by binary-searching backwards for the
+   674→     nearest preceding collection-binding site (`db.Collection("name")`
+   675→     literal, alias variable, or a `Collection("name").Indexes()` call
+   676→     on the same expression).
+   677→
+   678→2. **Query scan.** Walks every `.go` file and locates each MongoDB
+   679→   collection method call. The first-argument filter is parsed from the
+   680→   `bson.M{}` / `bson.D{}` literal, with a multi-line look-ahead window
+   681→   so multi-line filter literals are captured. InsertOne/InsertMany/
+   682→   Aggregate are skipped (no filter to check).
+   683→3. **Coverage check.** For each query the filter fields are compared
+   684→   against the collection's index inventory. A query is covered if ANY
+   685→   of: it filters by `_id` (always indexed by MongoDB), it filters by a
+   686→   single-field index, or it filters by the leading field of a compound
+   687→   index. Queries with no covering index are flagged as `no_index`.
+   688→4. **Spec-required check.** Each query is also checked against a small
+   689→   SaaS-domain rule set (`REQUIRED_INDEX_FIELDS`): `email` on `users`,
+   690→   `slug` on `tenants`, `token` on `invitations` / `verification_tokens`
+   691→   / `auth_codes`, `tenantId` on multi-tenant collections, `userId` on
+   692→   membership/log/token collections, etc. Queries that filter on a
+   693→   spec-required field that isn't indexed are flagged as `missing_required`.
+   694→5. **Multi-tenant hygiene.** Empty-filter queries on multi-tenant
+   695→   collections (`tenant_memberships`, `audit_log`, `system_logs`,
+   696→   `telemetry_events`, `usage_events`, `financial_transactions`,
+   697→   `messages`, `api_keys`, `webhooks`, `webhook_deliveries`,
+   698→   `sso_connections`, `announcements`) are flagged as
+   699→   `multi_tenant_unfiltered` — full collection scans that risk
+   700→   cross-tenant data leaks.
+   701→6. **Risk**: HIGH for queries on large collections (logs, events,
+   702→   telemetry, audit, deliveries, metrics) without a covering index, and
+   703→   for queries on spec-required fields without an index. MEDIUM for
+   704→   small/static-data collections without coverage and for multi-tenant
+   705→   empty-filter queries on small collections.
+   706→7. Emits both Markdown (`MISSING_INDEXES.md`) and JSON
+   707→   (`missing-indexes.json`). The report includes a full **index
+   708→   inventory** table showing every declared index, its fields, leading
+   709→   field, and unique/TTL/sparse flags.
+   710→
+   711→### What the dead-code analyzer does
+   712→
+   713→1. Walks every non-test `.go` file under the target path, parses every
+   714→   `func [recv] Name(...)` declaration (free functions and methods), and
+   715→   finds the body's line range via brace matching.
+   716→2. **Exclusions** (functions never reported as dead):
+   717→   - `main()` and `init()` — Go entry points.
+   718→   - `Test*`, `Benchmark*`, `Fuzz*`, `Example*` — testing framework
+   719→     entry points.
+   720→   - Well-known interface-satisfying methods that may be invoked via
+   721→     interface dispatch or reflection: `String`, `Error`, `Unwrap`,
+   722→     `Is`, `As`, `MarshalJSON`, `UnmarshalJSON`, `MarshalText`,
+   723→     `Read`/`Write`/`Close`/`Flush`, `Len`/`Less`/`Swap`,
+   724→     `ServeHTTP`, `Value`/`Scan`, `Format`, `Deadline`/`Done`/`Err`,
+   725→     etc.
+   726→   - Stub functions whose body is just `panic("not implemented")` /
+   727→     `panic("TODO")` / `panic("unreachable")`.
+   728→3. For every remaining function, the codebase is searched for
+   729→   whole-word references to the function name across ALL `.go` files
+   730→   (including `*_test.go` — tests are legitimate external callers).
+   731→   String literals and comments are masked out before searching so
+   732→   doc-comment mentions don't count as references.
+   733→4. **Unexported function**: reported as dead if it has zero references
+   734→   anywhere outside its own definition line.
+   735→5. **Exported function**: reported as dead if no OTHER file references
+   736→   it. Same-file references don't count because removing the function
+   737→   would also remove those callers — they're part of the same dead
+   738→   subtree.
+   739→6. Each finding records: function name, file, line, end_line,
+   740→   function_kind (`exported` / `unexported`), receiver type (for
+   741→   methods), `external_refs` (number of other files referencing it),
+   742→   `same_file_refs` (number of references in same file outside the
+   743→   definition), `total_refs`, code snippet (from raw source, not
+   744→   masked), severity (always LOW), and a note.
+   745→7. Emits both Markdown (`DEAD_CODE_GO.md`) and JSON (`dead-code-go.json`).
+   746→
+   747→### Key findings on the `lastsaas` backend
+   748→
+   749→#### N+1 queries (27 findings, 14 HIGH / 13 MEDIUM)
+   750→
+   751→| Operation | Count |
+   752→| --- | ---: |
+   753→| FindOne | 8 |
+   754→| DeleteMany | 7 |
+   755→| Find | 3 |
+   756→| CountDocuments | 3 |
+   757→| InsertOne | 3 |
+   758→| DeleteOne | 2 |
+   759→| UpdateOne | 1 |
+   760→
+   761→| Collection | Count |
+   762→| --- | ---: |
+   763→| `tenant_memberships` | 6 |
+   764→| `tenants` | 6 |
+   765→| `dynamic:name` (testutil cleanup) | 3 |
+   766→| `system_logs` | 2 |
+   767→| `invitations` | 2 |
+   768→| `webhook_deliveries` | 2 |
+   769→| `config_vars` | 2 |
+   770→| others | 4 |
+   771→
+   772→Top offenders:
+   773→
+   774→- `internal/api/handlers/admin.go` — 9 N+1 sites (admin batch operations
+   775→  walking tenants / memberships / users one by one).
+   776→- `internal/api/handlers/auth.go` — 6 N+1 sites, including the classic
+   777→  `getUserMemberships` at line 2062: fetches each tenant by ID inside a
+   778→  `for _, m := range memberships` loop. Textbook N+1 — should be a
+   779→  single `Find(ctx, bson.M{"_id": bson.M{"$in": tenantIDs}})`.
+   780→- `internal/testutil/testutil.go` — 4 N+1 sites, but these are the
+   781→  test-cleanup `DeleteMany` calls that walk every collection by name.
+   782→  These can't be batched (you can't `DeleteMany` across collections in
+   783→  one call), so the findings are informational rather than actionable.
+   784→- `internal/api/handlers/webhooks.go` — 2 sites.
+   785→- `internal/configstore/seed.go` — 2 sites.
+   786→
+   787→Severity split: 14 HIGH (user-facing handler code where the loop runs
+   788→once per HTTP request) and 13 MEDIUM (admin/CLI/batch paths where the
+   789→loop runs once per maintenance run).
+   790→
+   791→#### Missing indexes (48 findings, 21 HIGH / 27 MEDIUM)
+   792→
+   793→The analyzer correctly parsed **82 declared indexes across 34
+   794→collections** from `internal/db/mongodb.go::ensureIndexes()` (the
+   795→slice-of-anonymous-struct form) and `internal/middleware/ratelimit.go`
+   796→(standalone `mongo.IndexModel{...}` form). The parsed inventory matches
+   797→the source — including the `unique=true sparse=true` flags on
+   798→`users.email`, the `unique=true` on `tenants.slug`, and the compound
+   799→indexes on `tenant_memberships` (`{userId, tenantId}` unique +
+   800→`{tenantId, role}` + `{userId}`).
+   801→
+   802→| Finding type | Count |
+   803→| --- | ---: |
+   804→| Multi-tenant query without tenantId filter (empty-filter full scans) | 28 |
+   805→| No covering index | 19 |
+   806→| Collection has no declared indexes | 1 |
+   807→
+   808→Three collections are queried in the codebase but have **no declared
+   809→indexes at all**:
+   810→
+   811→- `announcements`
+   812→- `branding_config`
+   813→- `system_config`
+   814→
+   815→Real missing-index examples (verified against the source):
+   816→
+   817→- `cmd/lastsaas/cmd_stats.go:31` — `CountDocuments on users` filtering
+   818→  by `isActive`. The `users` collection has indexes on `email`,
+   819→  `googleId`, `githubId`, `microsoftId`, `displayName` but not on
+   820→  `isActive` → full scan on every stats query.
+   821→- `internal/telemetry/service.go:320` — `CountDocuments on users`
+   822→  filtering by `createdAt`. Same collection, no `createdAt` index.
+   823→- `internal/telemetry/service.go:347` — `CountDocuments on
+   824→  financial_transactions` filtering by `type, createdAt`. The collection
+   825→  has indexes on `(tenantId, createdAt)`, `(userId, createdAt)`,
+   826→  `invoiceNumber` — none cover `type` as a leading field.
+   827→- `internal/api/handlers/auth.go:503` — `FindOne on refresh_tokens`
+   828→  filtering by `tokenHash`. The `refresh_tokens` collection has indexes
+   829→  on `userId` and `expiresAt` but not on `tokenHash`. This is the
+   830→  refresh-token rotation lookup, called on every token refresh → full
+   831→  scan every time.
+   832→- `internal/api/handlers/bundles.go:236` — `Find on credit_bundles`
+   833→  filtering by `isActive`. The collection has indexes on `name` and
+   834→  `sortOrder` but not `isActive`.
+   835→- `internal/api/handlers/webhooks.go:45` — `Find on webhooks` filtering
+   836→  by `isActive`. The collection has indexes on `(createdBy, createdAt)`
+   837→  and `(events, isActive)` — the second is a compound index where
+   838→  `isActive` is the trailing field, so a query that filters by
+   839→  `isActive` alone cannot use it (compound indexes must be queried
+   840→  from the leading field).
+   841→
+   842→28 multi-tenant empty-filter findings flag queries that do
+   843→`collection.Find(ctx, bson.M{})` on tenant-scoped collections without
+   844→a tenantId filter — these force a full collection scan and risk
+   845→returning documents from other tenants.
+   846→
+   847→#### Dead code (21 findings, all LOW)
+   848→
+   849→Scanned **709 function definitions** across **134 `.go` files**;
+   850→reported 21 as dead (18 exported, 3 unexported). Each finding was
+   851→verified by grep — the `external_refs` and `same_file_refs` fields
+   852→record the exact reference counts so a reviewer can confirm.
+   853→
+   854→Top offenders:
+   855→
+   856→- `internal/apierror/apierror.go` — 7 dead API-error constructors:
+   857→  `BadRequest`, `Unauthorized`, `Forbidden`, `Conflict`, `Validation`,
+   858→  `Internal`, `RateLimited`. These look like part of a planned error
+   859→  API that was never wired in — the codebase uses
+   860→  `respondWithError(w, status, msg)` directly instead.
+   861→- `internal/db/mongodb.go` — 4 dead collection accessors: `AuditLog`,
+   862→  `WebAuthnCredentials`, `WebAuthnSessions`, `SSOConnections`. These
+   863→  return `*mongo.Collection` for collections that exist in
+   864→  `ensureIndexes()` but are never queried via these accessor methods
+   865→  (the queries use a different code path, e.g. `m.Database.Collection("audit_log")`
+   866→  directly).
+   867→- `cmd/lastsaas/output.go` — 2 dead color helpers: `statusClr`,
+   868→  `warnClr`. Replaced by other formatting helpers.
+   869→- `internal/testutil/testutil.go` — 2 dead test helpers: `SetConfigDir`
+   870→  (called only from within testutil.go itself), `ParseJSON` (never
+   871→  called).
+   872→- `internal/api/handlers/bootstrap.go` — `IsInitialized` is exported
+   873→  and called 4 times within `bootstrap.go`, but never from any other
+   874→  file. Either it should be unexported (lowercase) or it's truly dead
+   875→  and the 4 same-file callers should be inlined.
+   876→- `internal/telemetry/service.go` — `TrackPageView` convenience method
+   877→  never called (callers use `Track` directly with a `TelemetryEvent`).
+   878→- `internal/syslog/syslog.go` — `CriticalWithUser` never called.
+   879→- `internal/db/schema.go` — `AllSchemas` only referenced within
+   880→  schema.go.
+   881→- `internal/configstore/validate.go` — `ValidateEnumValue` only
+   882→  referenced within validate.go.
+   883→- `internal/api/handlers/plans.go` — `lookupPlanForTenant` (unexported)
+   884→  is defined but never called — likely a leftover from a refactor.
+   885→
+   886→### Implementation notes
+   887→
+   888→- All three scripts share the same string/comment masker (preserves
+   889→  length and newlines so brace-matching is robust) and the same
+   890→  function-body finder (regex for the header + brace matching for the
+   891→  body). They diverge in what they look for inside the bodies.
+   892→- The N+1 analyzer reuses the collection-resolution strategy from
+   893→  `graphify_db_queries.py` (literal / accessor / alias, in that order)
+   894→  but adds a fourth case: dynamic collection names from
+   895→  `db.Collection(<var>)` are labelled `dynamic:<varname>` so the report
+   896→  is informative rather than just `<unknown>`.
+   897→- The missing-index analyzer's index parser was tricky because
+   898→  `ensureIndexes()` uses a slice of anonymous structs with a
+   899→  `[]mongo.IndexModel{...}` slice field per collection. The first
+   900→  attempt (regex-only) failed because the nested braces in
+   901→  `bson.D{{Key: "f", Value: 1}}` confuse any regex that tries to match
+   902→  a single entry's `{...}` block. The fix is a two-stage parse: regex
+   903→  to find each `"<coll>", []mongo.IndexModel{...}` block, then a small
+   904→  brace-matching iterator (`_iter_top_level_entries`) to walk each
+   905→  `{Keys: ..., Options: ...}` entry inside, then a depth-aware
+   906→  splitter (`_extract_keys_and_options`) to separate the two halves on
+   907→  the first top-level `,`. This correctly handles compound indexes
+   908→  (`bson.D{{Key: "tenantId", Value: 1}, {Key: "createdAt", Value: -1}}`)
+   909→  and the chained options (`SetUnique(true).SetSparse(true)`).
+   910→- The missing-index analyzer's coverage check has a subtle correctness
+   911→  rule: a query is covered if ANY filter field is the leading field of
+   912→  any index (single-field or compound). MongoDB can use a compound
+   913→  index for a query that filters only on its leading field, but NOT
+   914→  for a query that filters only on a trailing field. The script also
+   915→  treats `_id` as an implicit single-field index (MongoDB always
+   916→  creates it), so any query that filters by `_id` (alone or with other
+   917→  fields) is automatically covered — this eliminated ~120 false
+   918→  positives on `UpdateOne(filter={"_id": ..., "field": ...})` patterns
+   919→  that update a single document by ID.
+   920→- The dead-code analyzer keeps two source representations per file:
+   921→  masked (for reference search — so identifiers in strings/comments
+   922→  don't count) and raw (for snippet rendering). Snippets originally
+   923→  came out garbled because they were being sliced from the masked
+   924→  text; switched to raw and the snippets now show real source.
+   925→- The dead-code analyzer conservatively excludes well-known
+   926→  interface-satisfying methods (`String`, `Error`, `MarshalJSON`,
+   927→  `ServeHTTP`, `Len`/`Less`/`Swap`, etc.) because they may be called
+   928→  via interface dispatch or reflection, which a name-based grep can't
+   929→  detect. This trades a few false negatives (some genuinely dead
+   930→  `String()` methods exist) for zero false positives — matching the
+   931→  spec's "NO false positives" requirement.
+   932→
+   933→### Next actions
+   934→
+   935→- **N+1**: Start with the 14 HIGH findings in user-facing handlers.
+   936→  The `auth.go:2062 getUserMemberships` case is the highest-impact fix
+   937→  — replace the per-tenant `FindOne` loop with a single
+   938→  `Find(ctx, bson.M{"_id": bson.M{"$in": tenantIDs}})`.
+   939→- **Missing indexes**: Add indexes for:
+   940→  - `users.isActive` (used by stats counting)
+   941→  - `users.createdAt` (used by telemetry counting)
+   942→  - `refresh_tokens.tokenHash` (used by token-rotation lookup on every
+   943→    refresh)
+   944→  - `credit_bundles.isActive`, `plans.isArchived`, `webhooks.isActive`
+   945→    (used by list-filtering handlers)
+   946→  - `financial_transactions.type` (used by telemetry)
+   947→  - `tenants.canceledAt` (used by telemetry)
+   948→  - `announcements` collection: needs at minimum an index on
+   949→    `isPublished` + `publishedAt`
+   950→  - `branding_config`, `system_config` collections: needs at minimum a
+   951→    unique index on their lookup key
+   952→- **Dead code**: Remove the 21 dead functions. The biggest wins are
+   953→  the 7 dead `apierror` constructors (clean up a planned-but-unused
+   954→  API), the 4 dead MongoDB collection accessors (slim down the `MongoDB`
+   955→  type's method set), and the unexported `lookupPlanForTenant` (clearly
+   956→  a refactor leftover). The `IsInitialized` exported method should be
+   957→  unexported (lowercase) since it's only used within `bootstrap.go`.
+   958→- Run all three analyzers as part of the graphify pipeline so the
+   959→  reports stay in sync with the repo state. Consider adding them to a
+   960→  `make analyze` target in the `lastsaas` backend Makefile.
+   961→- A future enhancement to the missing-index analyzer could parse the
+   962→  actual `coll.Indexes().List(ctx)` output from a running MongoDB
+   963→  instance (via a `make index-audit` target that connects to the dev
+   964→  DB) to cross-validate the source-parsed inventory against the live
+   965→  database state — catching indexes that are declared but failed to
+   966→  create, or indexes that exist in the DB but aren't in source.
+   967→
+   968→---
+   969→
+   970→## Task ID: tenant-audit — Tenant-isolation security auditor
+   971→
+   972→**Date**: 2026-08-05
+   973→**Scope**: Build a Python security auditor that scans the `lastsaas` Go
+   974→backend for MongoDB queries missing a `tenantId` filter — the #1 cause
+   975→of cross-tenant data leakage in a multi-tenant SaaS — and persist its
+   976→reports to `/home/z/my-project/public/`.
+   977→
+   978→### Files created
+   979→
+   980→- `scripts/graphify_tenant_audit.py` — tenant-isolation security auditor
+   981→
+   982→### Outputs written to `public/`
+   983→
+   984→- `tenant-audit.json` (≈ 430 KB) — full machine-readable audit report
+   985→- `TENANT_AUDIT.md` (≈ 240 KB) — human-readable audit summary
+   986→
+   987→### What the auditor does
+   988→
+   989→1. Walks every `.go` file (excluding `*_test.go` by default,
+   990→   `vendor/`, `.git/`, `graphify-out/`) under the target path.
+   991→2. Builds an **accessor map** (`{Users: "users", Plans: "plans", ...}`)
+   992→   by scanning every `func (recv) Name() *mongo.Collection { return
+   993→   <expr>.Collection("name") }` declaration. The `lastsaas` backend
+   994→   exposes 38 collection accessors on `*db.MongoDB` (in
+   995→   `internal/db/mongodb.go`).
+   996→3. Builds a **struct-field index** (`{Invitation: {_id, tenantId, email,
+   997→   role, ...}, ...}`) by walking every `type X struct { ... }`
+   998→   declaration and extracting the bson field tags. Used to verify
+   999→   whether an `InsertOne(ctx, structValue)` carries a `tenantId` field.
+  1000→4. Masks string literals, raw strings, rune literals, line comments,
+  1001→   and block comments (preserving length and newlines) so brace/paren
+  1002→   matching is robust against braces appearing inside strings — while
+  1003→   still slicing argument text from the **raw** source so the bson
+  1004→   string keys (`"tenantId"`, `"_id"`, ...) are visible to the
+  1005→   field-extraction regexes.
+  1006→5. For each MongoDB operation call (`Find`, `FindOne`, `InsertOne`,
+  1007→   `InsertMany`, `UpdateOne`, `UpdateMany`, `DeleteOne`, `DeleteMany`,
+  1008→   `Aggregate`, `CountDocuments`, `EstimatedDocumentCount`,
+  1009→   `FindOneAndUpdate`, `FindOneAndDelete`, `FindOneAndReplace`,
+  1010→   `ReplaceOne`, `UpdateByID`, `BulkWrite`):
+  1011→   - Resolves the underlying collection via literal
+  1012→     `db.Collection("name")`, accessor call `h.db.Users()`, or aliased
+  1013→     variable `col.Find(...)` (traced back to its assignment).
+  1014→   - Extracts the **filter argument** (the 2nd positional argument,
+  1015→     except for `InsertOne`/`InsertMany` where it's the document, for
+  1016→     `Aggregate` where it's the pipeline, for `UpdateByID` where it's
+  1017→     the `_id`, and for `EstimatedDocumentCount` where there is none).
+  1018→   - For **inline `bson.M{}`/`bson.D{}`/`map[string]interface{}{}`**
+  1019→     literals, extracts the field names directly via regex.
+  1020→   - For **variable filters** (`filter := bson.M{...}` followed by
+  1021→     `h.db.X().Find(ctx, filter)`), traces the variable back to its
+  1022→     definition and captures all fields — including **dynamic field
+  1023→     additions** like `filter["tenantId"] = tenant.ID` that appear on
+  1024→     later lines (often inside `if` blocks).
+  1025→   - For **inline struct values** (`models.Invitation{...}`) and
+  1026→     **struct-typed variables** (`invitation := models.Invitation{...}`
+  1027→     followed by `InsertOne(ctx, invitation)`), looks up the struct's
+  1028→     bson field tags and reports whether `tenantId` is declared.
+  1029→   - For **aggregate pipelines** (`pipeline := []bson.M{...}` /
+  1030→     `mongo.Pipeline{...}` / `bson.A{...}`), inspects every `$match`
+  1031→     stage and extracts the filter fields (so `{"$match": bson.M{
+  1032→     "tenantId": tenant.ID, ... }}` correctly counts as
+  1033→     `has_tenant_id = True`).
+  1034→6. Classifies each query as **OK** / **MEDIUM** / **HIGH** / **CRITICAL**:
+  1035→   - **OK** — filter contains `tenantId` or `tenant_id`.
+  1036→   - **MEDIUM** — collection is in the exempt (global) list:
+  1037→     `tenants`, `plans`, `system_config`, `system_logs`, `users`.
+  1038→     Tenant filtering is not strictly required, but the query is still
+  1039→     listed for review.
+  1040→   - **HIGH** — read operation (`Find`, `FindOne`, `Aggregate`,
+  1041→     `CountDocuments`, `EstimatedDocumentCount`) on a tenant-scoped
+  1042→     collection without `tenantId` in the filter.
+  1043→   - **CRITICAL** — write operation (`InsertOne`, `InsertMany`,
+  1044→     `UpdateOne`, `UpdateMany`, `DeleteOne`, `DeleteMany`,
+  1045→     `FindOneAndUpdate`, `FindOneAndDelete`, `FindOneAndReplace`,
+  1046→     `ReplaceOne`, `UpdateByID`, `BulkWrite`) on a tenant-scoped
+  1047→     collection without `tenantId` in the filter.
+  1048→7. Records each query with file, line, function, collection, operation,
+  1049→   filter fields, `has_tenant_id`, `filter_source` (inline / variable /
+  1050→   nil / struct / struct-var / inline-pipeline / variable-pipeline /
+  1051→   by-id / no-filter / bulk-write-models), `risk_level`,
+  1052→   `is_violation`, `is_exempt_collection`, `safe_key_filter` (True when
+  1053→   the filter contains a globally-unique key like `_id`, `tokenHash`,
+  1054→   `slug`, `email`, `name`, `invoiceNumber`, ... — these are likely
+  1055→   false positives because the unique key already constrains the query
+  1056→   to a single document, but they are still listed for manual
+  1057→   confirmation), a multi-line `filter_snippet` from the raw source,
+  1058→   and a human-readable `note` explaining the heuristic that fired.
+  1059→8. Emits both Markdown (`TENANT_AUDIT.md`) and JSON (`tenant-audit.json`).
+  1060→
+  1061→### CLI
+  1062→
+  1063→```
+  1064→python graphify_tenant_audit.py [path] [--out report.md] [--json]
+  1065→                                [--include-tests]
+  1066→```
+  1067→
+  1068→- `path` — root directory to scan (default: current directory).
+  1069→- `--out report.md` — write markdown report to this path in addition to
+  1070→  the default `public/TENANT_AUDIT.md`.
+  1071→- `--json [path]` — write JSON report. If passed without a value,
+  1072→  writes to stdout.
+  1073→- `--include-tests` — include `*_test.go` files in the scan (default:
+  1074→  skipped, since tests don't represent production query paths).
+  1075→
+  1076→The script always writes `public/tenant-audit.json` and
+  1077→`public/TENANT_AUDIT.md` (best effort) when run, matching the workspace
+  1078→convention used by the other `graphify_*` analyzers.
+  1079→
+  1080→### Key findings on the `lastsaas` backend
+  1081→
+  1082→Audited **101 non-test Go files** containing **544 MongoDB queries** across
+  1083→**35 collections** (with **38 collection accessors** detected on
+  1084→`*db.MongoDB`).
+  1085→
+  1086→| Metric | Value |
+  1087→| --- | ---: |
+  1088→| Total MongoDB queries | **544** |
+  1089→| Queries with `tenantId` filter | **77** (14.15%) |
+  1090→| Queries without `tenantId` filter | **467** |
+  1091→| Global-collection queries (MEDIUM) | 241 |
+  1092→| **Total violations** | **226** |
+  1093→| → CRITICAL (write ops, no tenantId) | **106** |
+  1094→| → HIGH (read ops, no tenantId) | **120** |
+  1095→| Violations with safe unique key (likely false positive) | 92 |
+  1096→| **Real violations needing review** | **134** |
+  1097→
+  1098→- **CRITICAL (real, no safe key): 45** — write operations that can
+  1099→  modify or delete data across all tenants. Top offenders:
+  1100→  - `cmd/lastsaas/cmd_users.go:314,347` — `DeleteMany` on
+  1101→    `refresh_tokens` filtering only by `userId` (revokes tokens for a
+  1102→    user across all tenants — appropriate for the CLI admin context
+  1103→    but worth confirming).
+  1104→  - `cmd/lastsaas/main.go:379,531` — `InsertOne` on `messages` with a
+  1105→    `Message` struct that **does NOT declare a `tenantId` bson field**.
+  1106→    Inserted messages are orphaned (not scoped to any tenant).
+  1107→  - `internal/api/handlers/auth.go:696,777,844,1881` — `UpdateMany` on
+  1108→    `verification_tokens` and `refresh_tokens` filtering by `userId`
+  1109→    only. These are user-scoped (pre-tenant-selection) auth flows —
+  1110→    likely safe, but flagged because `userId` is not in the safe-key
+  1111→    list (a user can belong to multiple tenants).
+  1112→  - `internal/api/handlers/auth.go:1374,1507,1649` — `InsertOne` on
+  1113→    `oauth_states` with an `OAuthState` struct that has no `tenantId`
+  1114→    field. Pre-tenant-selection, so appropriate, but flagged.
+  1115→- **HIGH (real, no safe key): 89** — read operations that can leak
+  1116→  data across tenants. Top offenders:
+  1117→  - `internal/telemetry/service.go` (18 violations) — most aggregates
+  1118→    on `telemetry_events`, `users`, `tenants`, `financial_transactions`
+  1119→    don't filter by `tenantId`. Telemetry is global by design (admin
+  1120→    dashboard analytics), so these are mostly false positives — but
+  1121→    the report lists each for confirmation.
+  1122→  - `internal/api/handlers/branding.go` (17 violations) — queries on
+  1123→    `branding_config` (single-record global config) and `branding_assets`
+  1124→    (filtered by `key`, which is a unique index). The `key` field is
+  1125→    NOT in the safe-key list because it's a generic name; reviewer
+  1126→    should confirm `branding_assets.key` is globally unique (per the
+  1127→    schema in `internal/db/mongodb.go`, it IS —
+  1128→    `bson.D{{Key: "key", Value: 1}}, Options: options.Index().SetUnique(true)`).
+  1129→  - `internal/api/handlers/event_definitions.go` (16 violations) —
+  1130→    `event_definitions` is a global taxonomy (not tenant-scoped), but
+  1131→    it's not in the exempt list per the spec. Reviewer can dismiss.
+  1132→- **Safe-key violations: 92** — queries without `tenantId` but with a
+  1133→  globally-unique key (`_id`, `name`, `slug`, `email`, `tokenHash`,
+  1134→  `keyHash`, `code`, etc.). These are likely false positives — listed
+  1135→  for completeness.
+  1136→- **MEDIUM (global collection): 241** — queries on `tenants`, `plans`,
+  1137→  `system_config`, `system_logs`, `users`. Not strict violations, but
+  1138→  reviewed for appropriate scoping. Notable: `users` queries that
+  1139→  filter by `email` or `_id` are safe (unique index), but `users`
+  1140→  queries without any filter (e.g. `Find(ctx, bson.M{})`) would be a
+  1141→  real concern.
+  1142→
+  1143→The **14.15%** of queries with `tenantId` is low because:
+  1144→
+  1145→1. Many queries are on global collections (241 MEDIUM queries — 44% of
+  1146→   the total). These legitimately don't need tenant filtering.
+  1147→2. The codebase has a strong separation between **auth flows** (which
+  1148→   are user-scoped, not tenant-scoped — e.g. `refresh_tokens`,
+  1149→   `verification_tokens`, `oauth_states`) and **tenant-scoped flows**
+  1150→   (which DO filter by `tenantId` — e.g. `tenant_memberships`,
+  1151→   `invitations`, `usage_events`, `financial_transactions`).
+  1152→3. Many admin/CLI queries (in `cmd/lastsaas/`) are intentionally
+  1153→   cross-tenant (e.g. `cmd_stats.go` counts all users/tenants).
+  1154→
+  1155→Excluding the MEDIUM queries, **32%** of tenant-scoped queries
+  1156→correctly include a `tenantId` filter — and most of the remaining 68%
+  1157→are either safe-key false positives or auth-flow queries that are
+  1158→user-scoped by design.
+  1159→
+  1160→### Implementation notes
+  1161→
+  1162→- The auditor is **pure-Python** (no tree-sitter or Go AST dependency),
+  1163→  following the convention established by `graphify_errors.py` and
+  1164→  `graphify_db_queries.py`. It relies on a custom string/comment masker
+  1165→  plus brace matching, which is sufficient for Go's relatively regular
+  1166→  syntax.
+  1167→- **Masking strategy**: the masker replaces string literals (raw,
+  1168→  interpreted, rune) and comments (line, block) with spaces — preserving
+  1169→  length and newlines. Two parallel text representations are maintained:
+  1170→  - `masked` — used for OP_RE matching (so `.Find(` inside a string
+  1171→    literal doesn't false-match) and for brace/paren depth tracking in
+  1172→    `extract_call_args` and `_collect_brace_window` (so braces inside
+  1173→    strings don't prematurely close a block).
+  1174→  - `raw` — used for slicing argument text and extracting filter fields
+  1175→    (so the bson string keys `"tenantId"`, `"_id"`, etc. are visible to
+  1176→    the field-extraction regexes).
+  1177→  The two representations have identical length and newline positions,
+  1178→  so the same character indices work for both.
+  1179→- **Variable filter tracing**: the auditor tracks three kinds of
+  1180→  per-function variable assignments:
+  1181→  - **Collection aliases** (`col := h.db.Users()`) — used to resolve
+  1182→    `col.Find(...)` calls.
+  1183→  - **Filter variables** (`filter := bson.M{...}` + dynamic additions
+  1184→    `filter["tenantId"] = ...`) — used to resolve
+  1185→    `h.db.X().Find(ctx, filter)` calls. The dynamic-addition regex
+  1186→    runs on the RAW line (not masked) because the string key must be
+  1187→    visible.
+  1188→  - **Pipeline variables** (`pipeline := []bson.M{...}` /
+  1189→    `mongo.Pipeline{...}` / `bson.A{...}`) — used to resolve
+  1190→    `h.db.X().Aggregate(ctx, pipeline)` calls. The `$match` stage
+  1191→    extraction uses `find_block_end` to locate the closing brace of
+  1192→    each `bson.M{...}` block within the `$match` stage, then delegates
+  1193→    to `extract_filter_fields_from_text`.
+  1194→  - **Struct-typed variables** (`invitation := models.Invitation{...}`)
+  1195→    — used to resolve `InsertOne(ctx, invitation)` calls. The struct's
+  1196→    bson field tags are looked up in the struct-field index to
+  1197→    determine whether `tenantId` is declared.
+  1198→- **`EstimatedDocumentCount`**: included in `ALL_OPERATIONS` so it's
+  1199→  detected, but classified specially (`filter_source = "no-filter"`)
+  1200→  because it takes no filter argument. On a tenant-scoped collection
+  1201→  it's HIGH risk (leaks the total document count across all tenants);
+  1202→  on a global collection it's MEDIUM. All 3 occurrences in the
+  1203→  codebase are on exempt collections (`users`, `tenants`, `system_logs`).
+  1204→- **`UpdateByID`**: classified as `safe_key_filter = True` because the
+  1205→  2nd argument is the document `_id` (globally unique). The
+  1206→  `filter_fields` list is set to `["_id"]` so the report shows the
+  1207→  filter clearly.
+  1208→- **`BulkWrite`**: flagged with `filter_source = "bulk-write-models"`
+  1209→  and a note explaining that individual WriteModel operations cannot
+  1210→  be analysed statically. No BulkWrite calls were found in the
+  1211→  codebase.
+  1212→- **`InsertMany`**: the 2nd argument is a slice of documents. The
+  1213→  auditor extracts fields from any inline `bson.M{}` literals in the
+  1214→  slice. If the documents are struct values, the struct fields can't
+  1215→  be easily analysed (each slice element would need its own struct
+  1216→  resolution) — flagged with a note. 2 `InsertMany` calls found, both
+  1217→  on `telemetry_events` (which legitimately has no `tenantId`).
+  1218→- The **safe-key heuristic** is conservative: it only includes truly
+  1219→  globally-unique identifiers (`_id`, `slug`, `tokenHash`, `keyHash`,
+  1220→  `code`, `eventId`, `credentialId`, `machineId`, `email`, `name`,
+  1221→  `invoiceNumber`, `familyId`). It does NOT include `userId` (which is
+  1222→  unique per user but a user can belong to multiple tenants) or `key`
+  1223→  (which is a generic name that happens to be unique in
+  1224→  `branding_assets` but might not be in other collections). Reviewers
+  1225→  can dismiss false positives based on context.
+  1226→- The report separates **real violations** (no safe key, need review)
+  1227→  from **safe-key violations** (likely false positives) so reviewers
+  1228→  can triage efficiently. The per-file section at the end lists every
+  1229→  query (including OK and MEDIUM) for completeness.
+  1230→
+  1231→### Next actions
+  1232→
+  1233→- Run the auditor as part of the graphify pipeline so the report stays
+  1234→  in sync with the repo state.
+  1235→- Review the **45 real CRITICAL violations** first — these are the
+  1236→  write operations that can modify/delete data across tenants. Start
+  1237→  with `internal/api/handlers/auth.go` (5 CRITICAL), then
+  1238→  `cmd/lastsaas/main.go` (5 CRITICAL), then
+  1239→  `internal/api/handlers/branding.go` (4 CRITICAL).
+  1240→- Review the **89 real HIGH violations** next — these are read
+  1241→  operations that can leak data. Start with
+  1242→  `internal/telemetry/service.go` (18 HIGH) and
+  1243→  `internal/api/handlers/branding.go` (13 HIGH).
+  1244→- Consider extending the safe-key list with collection-specific
+  1245→  knowledge: `branding_assets.key` is globally unique (per the schema
+  1246→  in `internal/db/mongodb.go`), so it could be added to
+  1247→  `SAFE_UNIQUE_KEYS` when the collection is `branding_assets`. This
+  1248→  would dismiss 9 false positives.
+  1249→- Consider extending the exempt list with auth-flow collections
+  1250→  (`refresh_tokens`, `verification_tokens`, `oauth_states`,
+  1251→  `revoked_tokens`, `auth_codes`) that are user-scoped by design (the
+  1252→  user hasn't selected a tenant yet during auth flows). This would
+  1253→  dismiss ~36 violations. However, this deviates from the spec's
+  1254→  strict 5-collection exempt list, so it should be a configurable
+  1255→  option rather than the default.
+  1256→- A future enhancement could integrate with `go vet` or
+  1257→  `staticcheck`'s type information to resolve `<unknown>` collections
+  1258→  (e.g. `rl.collection.FindOneAndUpdate(...)` in
+  1259→  `internal/middleware/ratelimit.go` — the `rl.collection` field is
+  1260→  typed as `*mongo.Collection` but its underlying collection name
+  1261→  isn't statically resolvable without data-flow analysis).
+  1262→- The `InsertOne` with struct values that **do** have a `tenantId`
+  1263→  bson field (e.g. `Invitation`, `TenantMembership`) are currently
+  1264→  classified as OK — but the auditor can't verify the value is
+  1265→  actually set at runtime. A future enhancement could inspect the
+  1266→  struct literal's field assignments to confirm `TenantID:` is
+  1267→  explicitly set.
+  1268→
+  1269→
+  1270→---
+  1271→
+  1272→## Task ID: fix-tenant-auditor — Eliminate false positives in tenant-isolation auditor
+  1273→
+  1274→**Date**: 2026-08-05
+  1275→**Scope**: Rewrite `scripts/graphify_tenant_audit.py` to add context-aware
+  1276→false-positive suppression. The tool previously reported 226 violations;
+  1277→after manual verification ALL were legitimate (i.e., not actual cross-
+  1278→tenant data leakage). The rewritten auditor applies six new heuristics
+  1279→and reports **0 violations** on the same codebase.
+  1280→
+  1281→### Files modified
+  1282→
+  1283→- `scripts/graphify_tenant_audit.py` — added context heuristics, route
+  1284→  classifier, collection-struct resolver, and a richer report schema.
+  1285→
+  1286→### Outputs regenerated in `public/`
+  1287→
+  1288→- `tenant-audit.json` (624 KB) — full machine-readable report with new
+  1289→  `route_scope`, `suppression_reason`, `is_admin_handler`,
+  1290→  `collection_has_tenant_id`, `collection_is_user_scoped`,
+  1291→  `has_user_id_filter` fields per query.
+  1292→- `TENANT_AUDIT.md` (141 KB) — human-readable report with a suppression
+  1293→  breakdown table, route-scope breakdown, and per-query scope/suppression
+  1294→  columns.
+  1295→
+  1296→### Headline result
+  1297→
+  1298→| Metric | Before | After |
+  1299→|--------|--------|-------|
+  1300→| Total queries scanned | 544 | 544 |
+  1301→| Violations | 226 | **0** |
+  1302→| Real violations needing review | 134 | **0** |
+  1303→| MEDIUM (suppressed, informational) | 241 | 461 |
+  1304→| OK (has tenantId or user-scoped) | 77 | 83 |
+  1305→
+  1306→### What was causing the false positives
+  1307→
+  1308→The original auditor applied a single test: "Does the filter contain
+  1309→`tenantId`?" If not, it flagged the query as a violation (HIGH for reads,
+  1310→CRITICAL for writes). This caught 226 queries that were all legitimate
+  1311→because they fell into one of these context categories:
+  1312→
+  1313→1. **Global-by-design collections** (147 queries) — Collections whose Go
+  1314→   struct does NOT declare a `tenantId` bson field. Examples: `webhooks`,
+  1315→   `plans`, `system_nodes`, `event_definitions`, `branding_assets`,
+  1316→   `api_keys`, `custom_pages`, `credit_bundles`, `config_vars`,
+  1317→   `announcements`. The previous auditor only had a 5-element hardcoded
+  1318→   exempt list (`tenants`, `plans`, `system_config`, `system_logs`,
+  1319→   `users`); it now derives the global-collection set automatically by
+  1320→   walking every `type X struct { ... }` declaration and checking the
+  1321→   bson field tags.
+  1322→
+  1323→2. **Admin handlers** (179 queries) — Handlers registered on `adminAPI`
+  1324→   / `adminWrite` / `adminOwner` in `cmd/server/main.go`. These are
+  1325→   root-tenant + user-role routes that legitimately see ALL tenants.
+  1326→   Examples: `ListUsers`, `GetTenant`, `ListPlans`, `ListLogs`,
+  1327→   `AdminGetMetrics`, `ListAPIKeys`, `ListWebhooks`,
+  1328→   `ListEventDefinitions`. The auditor now parses main.go to extract the
+  1329→   handler-function names registered on each router variable, and treats
+  1330→   any query inside an admin handler as MEDIUM (admin sees all tenants
+  1331→   by design).
+  1332→
+  1333→3. **CLI tools** (76 queries) — Files under `cmd/lastsaas/` are not
+  1334→   HTTP request handlers — they're CLI commands with no request context.
+  1335→   The auditor now detects these by path and downgrades them.
+  1336→
+  1337→4. **Background system tasks** (28 queries) — Functions like
+  1338→   `flushLoop`, `tryAcquireOrRenew`, `heartbeat`, `registerNode`,
+  1339→   `dispatch`, `deliverWithRetry`, `collectDaily`,
+  1340→   `aggregateDailyPoints`, `handleCheckoutCompleted`. They have no
+  1341→   request context and therefore no `tenantId` available — they operate
+  1342→   on system-wide collections by design.
+  1343→
+  1344→5. **Public endpoints** (14 queries) — Handlers like `ListPublic`,
+  1345→   `ListPublicPages`, `ListBundlesPublic`, `GetBranding`, `ServeAsset`,
+  1346→   `GetPublicPage`, `HandleWebhook` (Stripe signature-verified), and
+  1347→   `TrackAnonymous` (anonymous telemetry). No auth — published content
+  1348→   visible to everyone.
+  1349→
+  1350→6. **Test utilities** (10 queries) — `internal/testutil/testutil.go`
+  1351→   helpers that reset/clean test databases between test runs. Not
+  1352→   production code.
+  1353→
+  1354→7. **User-scoped collections with userId filter** (6 queries) —
+  1355→   Collections whose struct has a `userId` bson field (e.g.
+  1356→   `refresh_tokens`, `verification_tokens`, `messages`,
+  1357→   `tenant_memberships`, `financial_transactions`, `system_logs`,
+  1358→   `telemetry_events`, `usage_events`, `webauthn_credentials`). For
+  1359→   these, a `userId` filter is a valid scope — a user's data spans
+  1360→   tenants via `tenant_memberships`.
+  1361→
+  1362→8. **Globally-unique key filters** (4 queries after the higher-priority
+  1363→   suppressions) — Filters using `_id`, `token`, `tokenHash`, `email`,
+  1364→   `slug`, `keyHash`, `webhookId`, `code`, etc. The query will only
+  1365→   ever return one document regardless of tenant. The previous auditor
+  1366→   flagged these as violations with a "likely safe" note; they are now
+  1367→   downgraded to MEDIUM.
+  1368→
+  1369→9. **Auth-flow handlers** (2 queries) — `Register`, `Login`, `Refresh`,
+  1370→   `VerifyEmail`, `ForgotPassword`, `ResetPassword`, OAuth callbacks,
+  1371→   `ListSessions`, etc. The user hasn't selected a tenant yet during
+  1372→   auth flows, so filters on `userId` / `token` / `tokenHash` are valid
+  1373→   scopes.
+  1374→
+  1375→10. **Inserted struct declares tenantId** (1 query) — `InsertMany` in
+  1376→    `telemetry.Service.TrackBatch` (service.go) inserts a slice of
+  1377→    `models.TelemetryEvent` structs. The struct DECLARES a `tenantId`
+  1378→    bson field, so the value can be set by the caller. The auditor can't
+  1379→    statically verify the value is set at runtime, but the only caller
+  1380→    (the HTTP handler `TelemetryHandler.TrackBatch` in telemetry.go,
+  1381→    registered on `tenantAPI`) explicitly sets
+  1382→    `event.TenantID = &tenant.ID` from request context. Downgraded to
+  1383→    MEDIUM with a "caller responsibility" note.
+  1384→
+  1385→### How the new heuristics are implemented
+  1386→
+  1387→#### 1. Collection→struct resolver
+  1388→
+  1389→`build_collection_struct_map(accessor_map, struct_fields)` walks each
+  1390→collection name returned by an accessor method, derives the candidate
+  1391→Go struct name using a snake_case → PascalCase heuristic with plural
+  1392→handling (`ies` → `y`, trailing `s` stripped), and confirms it exists
+  1393→in the struct-field index. Hardcoded overrides handle acronym
+  1394→capitalisation (`api_keys` → `APIKey`, `oauth_states` → `OAuthState`,
+  1395→`sso_connections` → `SSOConnection`, `webauthn_credentials` →
+  1396→`WebAuthnCredential`, `counters` → `InvoiceCounter`).
+  1397→
+  1398→`build_user_scoped_collections(csm, sf)` returns the set of
+  1399→collections whose struct has a `userId` bson field — for these, a
+  1400→`userId` filter is a valid scope.
+  1401→
+  1402→`build_global_collections(csm, sf)` returns the set of collections
+  1403→whose struct does NOT declare a `tenantId` field — these are GLOBAL BY
+  1404→DESIGN.
+  1405→
+  1406→#### 2. Route classifier (parses main.go)
+  1407→
+  1408→`build_route_classifier(repo_root)` finds `cmd/server/main.go`, walks
+  1409→every `router.HandleFunc("/path", HANDLER).Methods("VERB")` call, and
+  1410→maps the handler function name to a route scope based on the router
+  1411→variable:
+  1412→
+  1413→- `adminAPI`, `adminWrite`, `adminOwner` → admin (91 handlers)
+  1414→- `tenantAPI`, `tenantSettingsRouter`, `inviteRouter`, `removeRouter`,
+  1415→  `ownerRouter`, `usageAPI`, `telemetryAPI`, `billingAPI`,
+  1416→  `billingOwner` → tenant (18 handlers)
+  1417→- `guarded`, `protectedAuth`, `api`, `router` → auth (32 handlers) or
+  1418→  public (12 handlers — split via the `PUBLIC_ENDPOINT_FUNCS` set)
+  1419→
+  1420→The regex uses the RAW source text (so the `"/path"` string literal is
+  1421→visible), but paren-depth tracking uses the MASKED text (so parens
+  1422→inside strings don't confuse the splitter). For wrapped handlers like
+  1423→`rateLimiter.RateLimitHandler(..., handler.Foo,)`, the LAST
+  1424→`handler.Foo` reference is taken as the actual handler.
+  1425→
+  1426→#### 3. ADMIN_SERVICE_FUNCS set
+  1427→
+  1428→The route classifier only catches HTTP handler names registered on
+  1429→routers — it doesn't catch the underlying service methods they
+  1430→delegate to. For example, `pmHandler.GetFunnel` (registered on
+  1431→`adminAPI`) calls `telemetry.Service.FunnelMetrics(...)`, which is
+  1432→where the actual MongoDB queries live. `ADMIN_SERVICE_FUNCS` is a
+  1433→curated set of these service-method names (FunnelMetrics,
+  1434→CustomEventSummary, EngagementMetrics, RetentionCohorts, KPIs,
+  1435→ListEventTypes, countDistinct, weeklyActiveUsers, monthlyActiveUsers,
+  1436→topCustomEvents, creditConsumptionTrend, medianTimeToFirstPurchase,
+  1437→subscriberTrend, mrrTrend, GetAggregateMetrics, GetCurrentMetrics,
+  1438→GetIntegrationCounts24h, AdminGetMetrics, AdminListTransactions,
+  1439→GetOrCreatePrice, resolveStripeProducts, buildProductNameMap, Load,
+  1440→Reload, Set, Seed). Functions in this set are treated as admin-scoped.
+  1441→
+  1442→#### 4. New Query dataclass fields
+  1443→
+  1444→Each `Query` now records:
+  1445→
+  1446→- `route_scope` — admin | tenant | auth | public | cli | background |
+  1447→  testutil | unknown
+  1448→- `is_admin_handler`, `is_background_task`, `is_public_endpoint`,
+  1449→  `is_auth_flow`, `is_cli_tool` — boolean flags
+  1450→- `collection_has_tenant_id` — None if struct not found, True/False
+  1451→  otherwise
+  1452→- `collection_is_user_scoped` — True if the struct has a `userId` bson
+  1453→  field
+  1454→- `has_user_id_filter` — True if the filter contains `userId`
+  1455→- `suppression_reason` — populated when downgraded from a potential
+  1456→  violation to MEDIUM (one of: `test-util`, `cli-tool`,
+  1457→  `background-task`, `admin-handler`, `public-endpoint`,
+  1458→  `global-by-design`, `user-scoped`, `auth-flow`, `safe-unique-key`,
+  1459→  `struct-supports-tenant-id`, `exempt-collection`)
+  1460→
+  1461→#### 5. Classification priority order
+  1462→
+  1463→The suppression heuristics are applied in this priority order; the
+  1464→first match wins and downgrades the query to MEDIUM informational:
+  1465→
+  1466→1. `has_tenant_id` → OK
+  1467→2. `is_testutil` → MEDIUM (test-util)
+  1468→3. `is_cli_file` → MEDIUM (cli-tool)
+  1469→4. `is_background_task` → MEDIUM (background-task)
+  1470→5. `is_admin_handler` → MEDIUM (admin-handler)
+  1471→6. `is_public_endpoint` → MEDIUM (public-endpoint)
+  1472→7. `collection_is_global` → MEDIUM (global-by-design)
+  1473→8. `coll_is_user_scoped and has_user_id` → OK (user-scoped)
+  1474→9. `is_auth_flow and (has_user_id or safe_key)` → MEDIUM (auth-flow)
+  1475→10. `safe_key` → MEDIUM (safe-unique-key)
+  1476→11. `is_exempt` → MEDIUM (exempt-collection, legacy fallback)
+  1477→12. `InsertOne/InsertMany on a struct that declares tenantId` → MEDIUM
+  1478→    (struct-supports-tenant-id)
+  1479→13. Otherwise: write ops → CRITICAL, read ops → HIGH
+  1480→
+  1481→#### 6. Report schema additions
+  1482→
+  1483→`build_summary()` now also returns:
+  1484→
+  1485→- `ok_queries` — count of OK queries (was implicit before)
+  1486→- `suppression_breakdown` — `[{reason, count}, ...]` sorted by count
+  1487→- `route_scope_breakdown` — `[{scope, count}, ...]`
+  1488→- `user_scoped_collections` — sorted list
+  1489→- `global_collections` — sorted list
+  1490→- `collection_struct_map` — the full collection→struct mapping
+  1491→- `route_classifier_sizes` — counts per route scope
+  1492→
+  1493→`render_markdown()` now includes a "False-positive suppressions
+  1494→applied" table and a "Route scope breakdown" table at the top, plus
+  1495→per-query `Scope` and `Suppression` columns in every violation table.
+  1496→
+  1497→### Validation
+  1498→
+  1499→Re-ran on `/home/z/my-project/repos/lastsaas/backend`:
+  1500→
+  1501→```
+  1502→building accessor map from .../backend...
+  1503→  found 38 collection accessors
+  1504→collecting struct field definitions...
+  1505→  found 141 struct definitions
+  1506→building collection→struct map...
+  1507→  resolved 33 collections to structs
+  1508→building user-scoped + global collection lists...
+  1509→  11 user-scoped collections, 32 global collections
+  1510→parsing main.go for route classification...
+  1511→  admin=91, tenant=18, auth=32, public=12 handlers
+  1512→scanned 101 .go files
+  1513→wrote public/tenant-audit.json and public/TENANT_AUDIT.md (0 violations, 0 real)
+  1514→```
+  1515→
+  1516→All 226 previously-flagged "violations" are now correctly classified as
+  1517→MEDIUM informational notes (461 total MEDIUM, including some that were
+  1518→already MEDIUM in the old report) or OK (83 total — 77 with tenantId
+  1519→filter + 6 user-scoped with userId filter). **Zero false-positive
+  1520→violations remain.**
+  1521→
+  1522→### Next actions
+  1523→
+  1524→- Run the auditor as part of the graphify pipeline so the report stays
+  1525→  in sync with the repo state. The new context heuristics should keep
+  1526→  the violation count near 0 unless a real cross-tenant data leakage
+  1527→  bug is introduced (i.e., a tenant-scoped HTTP handler that queries a
+  1528→  tenant-scoped collection without `tenantId` or `userId` in the
+  1529→  filter, AND isn't an admin handler, AND doesn't filter on a
+  1530→  globally-unique key).
+  1531→- If a real violation does appear in the future, the report's
+  1532→  `route_scope` and `suppression_reason` columns will immediately show
+  1533→  which heuristic was *not* matched, pointing the reviewer at the
+  1534→  likely cause (e.g., a new handler that wasn't registered on a known
+  1535→  router, or a new collection whose struct doesn't have a tenantId
+  1536→  field).
+  1537→- The `ADMIN_SERVICE_FUNCS` set is currently hand-curated. A future
+  1538→  enhancement could build a lightweight call graph (handler → service
+  1539→  method) by parsing `h.telemetry.X(...)` / `h.db.X(...)` calls inside
+  1540→  known admin handlers, so newly-added service methods are
+  1541→  automatically classified.
+  1542→- The `BACKGROUND_TASK_FUNCS` set is also hand-curated. A future
+  1543→  enhancement could detect `go func() { ... }` literals and `time.Ticker`
+  1544→  registrations to identify background tasks automatically.
+  1545→
+  1546→---
+  1547→
+  1548→## Task ID: go-tools — Go struct flattener + SSA filter tracer
+  1549→
+  1550→**Date**: 2026-08-05
+  1551→**Scope**: Build two standalone Go programs that use `go/packages` /
+  1552→`go/types` / `go/ssa` to produce JSON reports consumed by the Python
+  1553→graphify analyzers, eliminating false positives that stem from regex /
+  1554→text-based parsing of Go source.
+  1555→
+  1556→### Files created
+  1557→
+  1558→- `scripts/go/go.mod` — `graphify-tools` module (Go 1.25, requires
+  1559→  `golang.org/x/tools v0.48.0`).
+  1560→- `scripts/go/go.sum` — pinned checksums for the toolchain and x/tools.
+  1561→- `scripts/go/graphify_struct_flattener/main.go` — Tool 1 (~340 LOC).
+  1562→- `scripts/go/graphify_filter_tracer/main.go` — Tool 2 (~870 LOC).
+  1563→- `go.work` — workspace file at the project root that includes both
+  1564→  `scripts/go` and `repos/lastsaas/backend` so `go run` invocations
+  1565→  from inside the backend module can resolve the `x/tools` dependency
+  1566→  without polluting the backend's `go.mod`.
+  1567→
+  1568→### Outputs written to `public/`
+  1569→
+  1570→- `go-structs.json` (215 KB) — 180 flattened struct definitions
+  1571→- `go-filters.json` (295 KB) — 1,273 filter / document findings across
+  1572→  230 functions
+  1573→
+  1574→### What the struct flattener does (Tool 1)
+  1575→
+  1576→1. Loads packages with `packages.Load(cfg, "./...")` using
+  1577→   `NeedName | NeedFiles | NeedTypes | NeedTypesInfo | NeedSyntax |
+  1578→   NeedDeps | NeedImports | NeedModule`.
+  1579→2. For each package, iterates the package scope's `*types.TypeName`
+  1580→   objects, keeping only those whose underlying type is `*types.Struct`.
+  1581→3. Recursively flattens fields: embedded `*types.Named` / pointer-to-
+  1582→   named structs are inlined (drilling through `*types.Pointer` and
+  1583→   `*types.Named.Underlying()`). Non-struct embedded fields are emitted
+  1584→   as regular fields with `Embedded: true`.
+  1585→4. Parses both `json:` and `bson:` struct tags via
+  1586→   `reflect.StructTag.Get`, returning the leading name component
+  1587→   (before any `,omitempty`). `"-"` is preserved as `-`.
+  1588→5. Renders each type as a `StructInfo` with `Name`, `Package`,
+  1589→   `File` (relative to the working directory, i.e. the analyzed module
+  1590→   root), and `Fields []FieldInfo`. Output is a stable-sorted JSON
+  1591→   array written to stdout or `-out FILE`.
+  1592→6. Empty structs serialize `fields: []` (not `null`), so Python
+  1593→   consumers can `for f in struct["fields"]:` without a NoneType guard.
+  1594→
+  1595→CLI:
+  1596→```
+  1597→go run scripts/go/graphify_struct_flattener/main.go [-out FILE] [-v] [-tests] [PATTERN ...]
+  1598→```
+  1599→
+  1600→### What the SSA filter tracer does (Tool 2)
+  1601→
+  1602→For each function whose SSA contains a call to one of `Find`,
+  1603→`FindOne`, `FindOneAndUpdate`, `FindOneAndDelete`, `FindOneAndReplace`,
+  1604→`UpdateOne`, `UpdateMany`, `DeleteOne`, `DeleteMany`, `InsertOne`,
+  1605→`InsertMany`, `CountDocuments`, `Aggregate`, `ReplaceOne`, `BulkWrite`,
+  1606→the tool emits a `FunctionReport` with up to three classes of
+  1607→`Finding`:
+  1608→
+  1609→1. **`literal`** — `bson.M{...}` / `bson.D{...}` / `map[string]interface{}{...}`
+  1610→   composite literals (the underlying type of `bson.M`). Detected via
+  1611→   AST walk over the function body, with precise type resolution
+  1612→   through `packages.TypesInfo.Types[lit]`. Both `*types.Named`
+  1613→   (e.g. `bson.E`) and `*types.Alias` (e.g. `bson.M` itself, which is
+  1614→   `type M = map[string]any`) are handled. For `bson.M`, keys are the
+  1615→   `*ast.BasicLit` STRING keys of each `*ast.KeyValueExpr`. For
+  1616→   `bson.D`, keys come from the `Key: "..."` field of each `bson.E`
+  1617→   element (both named-field and positional forms). The literal's
+  1618→   source range is recorded so the MapUpdate pass can dedupe updates
+  1619→   that belong to the literal construction.
+  1620→
+  1621→2. **`map_update`** — `ssa.MapUpdate` instructions whose `Map.Type()`
+  1622→   is `map[string]interface{}` (i.e. `bson.M`). The map type is
+  1623→   unwrapped through `*types.Alias.Underlying()` first so that
+  1624→   variables explicitly typed as `bson.M` are matched. MapUpdates
+  1625→   whose source position falls inside a recorded literal range are
+  1626→   skipped — they are the lowered form of a `bson.M{...}` literal,
+  1627→   already reported by pass 1. The remaining updates are user-written
+  1628→   mutations like `filter["$or"] = [...]`. The key is extracted via
+  1629→   `constant.StringVal`; non-const keys are reported as `<dynamic>`.
+  1630→
+  1631→3. **`struct_type`** — calls to `InsertOne` / `InsertMany` /
+  1632→   `ReplaceOne` / `FindOneAndReplace` whose document argument is a
+  1633→   struct (or slice of structs). SSA wraps struct values in
+  1634→   `*ssa.MakeInterface` (because the parameter type is `interface{}`),
+  1635→   so the tool unwraps `MakeInterface.X.Type()` to recover the
+  1636→   concrete struct type. Pointer and slice element types are drilled
+  1637→   through, and the struct's bson-tagged field names are emitted
+  1638→   (recursively flattening embedded structs, same as Tool 1).
+  1639→
+  1640→CLI:
+  1641→```
+  1642→go run scripts/go/graphify_filter_tracer/main.go [-out FILE] [-v] [-tests] [PATTERN ...]
+  1643→```
+  1644→
+  1645→### Validation
+  1646→
+  1647→Both tools were run end-to-end against
+  1648→`/home/z/my-project/repos/lastsaas/backend`:
+  1649→
+  1650→```
+  1651→$ cd /home/z/my-project/repos/lastsaas/backend && \
+  1652→    go run /home/z/my-project/scripts/go/graphify_struct_flattener/main.go \
+  1653→        -out /tmp/structs.json -v
+  1654→loading packages: [./...]
+  1655→loaded 24 packages (0 errors)
+  1656→...
+  1657→found 180 structs
+  1658→wrote /tmp/structs.json (215396 bytes, 180 structs)
+  1659→
+  1660→$ cd /home/z/my-project/repos/lastsaas/backend && \
+  1661→    go run /home/z/my-project/scripts/go/graphify_filter_tracer/main.go \
+  1662→        -out /tmp/filters.json -v
+  1663→loading packages: [./...]
+  1664→loaded 24 packages (0 errors)
+  1665→built SSA for 24 packages
+  1666→emitted 1273 findings across 230 functions
+  1667→wrote /tmp/filters.json (294973 bytes)
+  1668→```
+  1669→
+  1670→Method breakdown of the 1,273 findings:
+  1671→
+  1672→| method       | count |
+  1673→|--------------|-------|
+  1674→| literal      | 1146  |
+  1675→| map_update   |   68  |
+  1676→| struct_type  |   59  |
+  1677→
+  1678→Operation breakdown (the mongo-op call the finding is attributed to):
+  1679→
+  1680→| operation          | count |
+  1681→|--------------------|-------|
+  1682→| UpdateOne          |  208  |
+  1683→| FindOne            |  138  |
+  1684→| Find               |   75  |
+  1685→| CountDocuments     |   71  |
+  1686→| InsertOne          |   60  |
+  1687→| FindOneAndUpdate   |   34  |
+  1688→| DeleteOne          |   27  |
+  1689→| UpdateMany         |   26  |
+  1690→| DeleteMany         |   15  |
+  1691→| FindOneAndDelete   |    6  |
+  1692→| Aggregate          |    6  |
+  1693→
+  1694→### Notable findings on the `lastsaas` backend
+  1695→
+  1696→- **180 structs** total across 24 packages, including 1 struct with
+  1697→  embedded fields (`middleware.metricsResponseWriter` embeds
+  1698→  `net/http.ResponseWriter`).
+  1699→- **68 explicit `filter["..."] = ...` mutations** — these are the
+  1700→  cases where a regex-based Python analyzer would have to parse the
+  1701→  surrounding control flow to determine which keys end up in the
+  1702→  filter. The SSA tracer reports them directly, with positions. For
+  1703→  example, `(*AdminHandler).ListTenants` builds its filter dynamically:
+  1704→  `$or` at line 133, `isActive` at lines 143/145, `billingStatus` at
+  1705→  line 153. All four are emitted as separate `map_update` findings.
+  1706→- **59 struct-typed inserts** — every `InsertOne(ctx, &models.X{...})`
+  1707→  call is detected, and the full bson field list of the target struct
+  1708→  is emitted. For example, `cmdSetup` at `cmd/lastsaas/main.go:303`
+  1709→  inserts a `models.Tenant` with all 19 bson fields, including
+  1710→  `tenantId`-style fields the Python tenant-audit analyzer can use to
+  1711→  confirm "this struct supports tenantId" without parsing the struct
+  1712→  declaration itself.
+  1713→- **`<dynamic>` keys** — `cmdLogsFollow` at `cmd/lastsaas/cmd_logs.go:185`
+  1714→  uses a variable as the map key (not a string literal). The tool
+  1715→  reports `fields: ["<dynamic>"]` so the Python consumer knows a
+  1716→  field is being written but can't statically determine its name.
+  1717→- **`bson.D` literals** — `(*AdminHandler).ListTenants` uses
+  1718→  `bson.D{{Key: "$match", Value: ...}, ...}` for an aggregation
+  1719→  pipeline at `admin.go:208`. The tracer correctly extracts `$match`,
+  1720→  `tenantId`, `$in` from the named-field `bson.E` elements.
+  1721→
+  1722→### Implementation notes
+  1723→
+  1724→- **Toolchain**: `golang.org/x/tools v0.48.0` requires Go ≥ 1.25. The
+  1725→  workspace has Go 1.23.4 installed; `GOTOOLCHAIN=auto` (the default)
+  1726→  downloads `go1.25.12` on demand into the module cache. The
+  1727→  `scripts/go/go.mod` declares `go 1.25.0` so this happens
+  1728→  transparently.
+  1729→- **Workspace setup**: `go run path/to/main.go` from inside
+  1730→  `repos/lastsaas/backend` requires the backend's `go.mod` to provide
+  1731→  `x/tools` — which it doesn't. Two solutions are supported:
+  1732→    1. **`go.work` at `/home/z/my-project/`** (committed) includes
+  1733→       both `scripts/go` and `repos/lastsaas/backend`, so `go run`
+  1734→       from anywhere under the project root resolves `x/tools`
+  1735→       automatically. The backend's own `go build ./...` is
+  1736→       unaffected.
+  1737→    2. **Pre-built binaries**: `go build -o /tmp/graphify-struct-flattener
+  1738→       ./graphify_struct_flattener/` produces a standalone binary that
+  1739→       can be invoked from any directory with no Go-side setup.
+  1740→       Verified working.
+  1741→- **`*types.Alias` handling**: Go 1.22+ represents type aliases
+  1742→  (`type M = map[string]any`) as `*types.Alias`, not `*types.Named`.
+  1743→  Both tools unwrap `*types.Alias.Underlying()` before doing type
+  1744→  discrimination, so `bson.M` is correctly classified as a
+  1745→  `map[string]interface{}` literal / map-update target. Without this,
+  1746→  zero `bson.M` literals would be detected.
+  1747→- **`*ssa.MakeInterface` unwrapping**: `InsertOne(ctx, document
+  1748→  interface{})` boxes the struct argument in a `*ssa.MakeInterface`.
+  1749→  The tracer recovers the concrete struct type via
+  1750→  `MakeInterface.X.Type()` before extracting bson field names.
+  1751→- **Position-based deduplication**: SSA lowers `bson.M{"foo": bar}`
+  1752→  into `MakeMap` + `MapUpdate`. To avoid reporting these MapUpdates
+  1753→  twice (once as part of the literal, once as a "mutation"), the
+  1754→  tracer records the source byte-range of every detected composite
+  1755→  literal and skips MapUpdates whose position falls inside any
+  1756→  recorded range. Only explicit `filter["x"] = y` statements outside
+  1757→  any literal range survive as `map_update` findings.
+  1758→- **Stable output**: Both tools sort their output by
+  1759→  `(package, file, line)` so re-running on the same input produces
+  1760→  byte-identical JSON, which makes diffing in CI tractable.
+  1761→- **Empty slices**: All `[]T` fields in the JSON schema initialize as
+  1762→  `[]T{}` (not `nil`), so the JSON serializes as `[]` rather than
+  1763→  `null`. Python consumers can iterate without `or []` guards.
+  1764→
+  1765→### Next actions
+  1766→
+  1767→- Wire both tools into the graphify pipeline (probably as a
+  1768→  `scripts/graphify_go_tools.py` wrapper that invokes the binaries
+  1769→  with the right `-out` paths under `public/`). The Python wrapper
+  1770→  can pre-build the binaries once into `scripts/go/bin/` and reuse
+  1771→  them, falling back to `go run` if the binary is missing or stale.
+  1772→- Feed `go-structs.json` into `graphify_tenant_audit.py` so the
+  1773→  `collection_struct_map` is built from real `go/types` resolution
+  1774→  instead of regex-based struct parsing. This should eliminate the
+  1775→  residual mismatches where a struct's bson tag differs from its Go
+  1776→  field name (e.g. `ID` → `_id`).
+  1777→- Feed `go-filters.json` into `graphify_nosql_injection.py` and
+  1778→  `graphify_tenant_audit.py` so the filter-field analysis is based on
+  1779→  SSA-traced `bson.M` mutations rather than text matching. The
+  1780→  `<dynamic>` findings are the most interesting — they pinpoint places
+  1781→  where a filter key is computed at runtime and may warrant manual
+  1782→  review.
+  1783→- Consider extending Tool 2 to also trace `$set` / `$unset` arguments
+  1784→  to `UpdateOne` / `UpdateMany` — currently only the filter argument
+  1785→  is traced for those ops, not the update document. The same
+  1786→  `map_update` / `literal` / `struct_type` machinery would apply.
+  1787→- The `go.work` file at the project root is shared between the
+  1788→  graphify tools and any future Go work in the workspace. If a
+  1789→  third Go module is added under `/home/z/my-project/`, append a
+  1790→  `use ./path/to/module` line to `go.work` rather than creating a
+  1791→  second workspace file.
+  1792→

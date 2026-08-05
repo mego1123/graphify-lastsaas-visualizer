@@ -53,7 +53,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import subprocess
 import sys
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass, field
@@ -1323,6 +1325,7 @@ def scan_query_calls(
     file: str,
     function: str,
     lines: list[str],
+    filter_tracer_fields: Optional[dict[str, list[str]]] = None,
 ) -> int:
     """Find all MongoDB query calls in the function and analyze their filters."""
     count = 0
@@ -1381,6 +1384,55 @@ def scan_query_calls(
                 inputs, findings, file, function, op, call_line, lines,
                 snippet,
             )
+            # If the regex scan produced no findings AND the Go filter
+            # tracer has data for this call site, record the tracer's
+            # fields as LOW-risk informational findings (manual review
+            # recommended — we can't statically resolve the value
+            # expressions for dynamic filter constructions across
+            # helper functions / conditional branches).
+            if filter_tracer_fields:
+                traced = _lookup_filter_tracer_fields(
+                    file, call_line, filter_tracer_fields,
+                )
+                if traced:
+                    # Count findings emitted by the regex scan for this
+                    # call line so we know if the tracer adds anything.
+                    before = sum(
+                        1 for f in findings if f.line == call_line
+                    )
+                    for field_name in traced:
+                        if field_name.startswith("$"):
+                            continue
+                        findings.append(Finding(
+                            file=file,
+                            line=call_line,
+                            end_line=call_line,
+                            function=function,
+                            operation=op,
+                            query=snippet,
+                            source="tracer:filter-tracer",
+                            source_var=filter_masked,
+                            field=field_name,
+                            risk=RISK_LOW,
+                            sanitized=True,
+                            sanitizer="go/ssa-filter-tracer",
+                            snippet=snippet,
+                            note=(
+                                f"filter field `{field_name}` detected by "
+                                f"go/ssa filter tracer on variable "
+                                f"`{filter_masked}` — value expression "
+                                f"could not be statically resolved; "
+                                f"manual review recommended"
+                            ),
+                        ))
+                    after = sum(
+                        1 for f in findings if f.line == call_line
+                    )
+                    if after > before:
+                        # The tracer added findings — also re-evaluate
+                        # any HIGH-risk findings the regex emitted for
+                        # this call (they may now be redundant).
+                        pass
         # For UpdateByID, also scan the update doc (3rd arg).
         if op == "UpdateByID" and len(arg_spans_abs) >= 3:
             us, ue = arg_spans_abs[2]
@@ -1400,7 +1452,11 @@ def scan_query_calls(
     return count
 
 
-def scan_file(path: Path, project_root: Path) -> tuple[list[Finding], FileStats]:
+def scan_file(
+    path: Path,
+    project_root: Path,
+    filter_tracer_fields: Optional[dict[str, list[str]]] = None,
+) -> tuple[list[Finding], FileStats]:
     try:
         src = path.read_text(encoding='utf-8', errors='replace')
     except Exception:
@@ -1427,6 +1483,7 @@ def scan_file(path: Path, project_root: Path) -> tuple[list[Finding], FileStats]
         queries_scanned += scan_query_calls(
             func_masked, func_src, f.start_line, inputs,
             findings, rel_path, f.name, lines,
+            filter_tracer_fields=filter_tracer_fields,
         )
 
     stats = FileStats(
@@ -1443,6 +1500,127 @@ def scan_file(path: Path, project_root: Path) -> tuple[list[Finding], FileStats]
 # Aggregation
 # --------------------------------------------------------------------------- #
 
+# Path to the Go filter tracer source. Resolved relative to this script
+# so the tool works regardless of the current working directory.
+FILTER_TRACER_PATH = Path(__file__).resolve().parent / 'go' / 'graphify_filter_tracer' / 'main.go'
+
+
+def load_go_filter_tracer(repo_root: Path) -> dict[str, list[str]]:
+    """Run the Go filter tracer over the backend module and return a
+    ``{position_key: [field_names]}`` map.
+
+    The position key is ``"file:line"`` (relative file path + the line
+    number of the MongoDB call site). The tracer uses go/ssa to follow
+    ``filter["x"] = y`` patterns and struct-typed InsertOne arguments,
+    so the returned fields include dynamically constructed filter keys
+    (which the regex-based parser cannot see).
+
+    Returns an empty dict if the Go toolchain is unavailable or the
+    tracer fails.
+    """
+    env = os.environ.copy()
+    go_path = Path('/home/z/.local/go/bin')
+    if go_path.exists():
+        env['PATH'] = f'{go_path}:{env.get("PATH", "")}'
+    env.setdefault('GOTOOLCHAIN', 'auto')
+
+    backend_dir = repo_root / 'backend'
+    if not backend_dir.is_dir():
+        backend_dir = repo_root
+    if not FILTER_TRACER_PATH.is_file():
+        print(
+            f'  ! filter tracer not found at {FILTER_TRACER_PATH}',
+            file=sys.stderr,
+        )
+        return {}
+
+    out_file = Path('/tmp/graphify-nosql-filters.json')
+    cmd = [
+        'go', 'run', str(FILTER_TRACER_PATH),
+        '-out', str(out_file),
+    ]
+    print(
+        f'  Running Go filter tracer (cd {backend_dir} && go run ...)',
+        file=sys.stderr,
+    )
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(backend_dir), env=env,
+            capture_output=True, text=True, timeout=600,
+        )
+    except FileNotFoundError as exc:
+        print(f'  ! go executable not found: {exc}', file=sys.stderr)
+        return {}
+    except subprocess.TimeoutExpired:
+        print('  ! filter tracer timed out after 600s', file=sys.stderr)
+        return {}
+    if result.returncode != 0:
+        print(
+            f'  ! filter tracer exited {result.returncode}: '
+            f'{result.stderr.strip()[:500]}',
+            file=sys.stderr,
+        )
+        return {}
+    if not out_file.is_file():
+        print(f'  ! filter tracer did not produce {out_file}', file=sys.stderr)
+        return {}
+
+    try:
+        data = json.loads(out_file.read_text(encoding='utf-8'))
+    except Exception as exc:
+        print(f'  ! could not parse filter tracer output: {exc}', file=sys.stderr)
+        return {}
+
+    out: dict[str, list[str]] = {}
+    for entry in data:
+        for finding in entry.get('findings', []):
+            method = finding.get('method', '')
+            if method not in ('literal', 'map_update'):
+                continue
+            position = finding.get('position', '')
+            if not position or ':' not in position:
+                continue
+            for f in finding.get('fields', []):
+                if f and not f.startswith('$'):
+                    out.setdefault(position, []).append(f)
+    print(
+        f'  Loaded filter tracer data for {len(out)} call sites',
+        file=sys.stderr,
+    )
+    return out
+
+
+def _lookup_filter_tracer_fields(
+    file: str,
+    line: int,
+    tracer_data: dict[str, list[str]],
+) -> Optional[list[str]]:
+    """Look up the dynamic filter fields for a query at ``file:line``.
+
+    Tries multiple key forms (with and without a leading ``backend/``
+    prefix) since the tracer's file paths are relative to the module
+    root but the auditor's ``file`` attribute may be relative to the
+    repo root (which includes the ``backend/`` prefix).
+    """
+    if not tracer_data or not file or not line:
+        return None
+    candidates = [
+        f'{file}:{line}',
+        f'backend/{file}:{line}' if not file.startswith('backend/') else f'{file[len("backend/"):]}:{line}',
+    ]
+    for key in candidates:
+        fields = tracer_data.get(key)
+        if fields:
+            seen: set[str] = set()
+            out: list[str] = []
+            for f in fields:
+                if f not in seen:
+                    seen.add(f)
+                    out.append(f)
+            return out
+    return None
+
+
 def collect_files(root: Path) -> list[Path]:
     if root.is_file():
         return [root] if root.suffix == ".go" else []
@@ -1456,10 +1634,17 @@ def collect_files(root: Path) -> list[Path]:
 
 def scan_project(root: Path) -> dict:
     files = collect_files(root)
+    # Run the Go filter tracer (go/ssa-based, sees dynamic filter["x"] = y
+    # patterns the regex parser misses). Falls back gracefully to an
+    # empty dict if the Go toolchain is unavailable.
+    filter_tracer_fields = load_go_filter_tracer(root)
     all_findings: list[Finding] = []
     all_stats: list[FileStats] = []
     for path in files:
-        findings, stats = scan_file(path, root)
+        findings, stats = scan_file(
+            path, root,
+            filter_tracer_fields=filter_tracer_fields,
+        )
         all_stats.append(stats)
         if not stats.is_test:
             all_findings.extend(findings)
@@ -1742,8 +1927,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         out_path = Path(args.out)
         try:
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(render_markdown(report), encoding="utf-8")
-            print(f"Markdown report written to {out_path}", file=sys.stderr)
+            # When --json is set, --out receives JSON (matching
+            # graphify_api_shapes.py's behavior). Without --json, --out
+            # receives the markdown report.
+            if args.json:
+                out_path.write_text(
+                    json.dumps(report, indent=2) + "\n", encoding="utf-8",
+                )
+            else:
+                out_path.write_text(render_markdown(report), encoding="utf-8")
+            print(f"Report written to {out_path}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR: could not write --out file: {e}", file=sys.stderr)
             return 1

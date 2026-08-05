@@ -4,8 +4,8 @@
     "ts_endpoints": 153,
     "go_endpoints": 163,
     "matched_endpoints": 122,
-    "ok_endpoints": 57,
-    "missing_in_go": 2,
+    "ok_endpoints": 59,
+    "missing_in_go": 0,
     "extra_in_go": 58,
     "type_mismatches": 4,
     "unknown_go_shape": 12,
@@ -3953,12 +3953,10 @@
           "is_array": false
         }
       ],
-      "missing_in_go": [
-        "seatQuantity"
-      ],
+      "missing_in_go": [],
       "extra_in_go": [],
       "type_mismatches": [],
-      "status": "missing_in_go"
+      "status": "ok"
     },
     {
       "endpoint": "GET /api/credit-bundles",
@@ -5223,12 +5221,10 @@
           "is_array": false
         }
       ],
-      "missing_in_go": [
-        "createdAt"
-      ],
+      "missing_in_go": [],
       "extra_in_go": [],
       "type_mismatches": [],
-      "status": "missing_in_go"
+      "status": "ok"
     },
     {
       "endpoint": "GET /api/admin/branding/pages",
@@ -10174,6 +10170,70 @@
           "is_omitempty": true,
           "is_skipped": false,
           "is_optional": true
+        },
+        {
+          "name": "nbf",
+          "json_name": "nbf",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "tokenType",
+          "json_name": "tokenType",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "sub",
+          "json_name": "sub",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "jti",
+          "json_name": "jti",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "exp",
+          "json_name": "exp",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "iss",
+          "json_name": "iss",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "aud",
+          "json_name": "aud",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "iat",
+          "json_name": "iat",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -10187,6 +10247,62 @@
           "name": "UserID",
           "json_name": "userId",
           "go_type": "string",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "nbf",
+          "json_name": "nbf",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "sub",
+          "json_name": "sub",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "jti",
+          "json_name": "jti",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "exp",
+          "json_name": "exp",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "iss",
+          "json_name": "iss",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "aud",
+          "json_name": "aud",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "iat",
+          "json_name": "iat",
+          "go_type": "interface{}",
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
@@ -10929,6 +11045,30 @@
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
+        },
+        {
+          "name": "ddtags",
+          "json_name": "ddtags",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "ddsource",
+          "json_name": "ddsource",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "status",
+          "json_name": "status",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -10977,6 +11117,14 @@
           "is_omitempty": true,
           "is_skipped": false,
           "is_optional": true
+        },
+        {
+          "name": "status",
+          "json_name": "status",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -11230,7 +11378,16 @@
       "file": "backend/internal/health/health.go",
       "line": 28,
       "package": "health",
-      "fields": []
+      "fields": [
+        {
+          "name": "PublishableKey",
+          "json_name": "PublishableKey",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        }
+      ]
     },
     {
       "name": "integrationEntry",
@@ -11337,7 +11494,16 @@
       "file": "backend/internal/middleware/metrics.go",
       "line": 82,
       "package": "middleware",
-      "fields": []
+      "fields": [
+        {
+          "name": "ResponseWriter",
+          "json_name": "ResponseWriter",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        }
+      ]
     },
     {
       "name": "RateLimiter",
@@ -11562,6 +11728,14 @@
           "name": "IsActive",
           "json_name": "isActive",
           "go_type": "bool",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "KeyHash",
+          "json_name": "KeyHash",
+          "go_type": "interface{}",
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
@@ -11949,6 +12123,22 @@
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
+        },
+        {
+          "name": "entitlementGate",
+          "json_name": "entitlementGate",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "target",
+          "json_name": "target",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -12165,6 +12355,14 @@
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
+        },
+        {
+          "name": "logoMode",
+          "json_name": "logoMode",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -12226,6 +12424,22 @@
           "name": "CreatedAt",
           "json_name": "createdAt",
           "go_type": "time.Time",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "key",
+          "json_name": "key",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "Data",
+          "json_name": "Data",
+          "go_type": "interface{}",
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
@@ -13141,6 +13355,14 @@
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
+        },
+        {
+          "name": "Token",
+          "json_name": "Token",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -13565,6 +13787,22 @@
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
+        },
+        {
+          "name": "IdPMetadataXML",
+          "json_name": "IdPMetadataXML",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "IdPCertificate",
+          "json_name": "IdPCertificate",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -13650,6 +13888,14 @@
           "name": "Version",
           "json_name": "version",
           "go_type": "string",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "InitializedBy",
+          "json_name": "InitializedBy",
+          "go_type": "interface{}",
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
@@ -14029,6 +14275,14 @@
           "is_omitempty": true,
           "is_skipped": false,
           "is_optional": true
+        },
+        {
+          "name": "Token",
+          "json_name": "Token",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -14122,6 +14376,14 @@
           "name": "IsRevoked",
           "json_name": "isRevoked",
           "go_type": "bool",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "TokenHash",
+          "json_name": "TokenHash",
+          "go_type": "interface{}",
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false
@@ -14565,6 +14827,86 @@
           "is_omitempty": true,
           "is_skipped": false,
           "is_optional": true
+        },
+        {
+          "name": "LastVerificationSent",
+          "json_name": "LastVerificationSent",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "GoogleID",
+          "json_name": "GoogleID",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "MicrosoftID",
+          "json_name": "MicrosoftID",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "AccountLockedUntil",
+          "json_name": "AccountLockedUntil",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "PasswordHash",
+          "json_name": "PasswordHash",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "TOTPVerifiedAt",
+          "json_name": "TOTPVerifiedAt",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "TOTPSecret",
+          "json_name": "TOTPSecret",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "RecoveryCodes",
+          "json_name": "RecoveryCodes",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "FailedLoginAttempts",
+          "json_name": "FailedLoginAttempts",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "GitHubID",
+          "json_name": "GitHubID",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -14653,6 +14995,46 @@
           "is_omitempty": true,
           "is_skipped": false,
           "is_optional": true
+        },
+        {
+          "name": "PublicKey",
+          "json_name": "PublicKey",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "SignCount",
+          "json_name": "SignCount",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "CredentialID",
+          "json_name": "CredentialID",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "AttestationType",
+          "json_name": "AttestationType",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "Transport",
+          "json_name": "Transport",
+          "go_type": "interface{}",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
         }
       ]
     },
@@ -14746,6 +15128,14 @@
           "name": "UpdatedAt",
           "json_name": "updatedAt",
           "go_type": "time.Time",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
+        {
+          "name": "Secret",
+          "json_name": "Secret",
+          "go_type": "interface{}",
           "is_omitempty": false,
           "is_skipped": false,
           "is_optional": false

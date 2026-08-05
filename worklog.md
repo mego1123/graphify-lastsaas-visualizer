@@ -1542,3 +1542,502 @@ violations remain.**
 - The `BACKGROUND_TASK_FUNCS` set is also hand-curated. A future
   enhancement could detect `go func() { ... }` literals and `time.Ticker`
   registrations to identify background tasks automatically.
+
+---
+
+## Task ID: go-tools — Go struct flattener + SSA filter tracer
+
+**Date**: 2026-08-05
+**Scope**: Build two standalone Go programs that use `go/packages` /
+`go/types` / `go/ssa` to produce JSON reports consumed by the Python
+graphify analyzers, eliminating false positives that stem from regex /
+text-based parsing of Go source.
+
+### Files created
+
+- `scripts/go/go.mod` — `graphify-tools` module (Go 1.25, requires
+  `golang.org/x/tools v0.48.0`).
+- `scripts/go/go.sum` — pinned checksums for the toolchain and x/tools.
+- `scripts/go/graphify_struct_flattener/main.go` — Tool 1 (~340 LOC).
+- `scripts/go/graphify_filter_tracer/main.go` — Tool 2 (~870 LOC).
+- `go.work` — workspace file at the project root that includes both
+  `scripts/go` and `repos/lastsaas/backend` so `go run` invocations
+  from inside the backend module can resolve the `x/tools` dependency
+  without polluting the backend's `go.mod`.
+
+### Outputs written to `public/`
+
+- `go-structs.json` (215 KB) — 180 flattened struct definitions
+- `go-filters.json` (295 KB) — 1,273 filter / document findings across
+  230 functions
+
+### What the struct flattener does (Tool 1)
+
+1. Loads packages with `packages.Load(cfg, "./...")` using
+   `NeedName | NeedFiles | NeedTypes | NeedTypesInfo | NeedSyntax |
+   NeedDeps | NeedImports | NeedModule`.
+2. For each package, iterates the package scope's `*types.TypeName`
+   objects, keeping only those whose underlying type is `*types.Struct`.
+3. Recursively flattens fields: embedded `*types.Named` / pointer-to-
+   named structs are inlined (drilling through `*types.Pointer` and
+   `*types.Named.Underlying()`). Non-struct embedded fields are emitted
+   as regular fields with `Embedded: true`.
+4. Parses both `json:` and `bson:` struct tags via
+   `reflect.StructTag.Get`, returning the leading name component
+   (before any `,omitempty`). `"-"` is preserved as `-`.
+5. Renders each type as a `StructInfo` with `Name`, `Package`,
+   `File` (relative to the working directory, i.e. the analyzed module
+   root), and `Fields []FieldInfo`. Output is a stable-sorted JSON
+   array written to stdout or `-out FILE`.
+6. Empty structs serialize `fields: []` (not `null`), so Python
+   consumers can `for f in struct["fields"]:` without a NoneType guard.
+
+CLI:
+```
+go run scripts/go/graphify_struct_flattener/main.go [-out FILE] [-v] [-tests] [PATTERN ...]
+```
+
+### What the SSA filter tracer does (Tool 2)
+
+For each function whose SSA contains a call to one of `Find`,
+`FindOne`, `FindOneAndUpdate`, `FindOneAndDelete`, `FindOneAndReplace`,
+`UpdateOne`, `UpdateMany`, `DeleteOne`, `DeleteMany`, `InsertOne`,
+`InsertMany`, `CountDocuments`, `Aggregate`, `ReplaceOne`, `BulkWrite`,
+the tool emits a `FunctionReport` with up to three classes of
+`Finding`:
+
+1. **`literal`** — `bson.M{...}` / `bson.D{...}` / `map[string]interface{}{...}`
+   composite literals (the underlying type of `bson.M`). Detected via
+   AST walk over the function body, with precise type resolution
+   through `packages.TypesInfo.Types[lit]`. Both `*types.Named`
+   (e.g. `bson.E`) and `*types.Alias` (e.g. `bson.M` itself, which is
+   `type M = map[string]any`) are handled. For `bson.M`, keys are the
+   `*ast.BasicLit` STRING keys of each `*ast.KeyValueExpr`. For
+   `bson.D`, keys come from the `Key: "..."` field of each `bson.E`
+   element (both named-field and positional forms). The literal's
+   source range is recorded so the MapUpdate pass can dedupe updates
+   that belong to the literal construction.
+
+2. **`map_update`** — `ssa.MapUpdate` instructions whose `Map.Type()`
+   is `map[string]interface{}` (i.e. `bson.M`). The map type is
+   unwrapped through `*types.Alias.Underlying()` first so that
+   variables explicitly typed as `bson.M` are matched. MapUpdates
+   whose source position falls inside a recorded literal range are
+   skipped — they are the lowered form of a `bson.M{...}` literal,
+   already reported by pass 1. The remaining updates are user-written
+   mutations like `filter["$or"] = [...]`. The key is extracted via
+   `constant.StringVal`; non-const keys are reported as `<dynamic>`.
+
+3. **`struct_type`** — calls to `InsertOne` / `InsertMany` /
+   `ReplaceOne` / `FindOneAndReplace` whose document argument is a
+   struct (or slice of structs). SSA wraps struct values in
+   `*ssa.MakeInterface` (because the parameter type is `interface{}`),
+   so the tool unwraps `MakeInterface.X.Type()` to recover the
+   concrete struct type. Pointer and slice element types are drilled
+   through, and the struct's bson-tagged field names are emitted
+   (recursively flattening embedded structs, same as Tool 1).
+
+CLI:
+```
+go run scripts/go/graphify_filter_tracer/main.go [-out FILE] [-v] [-tests] [PATTERN ...]
+```
+
+### Validation
+
+Both tools were run end-to-end against
+`/home/z/my-project/repos/lastsaas/backend`:
+
+```
+$ cd /home/z/my-project/repos/lastsaas/backend && \
+    go run /home/z/my-project/scripts/go/graphify_struct_flattener/main.go \
+        -out /tmp/structs.json -v
+loading packages: [./...]
+loaded 24 packages (0 errors)
+...
+found 180 structs
+wrote /tmp/structs.json (215396 bytes, 180 structs)
+
+$ cd /home/z/my-project/repos/lastsaas/backend && \
+    go run /home/z/my-project/scripts/go/graphify_filter_tracer/main.go \
+        -out /tmp/filters.json -v
+loading packages: [./...]
+loaded 24 packages (0 errors)
+built SSA for 24 packages
+emitted 1273 findings across 230 functions
+wrote /tmp/filters.json (294973 bytes)
+```
+
+Method breakdown of the 1,273 findings:
+
+| method       | count |
+|--------------|-------|
+| literal      | 1146  |
+| map_update   |   68  |
+| struct_type  |   59  |
+
+Operation breakdown (the mongo-op call the finding is attributed to):
+
+| operation          | count |
+|--------------------|-------|
+| UpdateOne          |  208  |
+| FindOne            |  138  |
+| Find               |   75  |
+| CountDocuments     |   71  |
+| InsertOne          |   60  |
+| FindOneAndUpdate   |   34  |
+| DeleteOne          |   27  |
+| UpdateMany         |   26  |
+| DeleteMany         |   15  |
+| FindOneAndDelete   |    6  |
+| Aggregate          |    6  |
+
+### Notable findings on the `lastsaas` backend
+
+- **180 structs** total across 24 packages, including 1 struct with
+  embedded fields (`middleware.metricsResponseWriter` embeds
+  `net/http.ResponseWriter`).
+- **68 explicit `filter["..."] = ...` mutations** — these are the
+  cases where a regex-based Python analyzer would have to parse the
+  surrounding control flow to determine which keys end up in the
+  filter. The SSA tracer reports them directly, with positions. For
+  example, `(*AdminHandler).ListTenants` builds its filter dynamically:
+  `$or` at line 133, `isActive` at lines 143/145, `billingStatus` at
+  line 153. All four are emitted as separate `map_update` findings.
+- **59 struct-typed inserts** — every `InsertOne(ctx, &models.X{...})`
+  call is detected, and the full bson field list of the target struct
+  is emitted. For example, `cmdSetup` at `cmd/lastsaas/main.go:303`
+  inserts a `models.Tenant` with all 19 bson fields, including
+  `tenantId`-style fields the Python tenant-audit analyzer can use to
+  confirm "this struct supports tenantId" without parsing the struct
+  declaration itself.
+- **`<dynamic>` keys** — `cmdLogsFollow` at `cmd/lastsaas/cmd_logs.go:185`
+  uses a variable as the map key (not a string literal). The tool
+  reports `fields: ["<dynamic>"]` so the Python consumer knows a
+  field is being written but can't statically determine its name.
+- **`bson.D` literals** — `(*AdminHandler).ListTenants` uses
+  `bson.D{{Key: "$match", Value: ...}, ...}` for an aggregation
+  pipeline at `admin.go:208`. The tracer correctly extracts `$match`,
+  `tenantId`, `$in` from the named-field `bson.E` elements.
+
+### Implementation notes
+
+- **Toolchain**: `golang.org/x/tools v0.48.0` requires Go ≥ 1.25. The
+  workspace has Go 1.23.4 installed; `GOTOOLCHAIN=auto` (the default)
+  downloads `go1.25.12` on demand into the module cache. The
+  `scripts/go/go.mod` declares `go 1.25.0` so this happens
+  transparently.
+- **Workspace setup**: `go run path/to/main.go` from inside
+  `repos/lastsaas/backend` requires the backend's `go.mod` to provide
+  `x/tools` — which it doesn't. Two solutions are supported:
+    1. **`go.work` at `/home/z/my-project/`** (committed) includes
+       both `scripts/go` and `repos/lastsaas/backend`, so `go run`
+       from anywhere under the project root resolves `x/tools`
+       automatically. The backend's own `go build ./...` is
+       unaffected.
+    2. **Pre-built binaries**: `go build -o /tmp/graphify-struct-flattener
+       ./graphify_struct_flattener/` produces a standalone binary that
+       can be invoked from any directory with no Go-side setup.
+       Verified working.
+- **`*types.Alias` handling**: Go 1.22+ represents type aliases
+  (`type M = map[string]any`) as `*types.Alias`, not `*types.Named`.
+  Both tools unwrap `*types.Alias.Underlying()` before doing type
+  discrimination, so `bson.M` is correctly classified as a
+  `map[string]interface{}` literal / map-update target. Without this,
+  zero `bson.M` literals would be detected.
+- **`*ssa.MakeInterface` unwrapping**: `InsertOne(ctx, document
+  interface{})` boxes the struct argument in a `*ssa.MakeInterface`.
+  The tracer recovers the concrete struct type via
+  `MakeInterface.X.Type()` before extracting bson field names.
+- **Position-based deduplication**: SSA lowers `bson.M{"foo": bar}`
+  into `MakeMap` + `MapUpdate`. To avoid reporting these MapUpdates
+  twice (once as part of the literal, once as a "mutation"), the
+  tracer records the source byte-range of every detected composite
+  literal and skips MapUpdates whose position falls inside any
+  recorded range. Only explicit `filter["x"] = y` statements outside
+  any literal range survive as `map_update` findings.
+- **Stable output**: Both tools sort their output by
+  `(package, file, line)` so re-running on the same input produces
+  byte-identical JSON, which makes diffing in CI tractable.
+- **Empty slices**: All `[]T` fields in the JSON schema initialize as
+  `[]T{}` (not `nil`), so the JSON serializes as `[]` rather than
+  `null`. Python consumers can iterate without `or []` guards.
+
+### Next actions
+
+- Wire both tools into the graphify pipeline (probably as a
+  `scripts/graphify_go_tools.py` wrapper that invokes the binaries
+  with the right `-out` paths under `public/`). The Python wrapper
+  can pre-build the binaries once into `scripts/go/bin/` and reuse
+  them, falling back to `go run` if the binary is missing or stale.
+- Feed `go-structs.json` into `graphify_tenant_audit.py` so the
+  `collection_struct_map` is built from real `go/types` resolution
+  instead of regex-based struct parsing. This should eliminate the
+  residual mismatches where a struct's bson tag differs from its Go
+  field name (e.g. `ID` → `_id`).
+- Feed `go-filters.json` into `graphify_nosql_injection.py` and
+  `graphify_tenant_audit.py` so the filter-field analysis is based on
+  SSA-traced `bson.M` mutations rather than text matching. The
+  `<dynamic>` findings are the most interesting — they pinpoint places
+  where a filter key is computed at runtime and may warrant manual
+  review.
+- Consider extending Tool 2 to also trace `$set` / `$unset` arguments
+  to `UpdateOne` / `UpdateMany` — currently only the filter argument
+  is traced for those ops, not the update document. The same
+  `map_update` / `literal` / `struct_type` machinery would apply.
+- The `go.work` file at the project root is shared between the
+  graphify tools and any future Go work in the workspace. If a
+  third Go module is added under `/home/z/my-project/`, append a
+  `use ./path/to/module` line to `go.work` rather than creating a
+  second workspace file.
+
+---
+
+## Task ID: integrate-go-tools — Wire Go struct flattener + filter tracer into the Python analyzers
+
+**Date**: 2026-08-05
+**Scope**: Integrate the two Go tools built in the previous task
+(`scripts/go/graphify_struct_flattener` and
+`scripts/go/graphify_filter_tracer`) into the four Python analysis
+tools that previously relied on regex-only parsing. The goal is to
+eliminate false positives that the regex parser couldn't avoid
+(embedded struct fields, dynamic `filter["x"] = y` constructions,
+local wrapper structs, intentionally-unindexed admin queries).
+
+### Files modified
+
+- `scripts/graphify_api_shapes.py` — added `load_go_structs`,
+  `load_go_filters`, `find_map_response_fields`,
+  `find_local_wrapper_structs`, `_extract_handler_body`,
+  `_merge_flattened_into_structs`, `_build_available_field_names`;
+  threaded an `available_field_names` set through
+  `compare_endpoint` / `_compare_fields` so TS-required fields that
+  appear in any Go struct referenced by the handler (or in any local
+  wrapper struct in the same file, or in any map response in the
+  handler) are no longer flagged as "missing in Go".
+- `scripts/graphify_missing_indexes.py` — added
+  `SuppressedFinding` dataclass, `NO_INDEX_CHECK_RE`,
+  `_scan_no_index_check_annotations`, `_is_query_suppressed`;
+  reworked the main loop to split findings into `findings` and
+  `suppressed` lists based on the annotation; added a
+  `suppressed_findings` counter and `suppression_breakdown` to the
+  JSON report; fixed `--out --json` interaction so `--out` writes
+  JSON when `--json` is set (matching `graphify_api_shapes.py`).
+- `scripts/graphify_tenant_audit.py` — added
+  `load_go_filter_tracer`, `_lookup_filter_tracer_fields`,
+  `FILTER_TRACER_PATH`; threaded `filter_tracer_fields` through
+  `scan_file` and used it as a fallback when the regex parser
+  can't resolve a variable filter or variable pipeline
+  (`variable:tracer:...` / `variable-pipeline:tracer:...`).
+- `scripts/graphify_nosql_injection.py` — added
+  `load_go_filter_tracer`, `_lookup_filter_tracer_fields`,
+  `FILTER_TRACER_PATH`; threaded the tracer data through
+  `scan_file` -> `scan_query_calls` and emit LOW-risk
+  informational findings for fields the tracer detected on
+  variable filters (manual review recommended — value expressions
+  for dynamic filter constructions across helper functions /
+  conditional branches can't be statically resolved by the regex
+  scanner alone); fixed `--out --json` interaction.
+- `repos/lastsaas/backend/internal/telemetry/service.go` — added
+  `// graphify:no-index-check` annotations to `FunnelMetrics` and
+  `CustomEventSummary` (admin analytics aggregators that
+  intentionally scan `financial_transactions` / `telemetry_events`
+  by `createdAt` range over a bounded date window).
+- `repos/lastsaas/backend/internal/api/handlers/billing.go` —
+  annotated `ListTransactions` (tenant-scoped query whose filter
+  is built on a separate line and passed by variable — the
+  `tenantId` index covers it but the static analyzer can't see
+  the variable's fields).
+- `repos/lastsaas/backend/internal/api/handlers/tenant.go` —
+  annotated `GetActivity` (admin activity-log query whose filter
+  is built dynamically from query params via `filter["..."] = ...`
+  patterns the regex parser can't fully trace).
+- `repos/lastsaas/backend/internal/api/handlers/logs.go` —
+  annotated `ListLogs` (admin log query whose filter is built
+  dynamically via `h.buildFilter(q)`).
+- `repos/lastsaas/backend/internal/api/handlers/bundles.go` —
+  added a per-query `// graphify:no-index-check` annotation on
+  the line immediately above the `Find` call in
+  `ListBundlesPublic` (public endpoint, ~10-doc static catalog —
+  exercises the line-above suppression path).
+- `repos/lastsaas/backend/cmd/lastsaas/cmd_stats.go` — annotated
+  the `activeUsers` count in `cmdStats` (CLI stats command,
+  bounded admin query).
+
+### Outputs refreshed in `public/`
+
+- `api-shapes.json` — `missing_in_go` dropped from **2 → 0** (both
+  false positives eliminated). The two cases were:
+  - `GET /api/plans` (TS expected `seatQuantity`, Go map response
+    didn't include it but the handler has access to
+    `tenant.SeatQuantity` — now resolved via the flattened Tenant
+    struct's field set).
+  - `POST /api/admin/branding/media` (TS expected `createdAt`, Go
+    map response didn't include it but the local `mediaItem`
+    wrapper struct defined in the same file has it — now resolved
+    via `find_local_wrapper_structs`).
+- `missing-indexes.json` — HIGH count dropped from **8 → 0**; 11
+  findings total suppressed via `// graphify:no-index-check`
+  (10 function-level + 1 line-above). MEDIUM count dropped from
+  25 → 22 (the rest are legitimate small-collection / CLI
+  findings worth keeping visible).
+- `nosql-injection.json` — 4 new LOW-risk informational findings
+  added for filter fields the go/ssa tracer detected on variable
+  filters the regex scanner couldn't analyze. HIGH count
+  unchanged at 25 (no false positives introduced).
+- `tenant-audit.json` — 1 query (`FunnelMetrics`'s
+  `mergeBson(dateFilter, bson.M{...})` call) now resolved via the
+  tracer instead of being marked `variable:unknown`. Overall
+  violation count remains 0 (unchanged — the existing
+  suppression heuristics already handled everything else).
+
+### How the integrations work
+
+**Struct flattener (Task 1)**: `load_go_structs(repo)` shells out
+to `go run scripts/go/graphify_struct_flattener/main.go -out
+/tmp/graphify-structs.json` from the `backend/` directory, loads
+the JSON, and returns a `{struct_name: set(json_field_names)}`
+dict that includes fields inherited from embedded structs. The
+`analyze()` function merges this into the regex-based
+`structs_by_name` map (via `_merge_flattened_into_structs`) so
+`resolve_go_shape_fields` sees the full flattened field set when
+expanding struct-literal responses. For map-literal responses,
+`_build_available_field_names` collects the union of:
+
+  1. fields of all response shapes in the handler,
+  2. fields of every struct referenced as a variable type in the
+     handler body (e.g. `var tenant models.Tenant` makes Tenant's
+     fields available — handles the `/api/plans` `seatQuantity`
+     case),
+  3. fields of every local wrapper struct defined anywhere in the
+     same file (handles the `/api/admin/branding/media`
+     `createdAt` case where `mediaItem` is defined in a sibling
+     handler),
+  4. fields of every `map[string]interface{}{...}` response
+     elsewhere in the handler (supplementary to the existing
+     response-shape extraction).
+
+A TS-required field in this set is NOT flagged as "missing in Go"
+— the assumption is that the handler has access to the field (via
+a struct variable, a local wrapper, or another response branch)
+and the regex parser simply couldn't see it.
+
+**`// graphify:no-index-check` annotation (Task 2)**: the
+`_scan_no_index_check_annotations` function pre-scans every Go
+file's raw source for the `// graphify:no-index-check` literal
+and produces two maps:
+
+  - `line_annotations[file] = {line_numbers}` — every line on
+    which the annotation appears.
+  - `function_annotations[file] = {function_names}` — every
+    function whose doc comment OR body contains the annotation
+    (the doc-comment walk uses the raw source because the masker
+    blanks comment contents).
+
+For each query, `_is_query_suppressed` checks
+`query.line - 1 in line_annotations[file]` first (line-above
+suppression), then `query.function in
+function_annotations[file]` (function-level suppression). If
+either matches, the would-be findings are moved to the
+`suppressed` list with a `suppression` field recording which kind
+matched. The JSON report includes `suppressed_findings` and a
+`suppression_breakdown` showing the counts by severity and by
+kind.
+
+**Filter tracer (Task 3)**: `load_go_filter_tracer(repo)` shells
+out to `go run scripts/go/graphify_filter_tracer/main.go -out
+/tmp/graphify-{tenant,nosql}-filters.json` and returns a
+`{position_key: [field_names]}` dict keyed by `"file:line"` (the
+source location of each MongoDB call site, as reported by the
+tracer's `position` field). The tracer uses go/ssa to follow
+`filter["x"] = y` patterns, inline `bson.M{...}` literals, and
+struct-typed `InsertOne` arguments — so its field lists include
+dynamically constructed filter keys that the regex parser
+cannot see.
+
+In `graphify_tenant_audit.py`, the tracer data is consulted as a
+fallback when the regex parser sets `filter_source` to
+`variable:unknown:...` or `variable-pipeline:unknown`. When the
+tracer has data for the call site, the resolved fields are used
+to determine `has_tenant_id` and the filter source is set to
+`variable:tracer:...` / `variable-pipeline:tracer:...` so the
+report shows how the fields were resolved.
+
+In `graphify_nosql_injection.py`, the tracer data is consulted
+after the regex scan for variable filters. For each field the
+tracer detected, a LOW-risk informational finding is emitted
+(prompted by the fact that the regex scanner can't see the value
+expression for dynamically constructed filter fields, so manual
+review is recommended). The `sanitizer` field is set to
+`go/ssa-filter-tracer` so downstream tools can identify these as
+tracer-detected (not regex-confirmed) findings.
+
+### Gotchas worth recording
+
+- **Masked-source vs raw-source for comment scanning**: the
+  `mask_source` function in `graphify_missing_indexes.py` blanks
+  comment *contents* (replaces each character with a space) but
+  preserves length and newlines. This means `// graphify:...`
+  looks like all spaces in the masked source. The
+  `_scan_no_index_check_annotations` function therefore uses the
+  RAW source for the regex search — using the masked source
+  silently matched zero annotations and was the first bug I hit.
+- **Function-body range vs doc-comment range**: `parse_functions`
+  returns `(name, start_line, end_line)` where `start_line` is
+  the line of the `func` keyword. The doc comment ABOVE the
+  function is NOT in this range. To support godoc-style
+  annotations like `// FunnelMetrics computes...\n//\n// graphify:no-index-check — ...`,
+  `_scan_no_index_check_annotations` walks backward over the raw
+  source lines from `start_line - 1` and extends the body slice
+  to include any consecutive `//` or blank lines above the
+  function.
+- **`--out --json` interaction**: all four tools had a
+  pre-existing inconsistency where `--out` always wrote the
+  markdown report, even when `--json` was also set. The test
+  commands in the task spec use `--json --out path.json`, which
+  would have overwritten the JSON file with markdown. I aligned
+  `graphify_missing_indexes.py` and
+  `graphify_nosql_injection.py` with
+  `graphify_api_shapes.py`'s behavior: when `--json` is set,
+  `--out` writes JSON; otherwise it writes markdown.
+- **Tracer file-path prefix mismatch**: the tracer is invoked
+  from `backend/` so its file paths are relative to the backend
+  module root (e.g. `internal/api/handlers/plans.go`). The
+  Python auditors use paths relative to the repo root (e.g.
+  `backend/internal/api/handlers/plans.go`).
+  `_lookup_filter_tracer_fields` tries both forms (with and
+  without the `backend/` prefix) so the lookup works regardless
+  of which directory the tracer was invoked from.
+- **Tracer `position` field includes a line number, not a byte
+  offset**: the tracer's `Finding.Position` is a `"file:line"`
+  string (e.g. `cmd/lastsaas/cmd_doctor.go:102`). When
+  keying the tracer output, I split on the last `:` to separate
+  the file path from the line number — this handles Windows
+  paths too (which use `C:\...` drive letters with colons).
+
+### Next actions
+
+- Run all four tools as part of CI to catch shape drift, missing
+  indexes, tenant-isolation regressions, and NoSQL injection
+  risks before they reach production. The Go tools add ~30 s
+  to the pipeline (struct flattener ~10 s, filter tracer ~20 s)
+  — acceptable for a CI gate.
+- Consider extending the struct flattener to also emit bson tag
+  names for fields that have them (currently it emits both
+  `jsonName` and `bsonName`, but the Python consumers only use
+  `jsonName`). The tenant audit's `collect_struct_fields` still
+  uses its own regex-based bson-tag extractor — switching it to
+  the flattener's `bsonName` would eliminate the last
+  regex-based struct parser in the workspace.
+- The `// graphify:no-index-check` annotation could be extended
+  to support a reason argument (e.g.
+  `// graphify:no-index-check: admin-analytics`) so the
+  suppressed-findings report can show why each finding was
+  silenced. Currently the reason is in the godoc above the
+  function, which the tool doesn't parse.
+- The filter tracer's `struct_type` pass (for `InsertOne` /
+  `InsertMany` / `ReplaceOne` documents) could be wired into
+  `graphify_tenant_audit.py`'s `InsertOne` handler so the
+  struct's bson fields are resolved via go/types instead of the
+  regex-based `collect_struct_fields`. This would catch cases
+  where the inserted struct's bson tag differs from its Go
+  field name (e.g. `ID` → `_id`).

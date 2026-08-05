@@ -1,0 +1,667 @@
+  1600→                    )
+  1601→                elif filter_source == "nil":
+  1602→                    note = (
+  1603→                        "Read operation with nil filter — returns ALL "
+  1604→                        "documents in the collection. HIGH: cross-tenant "
+  1605→                        "data leakage risk."
+  1606→                    )
+  1607→                elif not filter_fields:
+  1608→                    note = (
+  1609→                        "Read operation with an empty filter — returns ALL "
+  1610→                        "documents. HIGH: cross-tenant data leakage risk."
+  1611→                    )
+  1612→                elif filter_source.startswith("variable:unknown"):
+  1613→                    note = (
+  1614→                        "Read operation whose filter is a variable that "
+  1615→                        "could not be traced to a definition. Manual review "
+  1616→                        "required to confirm tenantId is set."
+  1617→                    )
+  1618→                elif filter_source.startswith("variable-pipeline:unknown"):
+  1619→                    note = (
+  1620→                        "Aggregate pipeline variable could not be traced to "
+  1621→                        "a definition; cannot verify whether a $match stage "
+  1622→                        "filters on tenantId. Manual review required."
+  1623→                    )
+  1624→                else:
+  1625→                    note = (
+  1626→                        "Read operation on a tenant-scoped collection "
+  1627→                        "without tenantId in the filter. HIGH: cross-tenant "
+  1628→                        "data leakage risk."
+  1629→                    )
+  1630→
+  1631→            # ---- Build a snippet from the RAW source (not masked) ----
+  1632→            snippet = _build_snippet(raw_lines, line_no, filter_text)
+  1633→
+  1634→            q = Query(
+  1635→                file=rel,
+  1636→                line=line_no,
+  1637→                function=current_func,
+  1638→                collection=collection,
+  1639→                operation=operation,
+  1640→                filter_fields=filter_fields,
+  1641→                has_tenant_id=has_tenant_id,
+  1642→                filter_source=filter_source,
+  1643→                risk_level=risk_level,
+  1644→                is_violation=is_violation,
+  1645→                is_exempt_collection=is_exempt,
+  1646→                safe_key_filter=safe_key or filter_source == "by-id",
+  1647→                filter_snippet=snippet,
+  1648→                note=note,
+  1649→                route_scope=route_scope,
+  1650→                is_admin_handler=is_admin_handler,
+  1651→                is_background_task=is_background_task,
+  1652→                is_public_endpoint=is_public_endpoint,
+  1653→                is_auth_flow=is_auth_flow,
+  1654→                is_cli_tool=is_cli_file,
+  1655→                collection_has_tenant_id=coll_has_tid,
+  1656→                collection_is_user_scoped=coll_is_user_scoped,
+  1657→                has_user_id_filter=has_user_id,
+  1658→                suppression_reason=suppression_reason,
+  1659→            )
+  1660→            queries.append(q)
+  1661→            finfo.total_queries += 1
+  1662→            finfo.by_risk[risk_level] += 1
+  1663→            if is_violation:
+  1664→                finfo.violations += 1
+  1665→
+  1666→
+  1667→def _extract_pipeline_match_fields(text: str) -> list[str]:
+  1668→    """Extract field names from ``$match`` stages in an aggregate pipeline.
+  1669→
+  1670→    A ``$match`` stage looks like ``{"$match": bson.M{...}}`` or
+  1671→    ``bson.D{{Key: "$match", Value: bson.D{...}}}``. We locate the inner
+  1672→    filter literal and delegate to :func:`extract_filter_fields_from_text`,
+  1673→    passing enough surrounding context (the ``bson.M`` / ``bson.D`` prefix)
+  1674→    that the BSON regexes can match.
+  1675→    """
+  1676→    fields: list[str] = []
+  1677→    match_re = re.compile(
+  1678→        r'"\$match"\s*:\s*(bson\.M|bson\.D)\s*\{', re.IGNORECASE
+  1679→    )
+  1680→    for m in match_re.finditer(text):
+  1681→        # Find the closing brace of the ``bson.M{...}`` block.
+  1682→        brace_idx = m.end() - 1
+  1683→        end = find_block_end(text, brace_idx, "{", "}")
+  1684→        if end == -1:
+  1685→            continue
+  1686→        # Include the ``bson.M`` prefix in the slice so that
+  1687→        # ``BSON_M_RE`` / ``BSON_D_RE`` (which require the prefix) match.
+  1688→        bson_prefix_start = m.start(1)
+  1689→        inner = text[bson_prefix_start : end + 1]
+  1690→        fields.extend(extract_filter_fields_from_text(inner))
+  1691→    # Dedupe.
+  1692→    seen: set[str] = set()
+  1693→    out: list[str] = []
+  1694→    for f in fields:
+  1695→        if f and not f.startswith("$") and f not in seen:
+  1696→            seen.add(f)
+  1697→            out.append(f)
+  1698→    return out
+  1699→
+  1700→
+  1701→def _extract_struct_name(text: str) -> Optional[str]:
+  1702→    """Best-effort: extract the struct name from an argument like
+  1703→    ``models.User{...}`` or ``&models.User{...}`` or ``User{...}``.
+  1704→    """
+  1705→    m = re.search(r"&?([\w\.]+)\s*\{", text)
+  1706→    if m:
+  1707→        # Take the last component after any dots.
+  1708→        name = m.group(1).split(".")[-1]
+  1709→        return name
+  1710→    return None
+  1711→
+  1712→
+  1713→def _is_exempt_collection(collection: str, accessor: Optional[str]) -> bool:
+  1714→    """Return True if the collection is in the exempt (global) list."""
+  1715→    if collection in EXEMPT_COLLECTIONS:
+  1716→        return True
+  1717→    if accessor and accessor in EXEMPT_ACCESSORS:
+  1718→        return True
+  1719→    return False
+  1720→
+  1721→
+  1722→def _accessor_to_collection(accessor: str) -> str:
+  1723→    """Convert a PascalCase accessor name (e.g. ``Users``) to its snake_case
+  1724→    collection name (e.g. ``users``). Best-effort.
+  1725→    """
+  1726→    # Handle common acronyms first.
+  1727→    out: list[str] = []
+  1728→    cur = ""
+  1729→    for ch in accessor:
+  1730→        if ch.isupper():
+  1731→            if cur:
+  1732→                out.append(cur)
+  1733→                cur = ch.lower()
+  1734→            else:
+  1735→                cur = ch.lower()
+  1736→        else:
+  1737→            cur += ch
+  1738→    if cur:
+  1739→        out.append(cur)
+  1740→    return "_".join(out)
+  1741→
+  1742→
+  1743→def _has_safe_unique_key(filter_fields: list[str], operation: str) -> bool:
+  1744→    """Return True if the filter contains a globally-unique key."""
+  1745→    if operation == "UpdateByID":
+  1746→        return True
+  1747→    for f in filter_fields:
+  1748→        if f in SAFE_UNIQUE_KEYS:
+  1749→            return True
+  1750→    return False
+  1751→
+  1752→
+  1753→def _build_snippet(raw_lines: list[str], line_no: int, filter_text: str) -> str:
+  1754→    """Build a compact human-readable snippet for the report.
+  1755→
+  1756→    Uses the raw (unmasked) source lines so the snippet shows the actual code
+  1757→    the developer wrote (with strings/comments intact).
+  1758→    """
+  1759→    if 1 <= line_no <= len(raw_lines):
+  1760→        first = raw_lines[line_no - 1].strip()
+  1761→    else:
+  1762→        first = ""
+  1763→    # Include up to 3 following lines if the call clearly continues.
+  1764→    snippet_lines = [first]
+  1765→    depth_paren = first.count("(") - first.count(")")
+  1766→    depth_brace = first.count("{") - first.count("}")
+  1767→    i = line_no + 1
+  1768→    while (depth_paren > 0 or depth_brace > 0) and i <= len(raw_lines) and (i - line_no) < 5:
+  1769→        nxt = raw_lines[i - 1].rstrip()
+  1770→        snippet_lines.append(nxt)
+  1771→        depth_paren += nxt.count("(") - nxt.count(")")
+  1772→        depth_brace += nxt.count("{") - nxt.count("}")
+  1773→        i += 1
+  1774→    snippet = "\n".join(snippet_lines).strip()
+  1775→    if len(snippet) > 400:
+  1776→        snippet = snippet[:397] + "..."
+  1777→    return snippet
+  1778→
+  1779→
+  1780→# --------------------------------------------------------------------------- #
+  1781→# Output rendering
+  1782→# --------------------------------------------------------------------------- #
+  1783→
+  1784→
+  1785→def build_summary(
+  1786→    queries: list[Query],
+  1787→    file_index: dict[str, FileInfo],
+  1788→    accessor_map: dict[str, str],
+  1789→    repo_root: Path,
+  1790→    collection_struct_map: Optional[dict[str, str]] = None,
+  1791→    user_scoped_collections: Optional[set[str]] = None,
+  1792→    global_collections: Optional[set[str]] = None,
+  1793→    route_classifier: Optional[dict[str, set[str]]] = None,
+  1794→) -> dict:
+  1795→    """Build the JSON-serialisable summary object."""
+  1796→    total = len(queries)
+  1797→    with_tenant = sum(1 for q in queries if q.has_tenant_id)
+  1798→    without_tenant = total - with_tenant
+  1799→    violations = [q for q in queries if q.is_violation]
+  1800→    critical = [q for q in violations if q.risk_level == "CRITICAL"]
+  1801→    high = [q for q in violations if q.risk_level == "HIGH"]
+  1802→    medium = [q for q in queries if q.risk_level == "MEDIUM"]
+  1803→    ok = [q for q in queries if q.risk_level == "OK"]
+  1804→    safe_key_violations = [q for q in violations if q.safe_key_filter]
+  1805→    real_violations = [q for q in violations if not q.safe_key_filter]
+  1806→
+  1807→    # Suppression breakdown — how many queries were downgraded from a
+  1808→    # potential violation to MEDIUM informational by each heuristic.
+  1809→    suppression_counts: Counter = Counter()
+  1810→    for q in queries:
+  1811→        if q.suppression_reason:
+  1812→            suppression_counts[q.suppression_reason] += 1
+  1813→    route_scope_counts: Counter = Counter(q.route_scope for q in queries)
+  1814→
+  1815→    by_collection: Counter = Counter()
+  1816→    by_operation: Counter = Counter()
+  1817→    violations_by_collection: Counter = Counter()
+  1818→    violations_by_file: Counter = Counter()
+  1819→    for q in queries:
+  1820→        by_collection[q.collection] += 1
+  1821→        by_operation[q.operation] += 1
+  1822→        if q.is_violation:
+  1823→            violations_by_collection[q.collection] += 1
+  1824→            violations_by_file[q.file] += 1
+  1825→
+  1826→    # Top files by violation count.
+  1827→    top_files = [
+  1828→        {"file": f, "violations": v, "total": file_index[f].total_queries}
+  1829→        for f, v in violations_by_file.most_common(20)
+  1830→    ]
+  1831→
+  1832→    return {
+  1833→        "repo_root": str(repo_root),
+  1834→        "total_queries": total,
+  1835→        "queries_with_tenant_id": with_tenant,
+  1836→        "queries_without_tenant_id": without_tenant,
+  1837→        "violations": len(violations),
+  1838→        "critical_violations": len(critical),
+  1839→        "high_violations": len(high),
+  1840→        "medium_global_collection_queries": len(medium),
+  1841→        "ok_queries": len(ok),
+  1842→        "safe_key_violations": len(safe_key_violations),
+  1843→        "real_violations_needing_review": len(real_violations),
+  1844→        "pct_with_tenant_id": (
+  1845→            round(100.0 * with_tenant / total, 2) if total else 0.0
+  1846→        ),
+  1847→        "queries_by_collection": [
+  1848→            {"collection": c, "queries": n}
+  1849→            for c, n in by_collection.most_common()
+  1850→        ],
+  1851→        "queries_by_operation": [
+  1852→            {"operation": op, "count": n}
+  1853→            for op, n in by_operation.most_common()
+  1854→        ],
+  1855→        "violations_by_collection": [
+  1856→            {"collection": c, "violations": n}
+  1857→            for c, n in violations_by_collection.most_common()
+  1858→        ],
+  1859→        "top_files_by_violations": top_files,
+  1860→        "exempt_collections": sorted(EXEMPT_COLLECTIONS),
+  1861→        "tenant_id_fields": sorted(TENANT_ID_FIELDS),
+  1862→        "safe_unique_keys": sorted(SAFE_UNIQUE_KEYS),
+  1863→        "accessor_map_size": len(accessor_map),
+  1864→        "suppression_breakdown": [
+  1865→            {"reason": r, "count": n}
+  1866→            for r, n in suppression_counts.most_common()
+  1867→        ],
+  1868→        "route_scope_breakdown": [
+  1869→            {"scope": s, "count": n}
+  1870→            for s, n in route_scope_counts.most_common()
+  1871→        ],
+  1872→        "user_scoped_collections": sorted(user_scoped_collections or set()),
+  1873→        "global_collections": sorted(global_collections or set()),
+  1874→        "collection_struct_map": collection_struct_map or {},
+  1875→        "route_classifier_sizes": {
+  1876→            "admin": len((route_classifier or {}).get("admin", set())),
+  1877→            "tenant": len((route_classifier or {}).get("tenant", set())),
+  1878→            "auth": len((route_classifier or {}).get("auth", set())),
+  1879→            "public": len((route_classifier or {}).get("public", set())),
+  1880→        },
+  1881→    }
+  1882→
+  1883→
+  1884→def render_markdown(summary: dict, queries: list[Query]) -> str:
+  1885→    """Render the summary + queries as a Markdown report."""
+  1886→    lines: list[str] = []
+  1887→    lines.append("# Tenant Isolation Audit\n")
+  1888→    lines.append(
+  1889→        "MongoDB query audit for **cross-tenant data leakage** risks. The "
+  1890→        "auditor flags queries on tenant-scoped collections that lack a "
+  1891→        "`tenantId` filter — but first applies a series of context-aware "
+  1892→        "heuristics to suppress known false positives (global-by-design "
+  1893→        "collections, admin handlers, background tasks, public endpoints, "
+  1894→        "user-scoped filters, globally-unique keys, and CLI tools).\n"
+  1895→    )
+  1896→    lines.append(f"Repo: `{summary['repo_root']}`\n")
+  1897→
+  1898→    # ---- Headline numbers ----
+  1899→    lines.append("## Summary\n")
+  1900→    lines.append("| Metric | Value |")
+  1901→    lines.append("|--------|-------|")
+  1902→    lines.append(f"| Total MongoDB queries | **{summary['total_queries']}** |")
+  1903→    lines.append(
+  1904→        f"| Queries with `tenantId` filter | **{summary['queries_with_tenant_id']}** "
+  1905→        f"({summary['pct_with_tenant_id']}%) |"
+  1906→    )
+  1907→    lines.append(
+  1908→        f"| Queries without `tenantId` filter | **{summary['queries_without_tenant_id']}** |"
+  1909→    )
+  1910→    lines.append(f"| OK (suppressed: user-scoped, has tenantId, etc.) | {summary['ok_queries']} |")
+  1911→    lines.append(f"| MEDIUM (suppressed: global/admin/CLI/background/public) | {summary['medium_global_collection_queries']} |")
+  1912→    lines.append(f"| **Total violations** | **{summary['violations']}** |")
+  1913→    lines.append(f"| → CRITICAL (write ops, no tenantId) | **{summary['critical_violations']}** |")
+  1914→    lines.append(f"| → HIGH (read ops, no tenantId) | **{summary['high_violations']}** |")
+  1915→    lines.append(
+  1916→        f"| **Real violations needing review** | **{summary['real_violations_needing_review']}** |"
+  1917→    )
+  1918→    lines.append("")
+  1919→
+  1920→    # ---- Suppression breakdown ----
+  1921→    if summary.get("suppression_breakdown"):
+  1922→        lines.append("### False-positive suppressions applied\n")
+  1923→        lines.append("The following heuristics downgraded potential violations to MEDIUM informational notes:\n")
+  1924→        lines.append("| Suppression reason | Queries affected |")
+  1925→        lines.append("|--------------------|-----------------|")
+  1926→        reason_labels = {
+  1927→            "test-util": "Test utility (internal/testutil/) — not production code",
+  1928→            "cli-tool": "CLI tool (cmd/lastsaas/) — no request context",
+  1929→            "background-task": "Background system task (no request context)",
+  1930→            "admin-handler": "Admin handler (/api/admin/*) — sees all tenants by design",
+  1931→            "public-endpoint": "Public endpoint (no auth) — published content",
+  1932→            "global-by-design": "Collection's struct has no tenantId field — global by design",
+  1933→            "user-scoped": "User-scoped collection with userId filter — valid scope",
+  1934→            "auth-flow": "Auth-flow handler — user hasn't selected a tenant yet",
+  1935→            "safe-unique-key": "Filter uses a globally-unique key — single-doc query",
+  1936→            "struct-supports-tenant-id": "Inserted struct declares tenantId — caller responsibility",
+  1937→            "exempt-collection": "Collection in exempt list (legacy)",
+  1938→        }
+  1939→        for r in summary["suppression_breakdown"]:
+  1940→            label = reason_labels.get(r["reason"], r["reason"])
+  1941→            lines.append(f"| {label} | {r['count']} |")
+  1942→        lines.append("")
+  1943→
+  1944→    # ---- Route scope breakdown ----
+  1945→    if summary.get("route_scope_breakdown"):
+  1946→        lines.append("### Route scope breakdown\n")
+  1947→        lines.append("| Scope | Queries |")
+  1948→        lines.append("|-------|---------|")
+  1949→        for s in summary["route_scope_breakdown"]:
+  1950→            lines.append(f"| `{s['scope']}` | {s['count']} |")
+  1951→        lines.append("")
+  1952→
+  1953→    # ---- Risk-level legend ----
+  1954→    lines.append("### Risk levels\n")
+  1955→    lines.append(
+  1956→        "- **CRITICAL** — write operation (`InsertOne`, `UpdateOne`, "
+  1957→        "`DeleteOne`, `FindOneAndUpdate`, ...) on a tenant-scoped collection "
+  1958→        "without a `tenantId` filter. Can modify or delete data belonging to "
+  1959→        "other tenants.\n"
+  1960→        "- **HIGH** — read operation (`Find`, `FindOne`, `Aggregate`, "
+  1961→        "`CountDocuments`) on a tenant-scoped collection without a "
+  1962→        "`tenantId` filter. Can leak data across tenants.\n"
+  1963→        "- **MEDIUM** — query that was *suppressed* by a false-positive "
+  1964→        "heuristic (global-by-design collection, admin handler, background "
+  1965→        "task, public endpoint, user-scoped filter, globally-unique key, "
+  1966→        "or CLI tool). Not a strict violation but listed for review.\n"
+  1967→        "- **OK** — query has a `tenantId` filter, or is on a user-scoped "
+  1968→        "collection filtered by `userId` (a valid scope since a user's "
+  1969→        "data spans tenants).\n"
+  1970→    )
+  1971→    lines.append(
+  1972→        "The `safe_key_filter` flag marks queries whose filter contains a "
+  1973→        "globally-unique key (e.g. `_id`, `tokenHash`, `slug`, `webhookId`). "
+  1974→        "Such queries are downgraded to MEDIUM because the unique key "
+  1975→        "already constrains the query to a single document regardless of "
+  1976→        "tenant.\n"
+  1977→    )
+  1978→
+  1979→    # ---- Top files ----
+  1980→    if summary["top_files_by_violations"]:
+  1981→        lines.append("## Top Files by Violations\n")
+  1982→        lines.append("| File | Violations | Total queries |")
+  1983→        lines.append("|------|------------|---------------|")
+  1984→        for f in summary["top_files_by_violations"]:
+  1985→            lines.append(f"| `{f['file']}` | {f['violations']} | {f['total']} |")
+  1986→        lines.append("")
+  1987→
+  1988→    # ---- Violations by collection ----
+  1989→    if summary["violations_by_collection"]:
+  1990→        lines.append("## Violations by Collection\n")
+  1991→        lines.append("| Collection | Violations |")
+  1992→        lines.append("|------------|------------|")
+  1993→        for c in summary["violations_by_collection"]:
+  1994→            lines.append(f"| `{c['collection']}` | {c['violations']} |")
+  1995→        lines.append("")
+  1996→
+  1997→    # ---- CRITICAL violations (real, no safe key) ----
+  1998→    crit_real = [
+  1999→        q for q in queries
+  2000→        if q.risk_level == "CRITICAL" and not q.safe_key_filter
+  2001→    ]
+  2002→    lines.append(
+  2003→        f"## CRITICAL Violations — Write Ops without tenantId "
+  2004→        f"({len(crit_real)} real)\n"
+  2005→    )
+  2006→    if crit_real:
+  2007→        lines.append(_render_violation_table(crit_real))
+  2008→    else:
+  2009→        lines.append("_None — all write operations include a `tenantId` filter or were suppressed by a context heuristic._\n")
+  2010→
+  2011→    # ---- HIGH violations (real, no safe key) ----
+  2012→    high_real = [
+  2013→        q for q in queries
+  2014→        if q.risk_level == "HIGH" and not q.safe_key_filter
+  2015→    ]
+  2016→    lines.append(
+  2017→        f"## HIGH Violations — Read Ops without tenantId "
+  2018→        f"({len(high_real)} real)\n"
+  2019→    )
+  2020→    if high_real:
+  2021→        lines.append(_render_violation_table(high_real))
+  2022→    else:
+  2023→        lines.append("_None — all read operations include a `tenantId` filter or were suppressed by a context heuristic._\n")
+  2024→
+  2025→    # ---- Safe-key queries (now downgraded to MEDIUM) ----
+  2026→    safe_key_qs = [q for q in queries if q.safe_key_filter and not q.is_violation]
+  2027→    lines.append(
+  2028→        f"## Safe-Key Queries — Globally-Unique Filter ({len(safe_key_qs)})\n"
+  2029→    )
+  2030→    lines.append(
+  2031→        "These queries lack a `tenantId` filter but constrain on a "
+  2032→        "globally-unique key (`_id`, `tokenHash`, `slug`, `webhookId`, "
+  2033→        "etc.). The unique key already constrains the query to a single "
+  2034→        "document regardless of tenant — downgraded to MEDIUM.\n"
+  2035→    )
+  2036→    if safe_key_qs:
+  2037→        lines.append(_render_violation_table(safe_key_qs[:50]))
+  2038→        if len(safe_key_qs) > 50:
+  2039→            lines.append(f"\n_…and {len(safe_key_qs) - 50} more (see JSON)._\n")
+  2040→    else:
+  2041→        lines.append("_None._\n")
+  2042→
+  2043→    # ---- MEDIUM — suppressed queries ----
+  2044→    medium = [q for q in queries if q.risk_level == "MEDIUM"]
+  2045→    lines.append(
+  2046→        f"## MEDIUM — Suppressed Queries ({len(medium)})\n"
+  2047→    )
+  2048→    if medium:
+  2049→        lines.append(_render_violation_table(medium[:50]))
+  2050→        if len(medium) > 50:
+  2051→            lines.append(f"\n_…and {len(medium) - 50} more (see JSON and All Queries by File below)._\n")
+  2052→    else:
+  2053→        lines.append("_None._\n")
+  2054→
+  2055→    # ---- All queries grouped by file ----
+  2056→    lines.append("## All Queries by File\n")
+  2057→    by_file: dict[str, list[Query]] = defaultdict(list)
+  2058→    for q in queries:
+  2059→        by_file[q.file].append(q)
+  2060→    for file in sorted(by_file):
+  2061→        lines.append(f"### `{file}`\n")
+  2062→        lines.append(_render_violation_table(by_file[file]))
+  2063→        lines.append("")
+  2064→
+  2065→    lines.append("---")
+  2066→    lines.append("_Generated by `graphify_tenant_audit.py`._")
+  2067→    return "\n".join(lines)
+  2068→
+  2069→
+  2070→def _render_violation_table(qs: list[Query]) -> str:
+  2071→    """Render a list of queries as a markdown table."""
+  2072→    out: list[str] = []
+  2073→    out.append(
+  2074→        "| Line | Function | Op | Collection | Filter | Scope | Risk | "
+  2075→        "Suppression | Note |"
+  2076→    )
+  2077→    out.append(
+  2078→        "|------|----------|----|------------|--------|-------|------|"
+  2079→        "-------------|------|"
+  2080→    )
+  2081→    for q in sorted(qs, key=lambda q: (q.file, q.line)):
+  2082→        fields = ", ".join(f"`{f}`" for f in q.filter_fields) if q.filter_fields else "—"
+  2083→        note = q.note.replace("|", "\\|")
+  2084→        if len(note) > 90:
+  2085→            note = note[:87] + "..."
+  2086→        supp = q.suppression_reason or ""
+  2087→        out.append(
+  2088→            f"| {q.line} | `{q.function}` | `{q.operation}` | "
+  2089→            f"`{q.collection}` | {fields} | `{q.route_scope}` | "
+  2090→            f"{q.risk_level} | {supp} | {note} |"
+  2091→        )
+  2092→    out.append("")
+  2093→    return "\n".join(out)
+  2094→
+  2095→
+  2096→# --------------------------------------------------------------------------- #
+  2097→# CLI
+  2098→# --------------------------------------------------------------------------- #
+  2099→
+  2100→
+  2101→PUBLIC_DIR = Path("/home/z/my-project/public")
+  2102→
+  2103→
+  2104→def main(argv: list[str] | None = None) -> int:
+  2105→    parser = argparse.ArgumentParser(
+  2106→        prog="graphify_tenant_audit.py",
+  2107→        description=(
+  2108→            "Tenant-isolation security auditor: scan Go source for MongoDB "
+  2109→            "queries missing a tenantId filter."
+  2110→        ),
+  2111→    )
+  2112→    parser.add_argument(
+  2113→        "path",
+  2114→        nargs="?",
+  2115→        default=".",
+  2116→        help="Root directory to scan (default: current directory).",
+  2117→    )
+  2118→    parser.add_argument(
+  2119→        "--out",
+  2120→        default=None,
+  2121→        help="Path to write the Markdown report (default: stdout).",
+  2122→    )
+  2123→    parser.add_argument(
+  2124→        "--json",
+  2125→        nargs="?",
+  2126→        const="__stdout__",
+  2127→        default=None,
+  2128→        help="Path to write the JSON report. If passed without a value, "
+  2129→        "writes to stdout.",
+  2130→    )
+  2131→    parser.add_argument(
+  2132→        "--include-tests",
+  2133→        action="store_true",
+  2134→        default=False,
+  2135→        help="Include *_test.go files in the scan (default: skipped).",
+  2136→    )
+  2137→    args = parser.parse_args(argv)
+  2138→
+  2139→    repo_root = Path(args.path).resolve()
+  2140→    if not repo_root.is_dir():
+  2141→        print(f"error: {repo_root} is not a directory", file=sys.stderr)
+  2142→        return 2
+  2143→
+  2144→    print(f"building accessor map from {repo_root}...", file=sys.stderr)
+  2145→    accessor_map = build_accessor_map(repo_root)
+  2146→    print(f"  found {len(accessor_map)} collection accessors", file=sys.stderr)
+  2147→
+  2148→    print("collecting struct field definitions...", file=sys.stderr)
+  2149→    struct_fields = collect_struct_fields(repo_root)
+  2150→    print(f"  found {len(struct_fields)} struct definitions", file=sys.stderr)
+  2151→
+  2152→    print("building collection→struct map...", file=sys.stderr)
+  2153→    collection_struct_map = build_collection_struct_map(accessor_map, struct_fields)
+  2154→    print(f"  resolved {len(collection_struct_map)} collections to structs", file=sys.stderr)
+  2155→
+  2156→    print("building user-scoped + global collection lists...", file=sys.stderr)
+  2157→    user_scoped_collections = build_user_scoped_collections(
+  2158→        collection_struct_map, struct_fields
+  2159→    )
+  2160→    global_collections = build_global_collections(
+  2161→        collection_struct_map, struct_fields
+  2162→    )
+  2163→    print(
+  2164→        f"  {len(user_scoped_collections)} user-scoped collections, "
+  2165→        f"{len(global_collections)} global collections",
+  2166→        file=sys.stderr,
+  2167→    )
+  2168→
+  2169→    print("parsing main.go for route classification...", file=sys.stderr)
+  2170→    route_classifier = build_route_classifier(repo_root)
+  2171→    print(
+  2172→        f"  admin={len(route_classifier['admin'])}, "
+  2173→        f"tenant={len(route_classifier['tenant'])}, "
+  2174→        f"auth={len(route_classifier['auth'])}, "
+  2175→        f"public={len(route_classifier['public'])} handlers",
+  2176→        file=sys.stderr,
+  2177→    )
+  2178→
+  2179→    queries: list[Query] = []
+  2180→    file_index: dict[str, FileInfo] = {}
+  2181→
+  2182→    scanned = 0
+  2183→    for path in sorted(repo_root.rglob("*.go")):
+  2184→        if not args.include_tests and path.name.endswith("_test.go"):
+  2185→            continue
+  2186→        if "graphify-out" in path.parts:
+  2187→            continue
+  2188→        if "vendor" in path.parts:
+  2189→            continue
+  2190→        scan_file(
+  2191→            path=path,
+  2192→            repo_root=repo_root,
+  2193→            accessor_map=accessor_map,
+  2194→            struct_fields=struct_fields,
+  2195→            queries=queries,
+  2196→            file_index=file_index,
+  2197→            route_classifier=route_classifier,
+  2198→            collection_struct_map=collection_struct_map,
+  2199→            user_scoped_collections=user_scoped_collections,
+  2200→            global_collections=global_collections,
+  2201→        )
+  2202→        scanned += 1
+  2203→    print(f"scanned {scanned} .go files", file=sys.stderr)
+  2204→
+  2205→    summary = build_summary(
+  2206→        queries,
+  2207→        file_index,
+  2208→        accessor_map,
+  2209→        repo_root,
+  2210→        collection_struct_map=collection_struct_map,
+  2211→        user_scoped_collections=user_scoped_collections,
+  2212→        global_collections=global_collections,
+  2213→        route_classifier=route_classifier,
+  2214→    )
+  2215→    payload = {
+  2216→        "summary": summary,
+  2217→        "queries": [q.to_dict() for q in queries],
+  2218→        "accessor_map": accessor_map,
+  2219→    }
+  2220→
+  2221→    json_text = json.dumps(payload, indent=2, default=str)
+  2222→
+  2223→    # ---- JSON output ----
+  2224→    if args.json is not None:
+  2225→        if args.json == "__stdout__":
+  2226→            print(json_text)
+  2227→        else:
+  2228→            Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+  2229→            Path(args.json).write_text(json_text + "\n", encoding="utf-8")
+  2230→            print(f"wrote JSON to {args.json}", file=sys.stderr)
+  2231→
+  2232→    # ---- Markdown output ----
+  2233→    md_text = render_markdown(summary, queries)
+  2234→    if args.out:
+  2235→        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+  2236→        Path(args.out).write_text(md_text + "\n", encoding="utf-8")
+  2237→        print(f"wrote markdown to {args.out}", file=sys.stderr)
+  2238→    elif args.json is None:
+  2239→        # If neither --out nor --json were provided, print MD to stdout so
+  2240→        # the script is still useful out of the box.
+  2241→        print(md_text)
+  2242→
+  2243→    # ---- Best-effort write to public/ ----
+  2244→    try:
+  2245→        PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+  2246→        (PUBLIC_DIR / "tenant-audit.json").write_text(
+  2247→            json_text + "\n", encoding="utf-8"
+  2248→        )
+  2249→        (PUBLIC_DIR / "TENANT_AUDIT.md").write_text(
+  2250→            md_text + "\n", encoding="utf-8"
+  2251→        )
+  2252→        print(
+  2253→            f"wrote public/tenant-audit.json and public/TENANT_AUDIT.md "
+  2254→            f"({summary['violations']} violations, "
+  2255→            f"{summary['real_violations_needing_review']} real)",
+  2256→            file=sys.stderr,
+  2257→        )
+  2258→    except OSError as e:
+  2259→        print(f"warning: could not write to public/: {e}", file=sys.stderr)
+  2260→
+  2261→    return 0
+  2262→
+  2263→
+  2264→if __name__ == "__main__":
+  2265→    raise SystemExit(main())
+  2266→

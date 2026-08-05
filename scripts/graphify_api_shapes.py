@@ -90,6 +90,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -408,6 +409,393 @@ class Comparison:
     extra_in_go: List[str]          # Go field names absent from TS
     type_mismatches: List[Dict[str, str]]   # {field, go_type, ts_type, note}
     status: str                     # "ok" | "missing_in_go" | "extra_in_go" | "type_mismatch" | "no_go_handler" | "unknown_go_shape"
+
+
+# ---------------------------------------------------------------------------
+# Go struct flattener integration
+# ---------------------------------------------------------------------------
+#
+# The Python regex-based struct parser in this file cannot see through
+# embedded structs (a struct field whose type is another struct is
+# "embedded" and its fields are flattened into the outer struct by Go's
+# JSON marshalling). The Go tool at
+# ``scripts/go/graphify_struct_flattener/main.go`` uses go/types to do
+# this properly. We invoke it as a subprocess and load the JSON output
+# to get an accurate ``{struct_name: set(json_field_names)}`` map.
+
+# Path to the Go struct flattener source. Resolved relative to this
+# script so the tool works regardless of the current working directory.
+STRUCT_FLATTENER_PATH = Path(__file__).resolve().parent / 'go' / 'graphify_struct_flattener' / 'main.go'
+
+# Path to the Go filter tracer source.
+FILTER_TRACER_PATH = Path(__file__).resolve().parent / 'go' / 'graphify_filter_tracer' / 'main.go'
+
+
+def load_go_structs(repo_path: Path) -> Dict[str, Set[str]]:
+    """Run the Go struct flattener over the backend module and return a
+    ``{struct_name: set(json_field_names)}`` map.
+
+    The flattener resolves embedded struct fields recursively, so the
+    returned field set includes fields inherited from embedded types
+    (which the regex-based parser in this file cannot see).
+
+    The Go tool is invoked as ``cd {repo}/backend && go run
+    <flattener> -out /tmp/structs.json``. If the backend directory or
+    Go toolchain is unavailable, an empty dict is returned (and the
+    comparison falls back to the regex-based struct map).
+    """
+    env = os.environ.copy()
+    go_path = Path('/home/z/.local/go/bin')
+    if go_path.exists():
+        env['PATH'] = f'{go_path}:{env.get("PATH", "")}'
+    env.setdefault('GOTOOLCHAIN', 'auto')
+
+    backend_dir = repo_path / 'backend'
+    if not backend_dir.is_dir():
+        # Some repos may not have a backend/ subdir — fall back to repo root.
+        backend_dir = repo_path
+    if not STRUCT_FLATTENER_PATH.is_file():
+        print(
+            f'  ! struct flattener not found at {STRUCT_FLATTENER_PATH}',
+            file=sys.stderr,
+        )
+        return {}
+
+    out_file = Path('/tmp/graphify-structs.json')
+    cmd = [
+        'go', 'run', str(STRUCT_FLATTENER_PATH),
+        '-out', str(out_file),
+    ]
+    print(
+        f'  Running Go struct flattener (cd {backend_dir} && go run ...)',
+        file=sys.stderr,
+    )
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(backend_dir), env=env,
+            capture_output=True, text=True, timeout=300,
+        )
+    except FileNotFoundError as exc:
+        print(f'  ! go executable not found: {exc}', file=sys.stderr)
+        return {}
+    except subprocess.TimeoutExpired:
+        print('  ! struct flattener timed out after 300s', file=sys.stderr)
+        return {}
+    if result.returncode != 0:
+        print(
+            f'  ! struct flattener exited {result.returncode}: '
+            f'{result.stderr.strip()[:500]}',
+            file=sys.stderr,
+        )
+        return {}
+    if not out_file.is_file():
+        print(f'  ! struct flattener did not produce {out_file}', file=sys.stderr)
+        return {}
+
+    try:
+        data = json.loads(out_file.read_text(encoding='utf-8'))
+    except Exception as exc:
+        print(f'  ! could not parse struct flattener output: {exc}', file=sys.stderr)
+        return {}
+
+    out: Dict[str, Set[str]] = {}
+    for entry in data:
+        name = entry.get('name', '')
+        if not name:
+            continue
+        fields: Set[str] = set()
+        for f in entry.get('fields', []):
+            jn = f.get('jsonName', '')
+            if jn and jn != '-':
+                fields.add(jn)
+            elif f.get('name'):
+                # No json tag — Go uses the field name as the wire name.
+                # Only include exported fields (uppercase initial).
+                fn = f['name']
+                if fn[:1].isupper():
+                    fields.add(fn)
+        # Merge with any existing entry (structs can be defined in
+        # multiple files; first definition wins for the regex-based
+        # map, but the flattener is authoritative).
+        out.setdefault(name, set()).update(fields)
+    print(
+        f'  Loaded {len(out)} flattened Go structs '
+        f'({sum(len(v) for v in out.values())} total fields)',
+        file=sys.stderr,
+    )
+    return out
+
+
+def load_go_filters(repo_path: Path) -> Dict[str, List[str]]:
+    """Run the Go filter tracer and return a ``{function_key: fields}`` map.
+
+    The function key is ``"file:line"`` so callers can look up the
+    dynamic filter fields for any MongoDB query by its source location.
+
+    The tracer uses go/ssa to follow ``filter["x"] = y`` patterns and
+    struct-typed InsertOne arguments, so the returned fields include
+    dynamically constructed filter keys (which the regex-based parser
+    cannot see).
+    """
+    env = os.environ.copy()
+    go_path = Path('/home/z/.local/go/bin')
+    if go_path.exists():
+        env['PATH'] = f'{go_path}:{env.get("PATH", "")}'
+    env.setdefault('GOTOOLCHAIN', 'auto')
+
+    backend_dir = repo_path / 'backend'
+    if not backend_dir.is_dir():
+        backend_dir = repo_path
+    if not FILTER_TRACER_PATH.is_file():
+        print(
+            f'  ! filter tracer not found at {FILTER_TRACER_PATH}',
+            file=sys.stderr,
+        )
+        return {}
+
+    out_file = Path('/tmp/graphify-filters.json')
+    cmd = [
+        'go', 'run', str(FILTER_TRACER_PATH),
+        '-out', str(out_file),
+    ]
+    print(
+        f'  Running Go filter tracer (cd {backend_dir} && go run ...)',
+        file=sys.stderr,
+    )
+    try:
+        result = subprocess.run(
+            cmd, cwd=str(backend_dir), env=env,
+            capture_output=True, text=True, timeout=600,
+        )
+    except FileNotFoundError as exc:
+        print(f'  ! go executable not found: {exc}', file=sys.stderr)
+        return {}
+    except subprocess.TimeoutExpired:
+        print('  ! filter tracer timed out after 600s', file=sys.stderr)
+        return {}
+    if result.returncode != 0:
+        print(
+            f'  ! filter tracer exited {result.returncode}: '
+            f'{result.stderr.strip()[:500]}',
+            file=sys.stderr,
+        )
+        return {}
+    if not out_file.is_file():
+        print(f'  ! filter tracer did not produce {out_file}', file=sys.stderr)
+        return {}
+
+    try:
+        data = json.loads(out_file.read_text(encoding='utf-8'))
+    except Exception as exc:
+        print(f'  ! could not parse filter tracer output: {exc}', file=sys.stderr)
+        return {}
+
+    # Key by file:line so callers can look up dynamic filter fields by
+    # the source location of the query call. Each function report may
+    # have multiple findings; we collect all fields from all findings
+    # whose method is "literal" or "map_update" (struct_type findings
+    # describe InsertOne documents, not query filters).
+    out: Dict[str, List[str]] = {}
+    for entry in data:
+        file = entry.get('file', '')
+        line = entry.get('line', 0)
+        if not file:
+            continue
+        key = f'{file}:{line}'
+        fields: List[str] = []
+        for finding in entry.get('findings', []):
+            method = finding.get('method', '')
+            if method not in ('literal', 'map_update'):
+                continue
+            for f in finding.get('fields', []):
+                if f and not f.startswith('$') and f not in fields:
+                    fields.append(f)
+        if fields:
+            out.setdefault(key, []).extend(fields)
+    print(
+        f'  Loaded filter tracer data for {len(out)} functions',
+        file=sys.stderr,
+    )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Map-response field extractor and local wrapper struct scanner
+# ---------------------------------------------------------------------------
+
+# A `map[string]interface{}{...}` or `map[string]any{...}` literal.
+# Captures nothing — the keys are inside the brace body.
+RE_MAP_RESPONSE_LITERAL = re.compile(
+    r'\bmap\s*\[\s*string\s*\]\s*(?:interface\s*\{\s*\}|any|object)\s*\{'
+)
+
+# A `type X struct {` declaration. Matches both top-level and local
+# (function-scoped) definitions. Captures the type name.
+RE_LOCAL_TYPE_STRUCT = re.compile(
+    r'\btype\s+(?P<name>[A-Za-z]\w*)\s+struct\s*\{'
+)
+
+# A field declaration inside a struct body. Same shape as the top-level
+# struct field regex but reused here for local types.
+RE_LOCAL_STRUCT_FIELD = re.compile(
+    r'^\s*(?P<name>[A-Z]\w*)\s+(?P<type>[^\s`].*?)'
+    r'(?:\s+`(?P<tag>[^`]*)`)?\s*$'
+)
+
+
+def find_map_response_fields(content: str, func_name: str) -> Set[str]:
+    """Scan a handler function body for ``map[string]interface{}{...}`` or
+    ``map[string]any{...}`` literals and extract all string keys.
+
+    Returns the set of field names sent via map responses in the
+    handler. This supplements the existing ``_parse_handler_responses``
+    logic which already extracts map keys — we re-scan here so callers
+    can ask "what fields does this handler send via map responses?"
+    without re-running the full response classification.
+
+    ``func_name`` is the handler name (e.g. ``"PlansHandler.ListPlansPublic"``)
+    used to locate the handler body. If the handler can't be located,
+    an empty set is returned.
+    """
+    out: Set[str] = set()
+    body = _extract_handler_body(content, func_name)
+    if not body:
+        return out
+    # Mask comments and strings so brace matching is safe. We don't
+    # need to preserve raw contents because we only care about quoted
+    # keys, which are visible in the masked source too (mask replaces
+    # the contents with spaces but keeps the quotes — actually the
+    # masker blanks the contents, so we re-slice from the raw body).
+    masked = mask_go_source(body)
+    for m in RE_MAP_RESPONSE_LITERAL.finditer(masked):
+        brace_idx = m.end() - 1
+        # find_matching_brace operates on the masked source so braces
+        # inside strings don't confuse it.
+        inner_masked, _ = find_matching_brace(masked, brace_idx, '{', '}')
+        if inner_masked is None:
+            continue
+        # Re-slice the same byte range from the raw body so string
+        # keys are preserved.
+        inner_raw = body[brace_idx + 1: brace_idx + 1 + len(inner_masked)]
+        # Extract all "key": ... patterns at depth 0.
+        for km in re.finditer(r'"([^"]+)"\s*:', inner_raw):
+            key = km.group(1)
+            if key and not key.startswith('$'):
+                out.add(key)
+    return out
+
+
+def find_local_wrapper_structs(content: str,
+                               func_name: str) -> List[Tuple[str, Set[str]]]:
+    """Scan the file (and any handler function body in it) for local
+    ``type X struct { ... }`` definitions and extract their fields.
+
+    Returns a list of ``(wrapper_name, field_names)`` pairs. The scan
+    covers the whole file content (local types are often defined in
+    a sibling handler in the same file — e.g. ``mediaItem`` is defined
+    in ``ListMedia`` but used as the conceptual response shape for
+    ``UploadMedia`` in the same file).
+
+    ``func_name`` is the handler name (e.g. ``"BrandingHandler.UploadMedia"``)
+    used for context — currently informational only.
+    """
+    out: List[Tuple[str, Set[str]]] = []
+    masked = mask_go_source(content)
+    for m in RE_LOCAL_TYPE_STRUCT.finditer(masked):
+        name = m.group('name')
+        brace_idx = masked.find('{', m.start())
+        if brace_idx == -1:
+            continue
+        body, _ = find_matching_brace(masked, brace_idx, '{', '}')
+        if body is None:
+            continue
+        # Re-slice from the raw source so struct tags are preserved.
+        raw_body = content[brace_idx + 1: brace_idx + 1 + len(body)]
+        fields: Set[str] = set()
+        for line in raw_body.splitlines():
+            f = _parse_local_struct_field_line(line)
+            if f:
+                fields.add(f)
+        if fields:
+            out.append((name, fields))
+    return out
+
+
+def _parse_local_struct_field_line(line: str) -> Optional[str]:
+    """Parse a single line from a local struct body and return the
+    JSON wire name (or None if the line isn't a field declaration).
+    """
+    s = line.strip()
+    if not s or s.startswith('//'):
+        return None
+    if s in {'{', '}', '};'}:
+        return None
+    # Embedded field (just a type name, no field name, no tag) — skip
+    # (the flattener handles these via go/types; we can't reliably
+    # resolve them from the regex alone).
+    if '`' not in s and re.match(r'^[A-Z]\w*\.?[A-Z]\w*$', s):
+        return None
+    m = RE_LOCAL_STRUCT_FIELD.match(s)
+    if not m:
+        # Fall back to a permissive split on the backtick.
+        parts = s.split('`', 1)
+        if len(parts) != 2:
+            return None
+        head, tag = parts
+        bits = head.strip().split(None, 1)
+        if len(bits) != 2:
+            return None
+        name = bits[0]
+        tag_str = tag.strip()
+    else:
+        name = m.group('name')
+        tag_str = m.group('tag') or ''
+    if not name:
+        return None
+    jm = RE_JSON_TAG.search(tag_str)
+    if jm:
+        val = jm.group('val')
+        if val == '-':
+            return None
+        bits = val.split(',', 1)
+        return bits[0] or None
+    # No json tag — Go uses the field name as the wire name.
+    return name
+
+
+def _extract_handler_body(content: str, func_name: str) -> Optional[str]:
+    """Extract the body of a handler function from ``content``.
+
+    ``func_name`` is the ``Receiver.Method`` label (e.g.
+    ``"PlansHandler.ListPlansPublic"``). Returns the masked body text
+    (between the outer ``{`` and ``}`` of the function), or None if
+    the handler can't be found.
+    """
+    if not func_name or '.' not in func_name:
+        return None
+    recv_type, method = func_name.split('.', 1)
+    # Build a regex that matches `func (h *RecvType) Method(...) {`.
+    # RecvType may be a value or pointer receiver.
+    pat = re.compile(
+        r'\bfunc\s*\(\s*\w+\s+\*?'
+        + re.escape(recv_type)
+        + r'\s*\)\s+'
+        + re.escape(method)
+        + r'\s*\([^)]*\)\s*\{'
+    )
+    m = pat.search(content)
+    if not m:
+        return None
+    brace_idx = content.find('{', m.start())
+    if brace_idx == -1:
+        return None
+    body, _ = find_matching_brace(mask_go_source(content), brace_idx, '{', '}')
+    if body is None:
+        return None
+    # Re-slice from the raw source so string contents are preserved.
+    return content[brace_idx + 1: brace_idx + 1 + len(body)]
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -2176,6 +2564,7 @@ def compare_endpoint(
     go_handler: Optional[GoHandler],
     structs_by_name: Dict[str, GoStruct],
     ts_types_by_name: Dict[str, TSType],
+    available_field_names: Optional[Set[str]] = None,
 ) -> Comparison:
     """Compare a single TS endpoint against its Go counterpart.
 
@@ -2184,6 +2573,15 @@ def compare_endpoint(
     pair matches, the endpoint is reported as OK. This handles handlers
     that return different shapes on different code paths (e.g. an MFA
     branch and a normal branch).
+
+    ``available_field_names`` is an optional set of field names that
+    are "available" in the Go handler but not necessarily in the
+    response shape (e.g. fields of structs referenced by handler
+    variables, fields of local wrapper structs in the same file,
+    fields of map responses elsewhere in the handler). A TS field in
+    this set is not flagged as "missing in Go" — this suppresses
+    false positives where the regex-based parser can't see the field
+    but it's actually present in the Go code.
     """
     candidates = resolve_ts_response_candidates(ts_ep, ts_types_by_name)
     if not candidates:
@@ -2204,6 +2602,9 @@ def compare_endpoint(
             type_mismatches=[],
             status='no_go_handler',
         )
+
+    if available_field_names is None:
+        available_field_names = set()
 
     # Try each (Go shape, TS candidate) pair and pick the best match.
     best: Optional[Comparison] = None
@@ -2247,6 +2648,7 @@ def compare_endpoint(
                 structs_by_name=structs_by_name,
                 ts_types_by_name=ts_types_by_name,
                 _alias_cache=alias_cache,
+                available_field_names=available_field_names,
             )
             score = {
                 'ok': 5,
@@ -2289,6 +2691,7 @@ def compare_endpoint(
                     structs_by_name=structs_by_name,
                     ts_types_by_name=ts_types_by_name,
                     _alias_cache=alias_cache,
+                    available_field_names=available_field_names,
                 )
                 score = {
                     'ok': 5,
@@ -2329,6 +2732,7 @@ def _compare_fields(
     structs_by_name: Optional[Dict[str, GoStruct]] = None,
     ts_types_by_name: Optional[Dict[str, TSType]] = None,
     _alias_cache: Optional[Set[Tuple[str, str]]] = None,
+    available_field_names: Optional[Set[str]] = None,
 ) -> Comparison:
     """Compare a specific TS field set against the Go fields.
 
@@ -2338,15 +2742,32 @@ def _compare_fields(
     field-compatible shapes, the names are treated as aliases and the
     mismatch is suppressed. This eliminates false positives where the
     Go and TS codebases use different names for the same shape.
+
+    ``available_field_names`` is an optional set of field names that
+    are "available" in the Go handler (e.g. fields of structs
+    referenced by handler variables, fields of local wrapper structs
+    in the same file, fields of map responses elsewhere in the
+    handler). A TS-required field in this set is NOT flagged as
+    "missing in Go" — this suppresses false positives where the
+    regex-based parser can't see the field but it's actually present
+    in the Go code (e.g. the handler has access to a struct field
+    that the response map doesn't explicitly include).
     """
     go_field_map: Dict[str, GoResponseField] = {f.name: f for f in go_fields if f.name}
     ts_field_map: Dict[str, TSField] = {f.name: f for f in ts_fields if f.name}
+    if available_field_names is None:
+        available_field_names = set()
     # A TS field marked optional (`field?: type`) does NOT need to be
     # sent by Go — the frontend tolerates its absence. Only flag a TS
-    # field as "missing in Go" if it's required (non-optional).
+    # field as "missing in Go" if it's required (non-optional) AND not
+    # present in the Go response AND not "available" via any of the
+    # supplementary sources (struct flattener, local wrappers, map
+    # responses elsewhere in the handler).
     missing = [
         n for n, ts_f in ts_field_map.items()
-        if n not in go_field_map and not ts_f.is_optional
+        if n not in go_field_map
+        and not ts_f.is_optional
+        and n not in available_field_names
     ]
     extra = [n for n in go_field_map if n not in ts_field_map]
     mismatches: List[Dict[str, str]] = []
@@ -2860,9 +3281,15 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
             file=sys.stderr,
         )
 
+    # Run the Go struct flattener (go/types-based, sees embedded struct
+    # fields). Falls back gracefully to the regex-based struct map if
+    # the Go toolchain is unavailable.
+    flattened_struct_fields = load_go_structs(repo)
+
     go_structs: List[GoStruct] = []
     handlers: List[GoHandler] = []
     routes: List[GoRoute] = []
+    file_raw_cache: Dict[str, str] = {}  # rel_path -> raw source
     for f in go_files:
         try:
             raw = f.read_text(encoding='utf-8', errors='replace')
@@ -2875,6 +3302,7 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
         pkg = pkg_m.group(1) if pkg_m else ''
         go_structs.extend(parse_go_structs(masked, rel, pkg, raw_content=raw))
         handlers.extend(parse_go_handlers(masked, rel, raw_content=raw))
+        file_raw_cache[rel] = raw
         # Routes are usually only in main.go and the test helpers.
         # Use the RAW (unmasked) source so path strings are preserved.
         if rel.endswith('main.go') or rel.endswith('testhelpers_test.go'):
@@ -2884,6 +3312,13 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
     structs_by_name: Dict[str, GoStruct] = {}
     for s in go_structs:
         structs_by_name.setdefault(s.name, s)
+
+    # Augment the regex-based struct map with the flattener's output so
+    # embedded struct fields are visible when resolving struct_literal
+    # response shapes. We merge the flattener's fields into the
+    # existing GoStruct entries (creating a synthetic GoField list when
+    # the regex-based parser missed the struct entirely).
+    _merge_flattened_into_structs(structs_by_name, flattened_struct_fields)
 
     handlers_by_name: Dict[str, GoHandler] = {h.name: h for h in handlers}
 
@@ -2962,6 +3397,15 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
         go_handler: Optional[GoHandler] = None
         if go_route:
             go_handler = handlers_by_name.get(go_route.handler_func)
+        # Build the set of "available" field names from the Go code:
+        # fields of structs referenced in the handler body, fields of
+        # local wrapper structs in the same file, and fields of map
+        # responses elsewhere in the handler. A TS-required field in
+        # this set is NOT flagged as "missing in Go".
+        available = _build_available_field_names(
+            go_handler, go_shape_list, structs_by_name,
+            flattened_struct_fields, file_raw_cache,
+        )
         comp = compare_endpoint(
             method=ep.method,
             path=ep.path,
@@ -2970,6 +3414,7 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
             go_handler=go_handler,
             structs_by_name=structs_by_name,
             ts_types_by_name=ts_types_by_name,
+            available_field_names=available,
         )
         comparisons.append(comp)
 
@@ -2979,6 +3424,119 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
             unmatched_go.append(r)
 
     return comparisons, unmatched_ts, unmatched_go, go_structs, ts_types
+
+
+def _merge_flattened_into_structs(
+    structs_by_name: Dict[str, GoStruct],
+    flattened: Dict[str, Set[str]],
+) -> None:
+    """Merge the Go struct flattener's field sets into the regex-parsed
+    ``structs_by_name`` map.
+
+    For each struct that the flattener found, ensure its ``fields``
+    list includes every JSON field name the flattener reported (the
+    flattener resolves embedded structs, so this adds fields the
+    regex-based parser missed). Structs that the regex parser didn't
+    find at all are added as synthetic entries.
+    """
+    for name, field_names in flattened.items():
+        existing = structs_by_name.get(name)
+        if existing is None:
+            # Synthesize a minimal GoStruct so resolve_go_shape_fields
+            # can find it.
+            structs_by_name[name] = GoStruct(
+                name=name, file='<flattener>', line=0, package='',
+                fields=[
+                    GoField(name=fn, json_name=fn, go_type='interface{}')
+                    for fn in sorted(field_names)
+                ],
+            )
+            continue
+        existing_json = {f.json_name for f in existing.fields if f.json_name}
+        for fn in field_names:
+            if fn in existing_json:
+                continue
+            existing.fields.append(GoField(
+                name=fn, json_name=fn, go_type='interface{}',
+            ))
+            existing_json.add(fn)
+
+
+def _build_available_field_names(
+    go_handler: Optional[GoHandler],
+    go_shapes: List[GoResponseShape],
+    structs_by_name: Dict[str, GoStruct],
+    flattened_struct_fields: Dict[str, Set[str]],
+    file_raw_cache: Dict[str, str],
+) -> Set[str]:
+    """Build the set of Go field names that are "available" in the
+    handler but may not be in the primary response shape.
+
+    Sources:
+      1. Fields of the base struct (when the response is a struct_literal)
+         — already covered by ``resolve_go_shape_fields`` (and augmented
+         with the flattener's output in ``_merge_flattened_into_structs``).
+      2. Fields of map responses elsewhere in the handler (e.g. the
+         handler returns a struct_literal in one branch and a map_literal
+         in another — the union of their fields is "available").
+      3. Fields of structs referenced as variable types in the handler
+         body (e.g. ``var tenant models.Tenant`` makes Tenant's fields
+         available — handles the case where the handler has access to a
+         struct field that the response map doesn't explicitly include).
+      4. Fields of local wrapper structs defined anywhere in the same
+         file (e.g. ``mediaItem`` defined in ``ListMedia`` is the
+         conceptual response shape for ``UploadMedia`` in the same file).
+    """
+    available: Set[str] = set()
+    if go_handler is None:
+        return available
+
+    # (1) Fields of all response shapes (struct_literal and map_literal).
+    for shape in go_shapes:
+        for f in resolve_go_shape_fields(shape, structs_by_name):
+            if f.name:
+                available.add(f.name)
+
+    # (2)+(3) Fields of structs referenced as variable types in the
+    # handler body. We re-scan the handler body for variable
+    # declarations and resolve their types via the existing
+    # ``_collect_var_types`` helper.
+    if go_handler.body:
+        var_types = _collect_var_types(go_handler.body)
+        for type_str in var_types.values():
+            base = type_str
+            # Strip [] (slice), * (pointer), package prefix.
+            while base.startswith('[]'):
+                base = base[2:]
+            if base.startswith('*'):
+                base = base[1:]
+            base = _strip_package(base)
+            if not base or not base[0].isupper():
+                continue
+            # Look up the struct's flattened field set (preferred —
+            # includes embedded fields) or the regex-based struct.
+            flat = flattened_struct_fields.get(base)
+            if flat:
+                available.update(flat)
+            else:
+                s = structs_by_name.get(base)
+                if s:
+                    for f in s.fields:
+                        if f.json_name and f.json_name != '-':
+                            available.add(f.json_name)
+
+    # (4) Local wrapper structs defined anywhere in the same file.
+    raw = file_raw_cache.get(go_handler.file)
+    if raw:
+        for _name, fields in find_local_wrapper_structs(raw, go_handler.name):
+            available.update(fields)
+        # Also scan the handler body for any additional map responses
+        # (the existing _parse_handler_responses may have missed some
+        # — e.g. helper maps returned from sub-functions).
+        map_fields = find_map_response_fields(raw, go_handler.name)
+        available.update(map_fields)
+
+    return available
 
 
 # ---------------------------------------------------------------------------

@@ -1,19 +1,29 @@
 {
   "root": "/home/z/my-project/repos/lastsaas",
   "total_queries_scanned": 413,
-  "total_findings": 33,
+  "total_findings": 22,
+  "suppressed_findings": 11,
+  "suppression_breakdown": {
+    "by_severity": {
+      "MEDIUM": 3,
+      "HIGH": 8
+    },
+    "by_kind": {
+      "function": 10,
+      "line_above": 1
+    }
+  },
   "severity_breakdown": {
-    "MEDIUM": 25,
-    "HIGH": 8
+    "MEDIUM": 22
   },
   "type_breakdown": [
     {
       "type": "no_index",
-      "count": 18
+      "count": 14
     },
     {
       "type": "multi_tenant_unfiltered",
-      "count": 14
+      "count": 7
     },
     {
       "type": "no_collection_indexes",
@@ -27,22 +37,14 @@
     },
     {
       "collection": "system_logs",
-      "count": 7
+      "count": 3
     },
     {
       "collection": "financial_transactions",
-      "count": 6
-    },
-    {
-      "collection": "users",
-      "count": 2
+      "count": 3
     },
     {
       "collection": "announcements",
-      "count": 2
-    },
-    {
-      "collection": "credit_bundles",
       "count": 2
     },
     {
@@ -54,11 +56,11 @@
       "count": 2
     },
     {
-      "collection": "telemetry_events",
+      "collection": "plans",
       "count": 1
     },
     {
-      "collection": "plans",
+      "collection": "credit_bundles",
       "count": 1
     }
   ],
@@ -66,18 +68,6 @@
     {
       "file": "backend/internal/api/handlers/webhook.go",
       "count": 7
-    },
-    {
-      "file": "backend/internal/telemetry/service.go",
-      "count": 4
-    },
-    {
-      "file": "backend/internal/api/handlers/billing.go",
-      "count": 4
-    },
-    {
-      "file": "backend/internal/api/handlers/logs.go",
-      "count": 3
     },
     {
       "file": "backend/cmd/lastsaas/cmd_logs.go",
@@ -88,7 +78,7 @@
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "backend/internal/api/handlers/billing.go",
       "count": 2
     },
     {
@@ -104,15 +94,15 @@
       "count": 2
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_stats.go",
-      "count": 1
-    },
-    {
       "file": "backend/cmd/lastsaas/cmd_financial.go",
       "count": 1
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "backend/internal/telemetry/service.go",
+      "count": 1
+    },
+    {
+      "file": "backend/internal/api/handlers/logs.go",
       "count": 1
     }
   ],
@@ -140,7 +130,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:224"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:224"
         },
         {
           "fields": [
@@ -152,7 +142,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:225"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:225"
         }
       ]
     },
@@ -180,7 +170,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:129"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:129"
         },
         {
           "fields": [
@@ -192,7 +182,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:130"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:130"
         },
         {
           "fields": [
@@ -204,7 +194,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:131"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:131"
         }
       ]
     },
@@ -230,7 +220,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:277"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:277"
         },
         {
           "fields": [
@@ -241,7 +231,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:278"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:278"
         }
       ]
     },
@@ -265,7 +255,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:245"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:245"
         }
       ]
     },
@@ -289,7 +279,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:155"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:155"
         }
       ]
     },
@@ -315,7 +305,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:168"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:168"
         },
         {
           "fields": [
@@ -326,7 +316,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:169"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:169"
         }
       ]
     },
@@ -353,7 +343,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:251"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:251"
         },
         {
           "fields": [
@@ -365,7 +355,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:252"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:252"
         }
       ]
     },
@@ -391,7 +381,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:189"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:189"
         },
         {
           "fields": [
@@ -402,7 +392,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:190"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:190"
         }
       ]
     },
@@ -428,7 +418,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:303"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:303"
         },
         {
           "fields": [
@@ -439,7 +429,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:304"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:304"
         }
       ]
     },
@@ -469,7 +459,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:175"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:175"
         },
         {
           "fields": [
@@ -481,7 +471,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:176"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:176"
         },
         {
           "fields": [
@@ -492,7 +482,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:177"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:177"
         }
       ]
     },
@@ -522,7 +512,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:121"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:121"
         },
         {
           "fields": [
@@ -533,7 +523,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:122"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:122"
         },
         {
           "fields": [
@@ -544,7 +534,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:123"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:123"
         }
       ]
     },
@@ -568,7 +558,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:196"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:196"
         }
       ]
     },
@@ -595,7 +585,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:137"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:137"
         },
         {
           "fields": [
@@ -607,7 +597,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:138"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:138"
         }
       ]
     },
@@ -631,7 +621,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:108"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:108"
         }
       ]
     },
@@ -657,7 +647,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:161"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:161"
         },
         {
           "fields": [
@@ -668,7 +658,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:162"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:162"
         }
       ]
     },
@@ -692,7 +682,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/middleware/ratelimit.go:99"
+          "source": "repos/lastsaas/backend/internal/middleware/ratelimit.go:99"
         }
       ]
     },
@@ -722,7 +712,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:91"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:91"
         },
         {
           "fields": [
@@ -733,7 +723,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:92"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:92"
         },
         {
           "fields": [
@@ -744,7 +734,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:93"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:93"
         },
         {
           "fields": [
@@ -755,7 +745,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:94"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:94"
         }
       ]
     },
@@ -781,7 +771,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:114"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:114"
         },
         {
           "fields": [
@@ -792,7 +782,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:115"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:115"
         }
       ]
     },
@@ -816,7 +806,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:271"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:271"
         }
       ]
     },
@@ -842,7 +832,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:183"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:183"
         }
       ]
     },
@@ -876,7 +866,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:144"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:144"
         },
         {
           "fields": [
@@ -888,7 +878,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:145"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:145"
         },
         {
           "fields": [
@@ -900,7 +890,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:146"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:146"
         },
         {
           "fields": [
@@ -911,7 +901,7 @@
           "ttl": false,
           "sparse": false,
           "text": true,
-          "source": "backend/internal/db/mongodb.go:147"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:147"
         },
         {
           "fields": [
@@ -923,7 +913,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:148"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:148"
         },
         {
           "fields": [
@@ -935,7 +925,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:149"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:149"
         }
       ]
     },
@@ -961,7 +951,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:217"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:217"
         },
         {
           "fields": [
@@ -973,7 +963,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:218"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:218"
         }
       ]
     },
@@ -1001,7 +991,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:209"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:209"
         },
         {
           "fields": [
@@ -1012,7 +1002,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:210"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:210"
         },
         {
           "fields": [
@@ -1023,7 +1013,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:211"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:211"
         }
       ]
     },
@@ -1058,7 +1048,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:292"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:292"
         },
         {
           "fields": [
@@ -1070,7 +1060,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:293"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:293"
         },
         {
           "fields": [
@@ -1082,7 +1072,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:294"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:294"
         },
         {
           "fields": [
@@ -1094,7 +1084,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:295"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:295"
         },
         {
           "fields": [
@@ -1105,7 +1095,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:296"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:296"
         },
         {
           "fields": [
@@ -1117,7 +1107,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:297"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:297"
         }
       ]
     },
@@ -1145,7 +1135,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:83"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:83"
         },
         {
           "fields": [
@@ -1157,7 +1147,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:84"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:84"
         },
         {
           "fields": [
@@ -1168,7 +1158,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:85"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:85"
         }
       ]
     },
@@ -1203,7 +1193,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:72"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:72"
         },
         {
           "fields": [
@@ -1214,7 +1204,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:73"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:73"
         },
         {
           "fields": [
@@ -1225,7 +1215,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:74"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:74"
         },
         {
           "fields": [
@@ -1237,7 +1227,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:75"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:75"
         },
         {
           "fields": [
@@ -1248,7 +1238,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:76"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:76"
         },
         {
           "fields": [
@@ -1259,7 +1249,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:77"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:77"
         }
       ]
     },
@@ -1287,7 +1277,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:284"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:284"
         },
         {
           "fields": [
@@ -1300,7 +1290,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:285"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:285"
         },
         {
           "fields": [
@@ -1311,7 +1301,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:286"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:286"
         }
       ]
     },
@@ -1343,7 +1333,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:62"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:62"
         },
         {
           "fields": [
@@ -1354,7 +1344,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:63"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:63"
         },
         {
           "fields": [
@@ -1365,7 +1355,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:64"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:64"
         },
         {
           "fields": [
@@ -1376,7 +1366,7 @@
           "ttl": false,
           "sparse": true,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:65"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:65"
         },
         {
           "fields": [
@@ -1387,7 +1377,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:66"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:66"
         }
       ]
     },
@@ -1417,7 +1407,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:100"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:100"
         },
         {
           "fields": [
@@ -1428,7 +1418,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:101"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:101"
         },
         {
           "fields": [
@@ -1439,7 +1429,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:102"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:102"
         }
       ]
     },
@@ -1465,7 +1455,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:258"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:258"
         },
         {
           "fields": [
@@ -1476,7 +1466,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:259"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:259"
         }
       ]
     },
@@ -1500,7 +1490,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:265"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:265"
         }
       ]
     },
@@ -1527,7 +1517,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:238"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:238"
         },
         {
           "fields": [
@@ -1538,7 +1528,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:239"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:239"
         }
       ]
     },
@@ -1564,7 +1554,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:202"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:202"
         },
         {
           "fields": [
@@ -1575,7 +1565,7 @@
           "ttl": true,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:203"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:203"
         }
       ]
     },
@@ -1604,7 +1594,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:231"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:231"
         },
         {
           "fields": [
@@ -1616,7 +1606,7 @@
           "ttl": false,
           "sparse": false,
           "text": false,
-          "source": "backend/internal/db/mongodb.go:232"
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:232"
         }
       ]
     }
@@ -1627,21 +1617,6 @@
     "system_config"
   ],
   "findings": [
-    {
-      "file": "backend/cmd/lastsaas/cmd_stats.go",
-      "line": 31,
-      "function": "cmdStats",
-      "collection": "users",
-      "operation": "CountDocuments",
-      "filter_fields": [
-        "isActive"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['isActive'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])",
-      "snippet": "activeUsers, err := database.Users().CountDocuments(ctx, bson.M{\"isActive\": true})",
-      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `users`."
-    },
     {
       "file": "backend/cmd/lastsaas/cmd_logs.go",
       "line": 140,
@@ -1683,38 +1658,7 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 320,
-      "function": "FunnelMetrics",
-      "collection": "users",
-      "operation": "CountDocuments",
-      "filter_fields": [
-        "createdAt"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['createdAt'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])",
-      "snippet": "registrations, err := s.db.Users().CountDocuments(ctx, bson.M{",
-      "suggestion": "Add an index on `createdAt` (or a compound index starting with it) on `users`."
-    },
-    {
-      "file": "backend/internal/telemetry/service.go",
-      "line": 347,
-      "function": "FunnelMetrics",
-      "collection": "financial_transactions",
-      "operation": "CountDocuments",
-      "filter_fields": [
-        "type",
-        "createdAt"
-      ],
-      "severity": "HIGH",
-      "finding_type": "no_index",
-      "reason": "filter fields ['type', 'createdAt'] are not covered by any index on `financial_transactions` (indexed leading fields: ['invoiceNumber', 'tenantId', 'userId'])",
-      "snippet": "conversions, err := s.db.FinancialTransactions().CountDocuments(ctx, bson.M{",
-      "suggestion": "Add an index on `type` (or a compound index starting with it) on `financial_transactions`."
-    },
-    {
-      "file": "backend/internal/telemetry/service.go",
-      "line": 621,
+      "line": 625,
       "function": "computeKPIs",
       "collection": "tenants",
       "operation": "CountDocuments",
@@ -1726,19 +1670,6 @@
       "reason": "filter fields ['canceledAt'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
       "snippet": "canceledThisMonth, err := s.db.Tenants().CountDocuments(ctx, bson.M{",
       "suggestion": "Add an index on `canceledAt` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/telemetry/service.go",
-      "line": 703,
-      "function": "CustomEventSummary",
-      "collection": "telemetry_events",
-      "operation": "CountDocuments",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `telemetry_events` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "totalCount, err := s.db.TelemetryEvents().CountDocuments(ctx, filter)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
     },
     {
       "file": "backend/internal/api/handlers/announcements.go",
@@ -1770,33 +1701,7 @@
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 403,
-      "function": "ListTransactions",
-      "collection": "financial_transactions",
-      "operation": "CountDocuments",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/billing.go",
-      "line": 414,
-      "function": "ListTransactions",
-      "collection": "financial_transactions",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/billing.go",
-      "line": 733,
+      "line": 737,
       "function": "AdminListTransactions",
       "collection": "financial_transactions",
       "operation": "CountDocuments",
@@ -1809,7 +1714,7 @@
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 744,
+      "line": 748,
       "function": "AdminListTransactions",
       "collection": "financial_transactions",
       "operation": "Find",
@@ -1821,75 +1726,8 @@
       "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
-      "line": 236,
-      "function": "ListBundlesPublic",
-      "collection": "credit_bundles",
-      "operation": "Find",
-      "filter_fields": [
-        "isActive"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])",
-      "snippet": "cursor, err := h.db.CreditBundles().Find(r.Context(), bson.M{\"isActive\": true}, opts)",
-      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`."
-    },
-    {
-      "file": "backend/internal/api/handlers/tenant.go",
-      "line": 593,
-      "function": "GetActivity",
-      "collection": "system_logs",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/tenant.go",
-      "line": 606,
-      "function": "GetActivity",
-      "collection": "system_logs",
-      "operation": "CountDocuments",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 113,
-      "function": "ListLogs",
-      "collection": "system_logs",
-      "operation": "CountDocuments",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "total, err = h.db.SystemLogs().CountDocuments(ctx, filter)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/logs.go",
-      "line": 125,
-      "function": "ListLogs",
-      "collection": "system_logs",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "HIGH",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/logs.go",
-      "line": 196,
+      "line": 200,
       "function": "ExportCSV",
       "collection": "system_logs",
       "operation": "Find",
@@ -2094,6 +1932,149 @@
       "reason": "filter fields ['isActive'] are not covered by any index on `api_keys` (indexed leading fields: ['createdBy', 'keyHash'])",
       "snippet": "total, err := h.db.APIKeys().CountDocuments(r.Context(), bson.M{\"isActive\": true})",
       "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `api_keys`."
+    }
+  ],
+  "suppressed": [
+    {
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
+      "line": 33,
+      "function": "cmdStats",
+      "collection": "users",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "isActive"
+      ],
+      "would_be_severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/telemetry/service.go",
+      "line": 324,
+      "function": "FunnelMetrics",
+      "collection": "users",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "createdAt"
+      ],
+      "would_be_severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['createdAt'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/telemetry/service.go",
+      "line": 351,
+      "function": "FunnelMetrics",
+      "collection": "financial_transactions",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "type",
+        "createdAt"
+      ],
+      "would_be_severity": "HIGH",
+      "finding_type": "no_index",
+      "reason": "filter fields ['type', 'createdAt'] are not covered by any index on `financial_transactions` (indexed leading fields: ['invoiceNumber', 'tenantId', 'userId'])",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/telemetry/service.go",
+      "line": 711,
+      "function": "CustomEventSummary",
+      "collection": "telemetry_events",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `telemetry_events` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 407,
+      "function": "ListTransactions",
+      "collection": "financial_transactions",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/api/handlers/billing.go",
+      "line": 418,
+      "function": "ListTransactions",
+      "collection": "financial_transactions",
+      "operation": "Find",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/api/handlers/bundles.go",
+      "line": 237,
+      "function": "ListBundlesPublic",
+      "collection": "credit_bundles",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "would_be_severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])",
+      "suppression": "line_above"
+    },
+    {
+      "file": "backend/internal/api/handlers/tenant.go",
+      "line": 597,
+      "function": "GetActivity",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/api/handlers/tenant.go",
+      "line": 610,
+      "function": "GetActivity",
+      "collection": "system_logs",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 117,
+      "function": "ListLogs",
+      "collection": "system_logs",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
+    },
+    {
+      "file": "backend/internal/api/handlers/logs.go",
+      "line": 129,
+      "function": "ListLogs",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "would_be_severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "suppression": "function"
     }
   ]
 }

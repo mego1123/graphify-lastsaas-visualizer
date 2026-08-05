@@ -2,7 +2,7 @@
 
 MongoDB query audit for **cross-tenant data leakage** risks. The auditor flags queries on tenant-scoped collections that lack a `tenantId` filter — but first applies a series of context-aware heuristics to suppress known false positives (global-by-design collections, admin handlers, background tasks, public endpoints, user-scoped filters, globally-unique keys, and CLI tools).
 
-Repo: `/home/z/my-project/repos/lastsaas/backend`
+Repo: `/home/z/my-project/repos/lastsaas`
 
 ## Summary
 
@@ -185,7 +185,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 
 ## All Queries by File
 
-### `cmd/lastsaas/cmd_doctor.go`
+### `backend/cmd/lastsaas/cmd_doctor.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -195,7 +195,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 115 | `cmdDoctor` | `CountDocuments` | `system_nodes` | `lastSeen` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/lastsaas/cmd_financial.go`
+### `backend/cmd/lastsaas/cmd_financial.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -209,7 +209,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 350 | `cmdFinancialMetrics` | `Find` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/lastsaas/cmd_health.go`
+### `backend/cmd/lastsaas/cmd_health.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -219,7 +219,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 124 | `cmdHealth` | `FindOne` | `system_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/lastsaas/cmd_logs.go`
+### `backend/cmd/lastsaas/cmd_logs.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -227,7 +227,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 193 | `logsFollow` | `Find` | `system_logs` | `createdAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/lastsaas/cmd_stats.go`
+### `backend/cmd/lastsaas/cmd_stats.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -240,7 +240,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/lastsaas/cmd_tenants.go`
+### `backend/cmd/lastsaas/cmd_tenants.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -254,7 +254,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 355 | `countMembersPerTenant` | `Aggregate` | `tenant_memberships` | `tenantId` | `cli` | OK |  | Filter contains tenantId. |
 
 
-### `cmd/lastsaas/cmd_users.go`
+### `backend/cmd/lastsaas/cmd_users.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -269,7 +269,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 383 | `resolveTenantNames` | `Find` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/lastsaas/main.go`
+### `backend/cmd/lastsaas/main.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -317,14 +317,14 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 950 | `cmdStatus` | `CountDocuments` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `cmd/server/main.go`
+### `backend/cmd/server/main.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
 | 801 | `main` | `FindOne` | `branding_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
-### `internal/api/handlers/admin.go`
+### `backend/internal/api/handlers/admin.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -400,7 +400,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 2074 | `CancelRootInvitation` | `DeleteOne` | `invitations` | `_id`, `tenantId`, `status` | `admin` | OK |  | Filter contains tenantId. |
 
 
-### `internal/api/handlers/announcements.go`
+### `backend/internal/api/handlers/announcements.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -411,7 +411,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 168 | `Delete` | `DeleteOne` | `announcements` | `_id` | `admin` | MEDIUM | admin-handler | Function 'Delete' is an admin handler (registered on /api/admin/*). Admin handlers see ... |
 
 
-### `internal/api/handlers/apikeys.go`
+### `backend/internal/api/handlers/apikeys.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -421,7 +421,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 166 | `DeleteAPIKey` | `UpdateByID` | `api_keys` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteAPIKey' is an admin handler (registered on /api/admin/*). Admin handler... |
 
 
-### `internal/api/handlers/auth.go`
+### `backend/internal/api/handlers/auth.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -521,7 +521,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 2388 | `ExportData` | `Find` | `messages` | `userId` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
 
 
-### `internal/api/handlers/billing.go`
+### `backend/internal/api/handlers/billing.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -531,22 +531,22 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 152 | `Checkout` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
 | 162 | `Checkout` | `CountDocuments` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
 | 313 | `Checkout` | `FindOne` | `credit_bundles` | `_id`, `isActive` | `tenant` | MEDIUM | global-by-design | Collection 'credit_bundles' maps to struct 'CreditBundle' which does NOT declare a tena... |
-| 403 | `ListTransactions` | `CountDocuments` | `financial_transactions` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 414 | `ListTransactions` | `Find` | `financial_transactions` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 454 | `GetInvoice` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 483 | `GetInvoicePDF` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 654 | `CancelSubscription` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 733 | `AdminListTransactions` | `CountDocuments` | `financial_transactions` | `$or`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
-| 744 | `AdminListTransactions` | `Find` | `financial_transactions` | `$or`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
-| 801 | `AdminGetMetrics` | `Find` | `daily_metrics` | `date` | `admin` | MEDIUM | admin-handler | Function 'AdminGetMetrics' is an admin handler (registered on /api/admin/*). Admin hand... |
-| 893 | `computeLiveRevenue` | `Aggregate` | `financial_transactions` | `createdAt` | `background` | MEDIUM | background-task | Function 'computeLiveRevenue' is a background system task (no request context, no tenan... |
-| 929 | `computeLiveARR` | `Aggregate` | `tenants` | `billingStatus`, `planId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 955 | `AdminCancelSubscription` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Ad... |
-| 1001 | `AdminCancelSubscription` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Ad... |
-| 1034 | `AdminUpdateSubscription` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminUpdateSubscription' is an admin handler (registered on /api/admin/*). Ad... |
+| 407 | `ListTransactions` | `CountDocuments` | `financial_transactions` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 418 | `ListTransactions` | `Find` | `financial_transactions` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 458 | `GetInvoice` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 487 | `GetInvoicePDF` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 658 | `CancelSubscription` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 737 | `AdminListTransactions` | `CountDocuments` | `financial_transactions` | `$or`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 748 | `AdminListTransactions` | `Find` | `financial_transactions` | `$or`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 805 | `AdminGetMetrics` | `Find` | `daily_metrics` | `date` | `admin` | MEDIUM | admin-handler | Function 'AdminGetMetrics' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 897 | `computeLiveRevenue` | `Aggregate` | `financial_transactions` | `createdAt` | `background` | MEDIUM | background-task | Function 'computeLiveRevenue' is a background system task (no request context, no tenan... |
+| 933 | `computeLiveARR` | `Aggregate` | `tenants` | `billingStatus`, `planId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 959 | `AdminCancelSubscription` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Ad... |
+| 1005 | `AdminCancelSubscription` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Ad... |
+| 1038 | `AdminUpdateSubscription` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminUpdateSubscription' is an admin handler (registered on /api/admin/*). Ad... |
 
 
-### `internal/api/handlers/bootstrap.go`
+### `backend/internal/api/handlers/bootstrap.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -554,7 +554,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 66 | `refreshInitializedFromContext` | `FindOne` | `system_config` | — | `unknown` | MEDIUM | global-by-design | Collection 'system_config' maps to struct 'SystemConfig' which does NOT declare a tenan... |
 
 
-### `internal/api/handlers/branding.go`
+### `backend/internal/api/handlers/branding.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -577,7 +577,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 616 | `DeletePage` | `DeleteOne` | `custom_pages` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeletePage' is an admin handler (registered on /api/admin/*). Admin handlers ... |
 
 
-### `internal/api/handlers/bundles.go`
+### `backend/internal/api/handlers/bundles.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -594,7 +594,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 236 | `ListBundlesPublic` | `Find` | `credit_bundles` | `isActive` | `public` | MEDIUM | public-endpoint | Function 'ListBundlesPublic' is a public endpoint (no auth) — returns published/global ... |
 
 
-### `internal/api/handlers/config.go`
+### `backend/internal/api/handlers/config.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -603,7 +603,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 192 | `DeleteConfig` | `DeleteOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'DeleteConfig' is an admin handler (registered on /api/admin/*). Admin handler... |
 
 
-### `internal/api/handlers/event_definitions.go`
+### `backend/internal/api/handlers/event_definitions.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -625,18 +625,18 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 463 | `wouldCreateCycle` | `FindOne` | `event_definitions` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'event_definitions' maps to struct 'EventDefinition' which does NOT declare ... |
 
 
-### `internal/api/handlers/logs.go`
+### `backend/internal/api/handlers/logs.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
-| 111 | `ListLogs` | `EstimatedDocumentCount` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
-| 113 | `ListLogs` | `CountDocuments` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
-| 125 | `ListLogs` | `Find` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
-| 156 | `SeverityCounts` | `Aggregate` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'SeverityCounts' is an admin handler (registered on /api/admin/*). Admin handl... |
-| 196 | `ExportCSV` | `Find` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ExportCSV' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 115 | `ListLogs` | `EstimatedDocumentCount` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 117 | `ListLogs` | `CountDocuments` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 129 | `ListLogs` | `Find` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 160 | `SeverityCounts` | `Aggregate` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'SeverityCounts' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 200 | `ExportCSV` | `Find` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ExportCSV' is an admin handler (registered on /api/admin/*). Admin handlers s... |
 
 
-### `internal/api/handlers/messages.go`
+### `backend/internal/api/handlers/messages.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -645,7 +645,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 88 | `MarkRead` | `UpdateOne` | `messages` | `_id`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
 
 
-### `internal/api/handlers/plans.go`
+### `backend/internal/api/handlers/plans.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -680,7 +680,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 820 | `lookupPlanForTenant` | `FindOne` | `plans` | `isSystem` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
 
 
-### `internal/api/handlers/promotions.go`
+### `backend/internal/api/handlers/promotions.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -695,7 +695,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 438 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | `admin` | MEDIUM | admin-handler | Function 'resolveStripeProducts' is an admin handler (registered on /api/admin/*). Admi... |
 
 
-### `internal/api/handlers/tenant.go`
+### `backend/internal/api/handlers/tenant.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -722,12 +722,12 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 508 | `TransferOwnership` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
 | 524 | `TransferOwnership` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
 | 534 | `TransferOwnership` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 593 | `GetActivity` | `Find` | `system_logs` | `action`, `message`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 606 | `GetActivity` | `CountDocuments` | `system_logs` | `action`, `message`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
-| 642 | `UpdateTenantSettings` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 597 | `GetActivity` | `Find` | `system_logs` | `action`, `message`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 610 | `GetActivity` | `CountDocuments` | `system_logs` | `action`, `message`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 646 | `UpdateTenantSettings` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
 
 
-### `internal/api/handlers/usage.go`
+### `backend/internal/api/handlers/usage.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -738,7 +738,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 196 | `GetSummary` | `FindOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
 
 
-### `internal/api/handlers/webhook.go`
+### `backend/internal/api/handlers/webhook.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -778,7 +778,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 841 | `recordTransaction` | `InsertOne` | `financial_transactions` | `amountCents`, `billingInterval`, `bundleId`, `bundleName`, `createdAt`, `currency`, `description`, `invoiceNumber`, `planId`, `planName`, `stripeInvoiceId`, `stripeSessionId`, `stripeSubscriptionId`, `subtotalCents`, `taxAmountCents`, `tenantId`, `type`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
 
 
-### `internal/api/handlers/webhooks.go`
+### `backend/internal/api/handlers/webhooks.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -796,7 +796,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 421 | `TestWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'TestWebhook' is an admin handler (registered on /api/admin/*). Admin handlers... |
 
 
-### `internal/configstore/seed.go`
+### `backend/internal/configstore/seed.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -804,7 +804,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 384 | `Seed` | `InsertOne` | `config_vars` | — | `admin` | MEDIUM | admin-handler | Function 'Seed' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
 
 
-### `internal/configstore/store.go`
+### `backend/internal/configstore/store.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -813,7 +813,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 106 | `Reload` | `FindOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'Reload' is an admin handler (registered on /api/admin/*). Admin handlers see ... |
 
 
-### `internal/health/health.go`
+### `backend/internal/health/health.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -822,7 +822,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 300 | `collectAndStore` | `InsertOne` | `system_metrics` | `cpu`, `disk`, `goRuntime`, `http`, `integrations`, `memory`, `mongo`, `network`, `nodeId`, `timestamp` | `background` | MEDIUM | background-task | Function 'collectAndStore' is a background system task (no request context, no tenantId... |
 
 
-### `internal/health/query.go`
+### `backend/internal/health/query.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -834,7 +834,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 120 | `GetIntegrationCounts24h` | `Aggregate` | `system_metrics` | — | `admin` | MEDIUM | admin-handler | Function 'GetIntegrationCounts24h' is an admin handler (registered on /api/admin/*). Ad... |
 
 
-### `internal/metrics/metrics.go`
+### `backend/internal/metrics/metrics.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -847,7 +847,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 280 | `collectDaily` | `UpdateOne` | `daily_metrics` | `date` | `background` | MEDIUM | background-task | Function 'collectDaily' is a background system task (no request context, no tenantId av... |
 
 
-### `internal/middleware/auth.go`
+### `backend/internal/middleware/auth.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -859,7 +859,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 168 | `isTokenRevoked` | `CountDocuments` | `revoked_tokens` | `tokenHash` | `auth` | MEDIUM | global-by-design | Collection 'revoked_tokens' maps to struct 'RevokedToken' which does NOT declare a tena... |
 
 
-### `internal/middleware/ratelimit.go`
+### `backend/internal/middleware/ratelimit.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -867,7 +867,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 165 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id` | `unknown` | MEDIUM | safe-unique-key | Filter contains a globally-unique key (_id) — the query will only ever return one docum... |
 
 
-### `internal/middleware/tenant.go`
+### `backend/internal/middleware/tenant.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -876,7 +876,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 141 | `RequireEntitlement` | `FindOne` | `plans` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
 
 
-### `internal/planstore/seed.go`
+### `backend/internal/planstore/seed.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -884,7 +884,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 36 | `Seed` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | `admin` | MEDIUM | admin-handler | Function 'Seed' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
 
 
-### `internal/stripe/stripe.go`
+### `backend/internal/stripe/stripe.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -894,7 +894,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 352 | `NextInvoiceNumber` | `FindOneAndUpdate` | `counters` | `_id` | `background` | MEDIUM | background-task | Function 'NextInvoiceNumber' is a background system task (no request context, no tenant... |
 
 
-### `internal/syslog/syslog.go`
+### `backend/internal/syslog/syslog.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -905,43 +905,43 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 234 | `LogTenantActivity` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
 
 
-### `internal/telemetry/service.go`
+### `backend/internal/telemetry/service.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
 | 82 | `flushLoop` | `InsertMany` | `telemetry_events` | — | `background` | MEDIUM | background-task | Function 'flushLoop' is a background system task (no request context, no tenantId avail... |
 | 188 | `TrackBatch` | `InsertMany` | `telemetry_events` | — | `tenant` | MEDIUM | struct-supports-tenant-id | InsertMany inserts a document (or slice of documents) whose struct 'TelemetryEvent' dec... |
-| 320 | `FunnelMetrics` | `CountDocuments` | `users` | `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
-| 338 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
-| 347 | `FunnelMetrics` | `CountDocuments` | `financial_transactions` | `type`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
-| 356 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
-| 447 | `RetentionCohorts` | `Aggregate` | `users` | — | `admin` | MEDIUM | admin-handler | Function 'RetentionCohorts' is an admin handler (registered on /api/admin/*). Admin han... |
-| 531 | `EngagementMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `userId` | `admin` | MEDIUM | admin-handler | Function 'EngagementMetrics' is an admin handler (registered on /api/admin/*). Admin ha... |
-| 596 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 605 | `computeKPIs` | `CountDocuments` | `users` | — | `unknown` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
-| 621 | `computeKPIs` | `CountDocuments` | `tenants` | `canceledAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 627 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 640 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 646 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 703 | `CustomEventSummary` | `CountDocuments` | `telemetry_events` | `createdAt`, `eventName` | `admin` | MEDIUM | admin-handler | Function 'CustomEventSummary' is an admin handler (registered on /api/admin/*). Admin h... |
-| 719 | `CustomEventSummary` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'CustomEventSummary' is an admin handler (registered on /api/admin/*). Admin h... |
-| 756 | `ListEventTypes` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'ListEventTypes' is an admin handler (registered on /api/admin/*). Admin handl... |
-| 795 | `countDistinct` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'countDistinct' is an admin handler (registered on /api/admin/*). Admin handle... |
-| 813 | `getActiveTenantIDs` | `Find` | `tenants` | `billingStatus`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 838 | `getUserIDsForTenants` | `Find` | `tenant_memberships` | `tenantId` | `unknown` | OK |  | Filter contains tenantId. |
-| 905 | `weeklyActiveUsers` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'weeklyActiveUsers' is an admin handler (registered on /api/admin/*). Admin ha... |
-| 953 | `monthlyActiveUsers` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'monthlyActiveUsers' is an admin handler (registered on /api/admin/*). Admin h... |
-| 991 | `topCustomEvents` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'topCustomEvents' is an admin handler (registered on /api/admin/*). Admin hand... |
-| 1022 | `creditConsumptionTrend` | `Aggregate` | `usage_events` | — | `admin` | MEDIUM | admin-handler | Function 'creditConsumptionTrend' is an admin handler (registered on /api/admin/*). Adm... |
-| 1098 | `calculateMRR` | `Aggregate` | `tenants` | — | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 1142 | `medianTimeToFirstPurchase` | `Aggregate` | `financial_transactions` | — | `admin` | MEDIUM | admin-handler | Function 'medianTimeToFirstPurchase' is an admin handler (registered on /api/admin/*). ... |
-| 1192 | `planDistribution` | `Aggregate` | `tenants` | — | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
-| 1228 | `mrrTrend` | `Find` | `daily_metrics` | `date` | `admin` | MEDIUM | admin-handler | Function 'mrrTrend' is an admin handler (registered on /api/admin/*). Admin handlers se... |
-| 1264 | `subscriberTrend` | `Aggregate` | `financial_transactions` | — | `admin` | MEDIUM | admin-handler | Function 'subscriberTrend' is an admin handler (registered on /api/admin/*). Admin hand... |
-| 1285 | `aggregateDailyPoints` | `Aggregate` | `telemetry_events` | — | `background` | MEDIUM | background-task | Function 'aggregateDailyPoints' is a background system task (no request context, no ten... |
+| 324 | `FunnelMetrics` | `CountDocuments` | `users` | `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 342 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 351 | `FunnelMetrics` | `CountDocuments` | `financial_transactions` | `type`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 360 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | `eventName` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 451 | `RetentionCohorts` | `Aggregate` | `users` | — | `admin` | MEDIUM | admin-handler | Function 'RetentionCohorts' is an admin handler (registered on /api/admin/*). Admin han... |
+| 535 | `EngagementMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `userId` | `admin` | MEDIUM | admin-handler | Function 'EngagementMetrics' is an admin handler (registered on /api/admin/*). Admin ha... |
+| 600 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 609 | `computeKPIs` | `CountDocuments` | `users` | — | `unknown` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 625 | `computeKPIs` | `CountDocuments` | `tenants` | `canceledAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 631 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 644 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 650 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 711 | `CustomEventSummary` | `CountDocuments` | `telemetry_events` | `createdAt`, `eventName` | `admin` | MEDIUM | admin-handler | Function 'CustomEventSummary' is an admin handler (registered on /api/admin/*). Admin h... |
+| 727 | `CustomEventSummary` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'CustomEventSummary' is an admin handler (registered on /api/admin/*). Admin h... |
+| 764 | `ListEventTypes` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'ListEventTypes' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 803 | `countDistinct` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'countDistinct' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 821 | `getActiveTenantIDs` | `Find` | `tenants` | `billingStatus`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 846 | `getUserIDsForTenants` | `Find` | `tenant_memberships` | `tenantId` | `unknown` | OK |  | Filter contains tenantId. |
+| 913 | `weeklyActiveUsers` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'weeklyActiveUsers' is an admin handler (registered on /api/admin/*). Admin ha... |
+| 961 | `monthlyActiveUsers` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'monthlyActiveUsers' is an admin handler (registered on /api/admin/*). Admin h... |
+| 999 | `topCustomEvents` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'topCustomEvents' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1030 | `creditConsumptionTrend` | `Aggregate` | `usage_events` | — | `admin` | MEDIUM | admin-handler | Function 'creditConsumptionTrend' is an admin handler (registered on /api/admin/*). Adm... |
+| 1106 | `calculateMRR` | `Aggregate` | `tenants` | — | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 1150 | `medianTimeToFirstPurchase` | `Aggregate` | `financial_transactions` | — | `admin` | MEDIUM | admin-handler | Function 'medianTimeToFirstPurchase' is an admin handler (registered on /api/admin/*). ... |
+| 1200 | `planDistribution` | `Aggregate` | `tenants` | — | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 1236 | `mrrTrend` | `Find` | `daily_metrics` | `date` | `admin` | MEDIUM | admin-handler | Function 'mrrTrend' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 1272 | `subscriberTrend` | `Aggregate` | `financial_transactions` | — | `admin` | MEDIUM | admin-handler | Function 'subscriberTrend' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1293 | `aggregateDailyPoints` | `Aggregate` | `telemetry_events` | — | `background` | MEDIUM | background-task | Function 'aggregateDailyPoints' is a background system task (no request context, no ten... |
 
 
-### `internal/testutil/testutil.go`
+### `backend/internal/testutil/testutil.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -961,7 +961,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 485 | `CreateTestInvitation` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | `testutil` | OK |  | Filter contains tenantId. |
 
 
-### `internal/version/check.go`
+### `backend/internal/version/check.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|
@@ -972,7 +972,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 91 | `sendUpgradeMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | `background` | MEDIUM | background-task | Function 'sendUpgradeMessage' is a background system task (no request context, no tenan... |
 
 
-### `internal/webhooks/dispatcher.go`
+### `backend/internal/webhooks/dispatcher.go`
 
 | Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
 |------|----------|----|------------|--------|-------|------|-------------|------|

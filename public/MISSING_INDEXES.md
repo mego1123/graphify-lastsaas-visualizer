@@ -9,17 +9,18 @@ For every MongoDB query in the codebase, checks whether the filter fields are co
 | Metric | Value |
 | --- | --- |
 | Queries scanned | 413 |
-| Total findings | **33** |
-| HIGH severity | 8 |
-| MEDIUM severity | 25 |
+| Total findings | **22** |
+| HIGH severity | 0 |
+| MEDIUM severity | 22 |
 | LOW severity | 0 |
+| Suppressed by `// graphify:no-index-check` | 11 |
 
 ## Findings by Type
 
 | Type | Count |
 | --- | ---: |
-| No covering index | 18 |
-| Multi-tenant query without tenantId filter | 14 |
+| No covering index | 14 |
+| Multi-tenant query without tenantId filter | 7 |
 | Collection has no declared indexes | 1 |
 
 ## Collections Affected
@@ -27,15 +28,13 @@ For every MongoDB query in the codebase, checks whether the filter fields are co
 | Collection | Findings |
 | --- | ---: |
 | `tenants` | 8 |
-| `system_logs` | 7 |
-| `financial_transactions` | 6 |
-| `users` | 2 |
+| `system_logs` | 3 |
+| `financial_transactions` | 3 |
 | `announcements` | 2 |
-| `credit_bundles` | 2 |
 | `webhooks` | 2 |
 | `api_keys` | 2 |
-| `telemetry_events` | 1 |
 | `plans` | 1 |
+| `credit_bundles` | 1 |
 
 ## Collections Queried But With No Declared Indexes
 
@@ -50,18 +49,15 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 | File | Findings |
 | --- | ---: |
 | `backend/internal/api/handlers/webhook.go` | 7 |
-| `backend/internal/telemetry/service.go` | 4 |
-| `backend/internal/api/handlers/billing.go` | 4 |
-| `backend/internal/api/handlers/logs.go` | 3 |
 | `backend/cmd/lastsaas/cmd_logs.go` | 2 |
 | `backend/internal/api/handlers/announcements.go` | 2 |
-| `backend/internal/api/handlers/tenant.go` | 2 |
+| `backend/internal/api/handlers/billing.go` | 2 |
 | `backend/internal/api/handlers/promotions.go` | 2 |
 | `backend/internal/api/handlers/webhooks.go` | 2 |
 | `backend/internal/api/handlers/apikeys.go` | 2 |
-| `backend/cmd/lastsaas/cmd_stats.go` | 1 |
 | `backend/cmd/lastsaas/cmd_financial.go` | 1 |
-| `backend/internal/api/handlers/bundles.go` | 1 |
+| `backend/internal/telemetry/service.go` | 1 |
+| `backend/internal/api/handlers/logs.go` | 1 |
 
 ## Detailed Findings
 
@@ -90,16 +86,6 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
   ```go
   cursor, err := database.SystemLogs().Find(ctx, followFilter, opts)
-  ```
-
-### `backend/cmd/lastsaas/cmd_stats.go`
-
-- **[MEDIUM] No covering index** — `backend/cmd/lastsaas/cmd_stats.go:31` `CountDocuments` on `users` in `cmdStats`
-  - Filter fields: `isActive``
-  - _filter fields ['isActive'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])_
-  - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `users`.
-  ```go
-  activeUsers, err := database.Users().CountDocuments(ctx, bson.M{"isActive": true})
   ```
 
 ### `backend/internal/api/handlers/announcements.go`
@@ -138,62 +124,24 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 
 ### `backend/internal/api/handlers/billing.go`
 
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:403` `CountDocuments` on `financial_transactions` in `ListTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:737` `CountDocuments` on `financial_transactions` in `AdminListTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
   ```go
   total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)
   ```
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:414` `Find` on `financial_transactions` in `ListTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:748` `Find` on `financial_transactions` in `AdminListTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
   ```go
   cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)
-  ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:733` `CountDocuments` on `financial_transactions` in `AdminListTransactions`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)
-  ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:744` `Find` on `financial_transactions` in `AdminListTransactions`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)
-  ```
-
-### `backend/internal/api/handlers/bundles.go`
-
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/bundles.go:236` `Find` on `credit_bundles` in `ListBundlesPublic`
-  - Filter fields: `isActive``
-  - _filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])_
-  - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`.
-  ```go
-  cursor, err := h.db.CreditBundles().Find(r.Context(), bson.M{"isActive": true}, opts)
   ```
 
 ### `backend/internal/api/handlers/logs.go`
 
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:113` `CountDocuments` on `system_logs` in `ListLogs`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  total, err = h.db.SystemLogs().CountDocuments(ctx, filter)
-  ```
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:125` `Find` on `system_logs` in `ListLogs`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)
-  ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:196` `Find` on `system_logs` in `ExportCSV`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:200` `Find` on `system_logs` in `ExportCSV`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -216,23 +164,6 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`.
   ```go
   bundleCursor, err := h.db.CreditBundles().Find(ctx, bson.M{"isActive": true})
-  ```
-
-### `backend/internal/api/handlers/tenant.go`
-
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/tenant.go:593` `Find` on `system_logs` in `GetActivity`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
-  ```
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/tenant.go:606` `CountDocuments` on `system_logs` in `GetActivity`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
   ```
 
 ### `backend/internal/api/handlers/webhook.go`
@@ -306,28 +237,7 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 
 ### `backend/internal/telemetry/service.go`
 
-- **[HIGH] No covering index** — `backend/internal/telemetry/service.go:347` `CountDocuments` on `financial_transactions` in `FunnelMetrics`
-  - Filter fields: `type``, `createdAt``
-  - _filter fields ['type', 'createdAt'] are not covered by any index on `financial_transactions` (indexed leading fields: ['invoiceNumber', 'tenantId', 'userId'])_
-  - Suggestion: Add an index on `type` (or a compound index starting with it) on `financial_transactions`.
-  ```go
-  conversions, err := s.db.FinancialTransactions().CountDocuments(ctx, bson.M{
-  ```
-- **[HIGH] Multi-tenant query without tenantId filter** — `backend/internal/telemetry/service.go:703` `CountDocuments` on `telemetry_events` in `CustomEventSummary`
-  - Filter fields: —
-  - _empty-filter query on multi-tenant collection `telemetry_events` — full collection scan, risks cross-tenant data leak_
-  - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
-  ```go
-  totalCount, err := s.db.TelemetryEvents().CountDocuments(ctx, filter)
-  ```
-- **[MEDIUM] No covering index** — `backend/internal/telemetry/service.go:320` `CountDocuments` on `users` in `FunnelMetrics`
-  - Filter fields: `createdAt``
-  - _filter fields ['createdAt'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])_
-  - Suggestion: Add an index on `createdAt` (or a compound index starting with it) on `users`.
-  ```go
-  registrations, err := s.db.Users().CountDocuments(ctx, bson.M{
-  ```
-- **[MEDIUM] No covering index** — `backend/internal/telemetry/service.go:621` `CountDocuments` on `tenants` in `computeKPIs`
+- **[MEDIUM] No covering index** — `backend/internal/telemetry/service.go:625` `CountDocuments` on `tenants` in `computeKPIs`
   - Filter fields: `canceledAt``
   - _filter fields ['canceledAt'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `canceledAt` (or a compound index starting with it) on `tenants`.

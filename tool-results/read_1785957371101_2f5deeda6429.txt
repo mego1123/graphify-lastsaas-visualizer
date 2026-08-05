@@ -1,0 +1,1772 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify_nosql_injection — scan Go source code for NoSQL injection risks.
+     3→
+     4→Walks every ``.go`` file under the target path, identifies MongoDB query
+     5→calls (``Find`` / ``FindOne`` / ``InsertOne`` / ``UpdateOne`` / ``DeleteOne``
+     6→/ ``Aggregate`` / ``CountDocuments`` and friends), and checks whether user
+     7→input flows into the query filter without sanitization.
+     8→
+     9→User input sources tracked:
+    10→
+    11→  * HTTP query string  — ``r.URL.Query().Get("...")``, ``q.Get("...")``
+    12→    where ``q := r.URL.Query()``.
+    13→  * HTTP form values   — ``r.FormValue("...")``, ``r.PostFormValue("...")``.
+    14→  * Path parameters    — ``chi.URLParam(r, "...")``,
+    15→    ``mux.Vars(r)["..."]``, ``chi.URLParamFromCtx(ctx, "...")``.
+    16→  * JSON request body  — fields of a struct decoded via
+    17→    ``json.NewDecoder(r.Body).Decode(&req)`` — any ``req.<Field>`` access
+    18→    is treated as user input.
+    19→
+    20→Sanitizers (a value passed through one of these is considered safe):
+    21→
+    22→  * ``primitive.ObjectIDFromHex(...)``
+    23→  * ``escapeRegexInput(...)``
+    24→  * ``strconv.Atoi`` / ``strconv.ParseInt`` / ``strconv.ParseFloat`` /
+    25→    ``strconv.ParseBool``
+    26→  * ``time.Parse(...)``
+    27→  * ``primitive.Regex{Pattern: ...escapeRegexInput(...)...}``
+    28→  * Allowlist validation via ``switch X { case "...": ... }`` where each
+    29→    case body assigns a literal (not ``X`` itself) to the filter.
+    30→
+    31→Risk levels:
+    32→
+    33→  * ``CRITICAL`` — ``$where`` with user input (allows JS injection).
+    34→  * ``HIGH``     — direct user input in a filter field, or ``$regex`` with
+    35→    user input (regex DoS / injection).
+    36→  * ``MEDIUM``   — user input inside an ``$or`` / ``$and`` / ``$nor``
+    37→    array element.
+    38→  * ``LOW``      — user input that was sanitized before reaching the filter
+    39→    (recorded for completeness, not a real risk).
+    40→
+    41→Usage:
+    42→    python graphify_nosql_injection.py [path] [--out report.md] [--json]
+    43→
+    44→Outputs:
+    45→    - JSON written to /home/z/my-project/public/nosql-injection.json (best effort)
+    46→    - Markdown written to /home/z/my-project/public/NOSQL_INJECTION.md (best effort)
+    47→    - Markdown written to --out path if specified
+    48→    - JSON to stdout if --json given
+    49→
+    50→Test target: /home/z/my-project/repos/lastsaas/backend
+    51→"""
+    52→from __future__ import annotations
+    53→
+    54→import argparse
+    55→import json
+    56→import re
+    57→import sys
+    58→from collections import Counter, defaultdict
+    59→from dataclasses import asdict, dataclass, field
+    60→from pathlib import Path
+    61→from typing import Optional
+    62→
+    63→
+    64→# --------------------------------------------------------------------------- #
+    65→# Constants
+    66→# --------------------------------------------------------------------------- #
+    67→
+    68→OPERATIONS: tuple[str, ...] = (
+    69→    "Find",
+    70→    "FindOne",
+    71→    "FindOneAndDelete",
+    72→    "FindOneAndReplace",
+    73→    "FindOneAndUpdate",
+    74→    "InsertOne",
+    75→    "InsertMany",
+    76→    "UpdateOne",
+    77→    "UpdateMany",
+    78→    "UpdateByID",
+    79→    "ReplaceOne",
+    80→    "DeleteOne",
+    81→    "DeleteMany",
+    82→    "Aggregate",
+    83→    "CountDocuments",
+    84→    "EstimatedDocumentCount",
+    85→    "BulkWrite",
+    86→)
+    87→
+    88→OP_FILTER_POS: dict[str, int] = {
+    89→    "Find":               1,
+    90→    "FindOne":            1,
+    91→    "FindOneAndDelete":   1,
+    92→    "FindOneAndReplace":  1,
+    93→    "FindOneAndUpdate":   1,
+    94→    "InsertOne":          1,
+    95→    "InsertMany":         1,
+    96→    "UpdateOne":          1,
+    97→    "UpdateMany":         1,
+    98→    "UpdateByID":         1,
+    99→    "ReplaceOne":         1,
+   100→    "DeleteOne":          1,
+   101→    "DeleteMany":         1,
+   102→    "Aggregate":          1,
+   103→    "CountDocuments":     1,
+   104→    "EstimatedDocumentCount": -1,
+   105→    "BulkWrite":          1,
+   106→}
+   107→
+   108→OP_CALL_RE = re.compile(
+   109→    r"\.(" + "|".join(OPERATIONS) + r")\s*\("
+   110→)
+   111→
+   112→FUNC_DECL_RE = re.compile(
+   113→    r"^[ \t]*func(?:[ \t]+\([^)]*\))?[ \t]+(?P<name>\w+)[ \t]*\(",
+   114→    re.MULTILINE,
+   115→)
+   116→
+   117→# User input source patterns. Run on ORIGINAL source (string literals intact).
+   118→URL_QUERY_GET_RE = re.compile(
+   119→    r"\b(?P<var>\w+)\s*:?=\s*"
+   120→    r"(?:strings\.TrimSpace\()?"
+   121→    r"(?:(?P<chain>\w+(?:\.\w+)*)\.)?"
+   122→    r"(?:URL\.Query\(\)\.Get|q\.Get|query\.Get|values\.Get)"
+   123→    r"\(\s*\"(?P<key>[^\"]*)\"\s*\)"
+   124→    r"(?:\s*\))?"
+   125→)
+   126→FORM_VALUE_RE = re.compile(
+   127→    r"\b(?P<var>\w+)\s*:?=\s*r\.FormValue\(\s*\"(?P<key>[^\"]*)\"\s*\)"
+   128→)
+   129→POST_FORM_VALUE_RE = re.compile(
+   130→    r"\b(?P<var>\w+)\s*:?=\s*r\.PostFormValue\(\s*\"(?P<key>[^\"]*)\"\s*\)"
+   131→)
+   132→CHI_URLPARAM_RE = re.compile(
+   133→    r"\b(?P<var>\w+)\s*:?=\s*chi\.URLParam"
+   134→    r"(?:FromCtx)?\s*\(\s*\w+\s*,\s*\"(?P<key>[^\"]*)\"\s*\)"
+   135→)
+   136→MUX_VARS_RE = re.compile(
+   137→    r"\b(?P<var>\w+)\s*:?=\s*mux\.Vars\(\s*\w+\s*\)\[\"(?P<key>[^\"]*)\"\]"
+   138→)
+   139→
+   140→# JSON body decode: ``json.NewDecoder(r.Body).Decode(&req)``.
+   141→JSON_DECODE_RE = re.compile(
+   142→    r"json\.NewDecoder\(\s*\w+\.Body\s*\)\.Decode\(\s*&(?P<target>\w+)\s*\)"
+   143→)
+   144→JSON_DECODE_ALIAS_RE = re.compile(
+   145→    r"(?P<dec>\w+)\s*:?=\s*json\.NewDecoder\(\s*\w+\.Body\s*\)"
+   146→    r"(?:[^;]*?;\s*(?P=dec)\.Decode\(\s*&(?P<target>\w+)\s*\))?"
+   147→)
+   148→
+   149→SANITIZER_NAMES = [
+   150→    "primitive.ObjectIDFromHex",
+   151→    "escapeRegexInput",
+   152→    "strconv.Atoi",
+   153→    "strconv.ParseInt",
+   154→    "strconv.ParseUint",
+   155→    "strconv.ParseFloat",
+   156→    "strconv.ParseBool",
+   157→    "strconv.ParseUint",
+   158→    "time.Parse",
+   159→    "time.ParseInLocation",
+   160→    "url.PathEscape",
+   161→    "url.QueryEscape",
+   162→    "url.PathUnescape",
+   163→    "regexp.MustCompile",
+   164→    "regexp.Compile",
+   165→    "uuid.Parse",
+   166→    "uuid.MustParse",
+   167→]
+   168→SANI_CALL_RE = re.compile(
+   169→    r"\b(" + "|".join(re.escape(n) for n in SANITIZER_NAMES) + r")\s*\("
+   170→)
+   171→
+   172→# Struct-validation calls — when a JSON-decoded struct is passed through
+   173→# one of these, all of its fields are considered validated. The project
+   174→# uses both ``validator.Struct(...)`` (the underlying library) and
+   175→# ``validation.Validate(...)`` (a project-specific wrapper that calls
+   176→# ``validator.Struct`` internally).
+   177→STRUCT_VALIDATOR_CALL_RE = re.compile(
+   178→    r"\b(?:validator\.Struct|validation\.Validate|v\.Struct|validate\.Struct)\s*\(\s*&?\s*(?P<arg>\w+)\s*\)"
+   179→)
+   180→
+   181→# Per-field custom validator pattern: a conditional ``if !<fn>(<var>) {
+   182→# respondWithError ... }`` block that returns early on invalid input.
+   183→# The function name typically starts with ``isValid`` / ``valid`` /
+   184→# ``validate`` (e.g. ``isValidEmail``, ``validateToken``). We treat the
+   185→# variable passed to such a function as sanitized if the call is
+   186→# followed by an early-return guard.
+   187→PER_FIELD_VALIDATOR_RE = re.compile(
+   188→    r"\bif\s+!?(?P<fn>is[A-Z]\w*|valid\w*|validate\w*|check\w*)\s*\(\s*(?P<arg>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\)\s*\{"
+   189→)
+   190→
+   191→# Compiled-regex method-call validator: ``<regexVar>.Match(<arg>)`` or
+   192→# ``<regexVar>.MatchString(<arg>)``. Common pattern for validating format
+   193→# (e.g. ``validDefName.MatchString(req.Name)``). We look for this pattern
+   194→# anywhere in the function (typically inside an ``if`` guard with an
+   195→# early return); if found, the argument is considered validated.
+   196→REGEX_MATCH_VALIDATOR_RE = re.compile(
+   197→    r"\b(?P<regexVar>[A-Za-z_]\w*)\.(?:Match|MatchString)\s*\(\s*(?P<arg>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\)"
+   198→)
+   199→
+   200→# Error-returning validator pattern: ``if err := <validate-fn>(&<var>);
+   201→# err != nil { ... return }``. Functions like ``validateBundleRequest``,
+   202→# ``validatePlanRequest``, ``validateWebhookRequest`` take a pointer to
+   203→# the request struct and return an error. When this pattern appears
+   204→# before a query, all fields of the validated struct are considered
+   205→# sanitized.
+   206→ERROR_VALIDATOR_RE = re.compile(
+   207→    r"\bif\s+(?:err\s*:?=\s*|_,\s*err\s*:?=\s*)"
+   208→    r"(?P<fn>validate\w*|valid\w*|check\w*|sanitize\w*|normalize\w*)"
+   209→    r"\s*\(\s*&\s*(?P<arg>\w+)\s*\)"
+   210→)
+   211→
+   212→# bson.M / bson.D / bson.A literal start. Run on MASKED source.
+   213→BSON_LITERAL_RE = re.compile(
+   214→    r"\b(bson\.M|bson\.D|bson\.A)\s*\{"
+   215→)
+   216→
+   217→# Assignment to a filter map: ``filter["key"] = value``.
+   218→# Run on ORIGINAL source.
+   219→FILTER_ASSIGN_RE = re.compile(
+   220→    r"\b(?P<filter>\w+)\[\"(?P<key>[^\"]*)\"\]\s*(?::=|=)\s*(?P<value>.+)$",
+   221→    re.MULTILINE,
+   222→)
+   223→
+   224→SKIP_DIRS = {"vendor", "node_modules", ".git", "graphify-out", "testdata"}
+   225→
+   226→RISK_CRITICAL = "CRITICAL"
+   227→RISK_HIGH = "HIGH"
+   228→RISK_MEDIUM = "MEDIUM"
+   229→RISK_LOW = "LOW"
+   230→
+   231→
+   232→# --------------------------------------------------------------------------- #
+   233→# Data classes
+   234→# --------------------------------------------------------------------------- #
+   235→
+   236→@dataclass
+   237→class UserInput:
+   238→    var: str
+   239→    source: str
+   240→    line: int
+   241→    sanitized: bool = False
+   242→    sanitizer: str = ""
+   243→    sanitized_at_line: int = 0   # line where the sanitizer was applied (0 = n/a)
+   244→
+   245→
+   246→@dataclass
+   247→class Finding:
+   248→    file: str
+   249→    line: int
+   250→    end_line: int
+   251→    function: str
+   252→    operation: str
+   253→    query: str
+   254→    source: str
+   255→    source_var: str
+   256→    field: str
+   257→    risk: str
+   258→    sanitized: bool
+   259→    sanitizer: str
+   260→    snippet: str
+   261→    note: str = ""
+   262→
+   263→
+   264→@dataclass
+   265→class FileStats:
+   266→    path: str
+   267→    is_test: bool
+   268→    lines: int = 0
+   269→    queries_scanned: int = 0
+   270→    findings: int = 0
+   271→
+   272→
+   273→@dataclass
+   274→class FuncRange:
+   275→    name: str
+   276→    start_line: int
+   277→    end_line: int
+   278→    start_offset: int
+   279→    end_offset: int
+   280→
+   281→
+   282→# --------------------------------------------------------------------------- #
+   283→# Source masking
+   284→# --------------------------------------------------------------------------- #
+   285→
+   286→def mask_source(src: str) -> str:
+   287→    """Replace string literals and comments with spaces.
+   288→
+   289→    Length and newlines are preserved so character offsets still line up
+   290→    with the original source — only the *content* of strings/comments is
+   291→    blanked out. This makes brace/paren matching safe.
+   292→    """
+   293→    out = list(src)
+   294→    i = 0
+   295→    n = len(src)
+   296→    while i < n:
+   297→        c = src[i]
+   298→        if c == '/' and i + 1 < n and src[i + 1] == '/':
+   299→            while i < n and src[i] != '\n':
+   300→                out[i] = ' '
+   301→                i += 1
+   302→            continue
+   303→        if c == '/' and i + 1 < n and src[i + 1] == '*':
+   304→            out[i] = ' '
+   305→            out[i + 1] = ' '
+   306→            i += 2
+   307→            while i < n:
+   308→                if src[i] == '*' and i + 1 < n and src[i + 1] == '/':
+   309→                    out[i] = ' '
+   310→                    out[i + 1] = ' '
+   311→                    i += 2
+   312→                    break
+   313→                if src[i] != '\n':
+   314→                    out[i] = ' '
+   315→                i += 1
+   316→            continue
+   317→        if c == '\'':
+   318→            out[i] = ' '
+   319→            i += 1
+   320→            while i < n and src[i] not in ('\'', '\n'):
+   321→                if src[i] == '\\' and i + 1 < n:
+   322→                    out[i] = ' '
+   323→                    out[i + 1] = ' '
+   324→                    i += 2
+   325→                    continue
+   326→                out[i] = ' '
+   327→                i += 1
+   328→            if i < n and src[i] == '\'':
+   329→                out[i] = ' '
+   330→                i += 1
+   331→            continue
+   332→        if c == '"':
+   333→            out[i] = ' '
+   334→            i += 1
+   335→            while i < n and src[i] not in ('"', '\n'):
+   336→                if src[i] == '\\' and i + 1 < n:
+   337→                    out[i] = ' '
+   338→                    out[i + 1] = ' '
+   339→                    i += 2
+   340→                    continue
+   341→                out[i] = ' '
+   342→                i += 1
+   343→            if i < n and src[i] == '"':
+   344→                out[i] = ' '
+   345→                i += 1
+   346→            continue
+   347→        if c == '`':
+   348→            out[i] = ' '
+   349→            i += 1
+   350→            while i < n and src[i] != '`':
+   351→                if src[i] != '\n':
+   352→                    out[i] = ' '
+   353→                i += 1
+   354→            if i < n and src[i] == '`':
+   355→                out[i] = ' '
+   356→                i += 1
+   357→            continue
+   358→        i += 1
+   359→    return ''.join(out)
+   360→
+   361→
+   362→def mask_comments_only(src: str) -> str:
+   363→    """Like ``mask_source`` but only blanks comments, keeping string literals.
+   364→
+   365→    Used for regex matching of user-input patterns: we don't want to match
+   366→    patterns that appear inside comments, but we DO need string literals
+   367→    (e.g. the ``"key"`` in ``mux.Vars(r)["key"]``) to be intact.
+   368→    """
+   369→    out = list(src)
+   370→    i = 0
+   371→    n = len(src)
+   372→    while i < n:
+   373→        c = src[i]
+   374→        if c == '/' and i + 1 < n and src[i + 1] == '/':
+   375→            while i < n and src[i] != '\n':
+   376→                out[i] = ' '
+   377→                i += 1
+   378→            continue
+   379→        if c == '/' and i + 1 < n and src[i + 1] == '*':
+   380→            out[i] = ' '
+   381→            out[i + 1] = ' '
+   382→            i += 2
+   383→            while i < n:
+   384→                if src[i] == '*' and i + 1 < n and src[i + 1] == '/':
+   385→                    out[i] = ' '
+   386→                    out[i + 1] = ' '
+   387→                    i += 2
+   388→                    break
+   389→                if src[i] != '\n':
+   390→                    out[i] = ' '
+   391→                i += 1
+   392→            continue
+   393→        if c == '"':
+   394→            # Skip the string but keep its contents.
+   395→            i += 1
+   396→            while i < n and src[i] not in ('"', '\n'):
+   397→                if src[i] == '\\' and i + 1 < n:
+   398→                    i += 2
+   399→                    continue
+   400→                i += 1
+   401→            if i < n and src[i] == '"':
+   402→                i += 1
+   403→            continue
+   404→        if c == '`':
+   405→            i += 1
+   406→            while i < n and src[i] != '`':
+   407→                i += 1
+   408→            if i < n and src[i] == '`':
+   409→                i += 1
+   410→            continue
+   411→        if c == '\'':
+   412→            i += 1
+   413→            while i < n and src[i] not in ('\'', '\n'):
+   414→                if src[i] == '\\' and i + 1 < n:
+   415→                    i += 2
+   416→                    continue
+   417→                i += 1
+   418→            if i < n and src[i] == '\'':
+   419→                i += 1
+   420→            continue
+   421→        i += 1
+   422→    return ''.join(out)
+   423→
+   424→
+   425→# --------------------------------------------------------------------------- #
+   426→# Brace matching
+   427→# --------------------------------------------------------------------------- #
+   428→
+   429→def find_matching(masked: str, open_pos: int, open_ch: str, close_ch: str) -> int:
+   430→    depth = 0
+   431→    i = open_pos
+   432→    n = len(masked)
+   433→    while i < n:
+   434→        c = masked[i]
+   435→        if c == open_ch:
+   436→            depth += 1
+   437→        elif c == close_ch:
+   438→            depth -= 1
+   439→            if depth == 0:
+   440→                return i
+   441→        i += 1
+   442→    return -1
+   443→
+   444→
+   445→def find_matching_paren(masked: str, open_pos: int) -> int:
+   446→    return find_matching(masked, open_pos, '(', ')')
+   447→
+   448→
+   449→def find_matching_brace(masked: str, open_pos: int) -> int:
+   450→    return find_matching(masked, open_pos, '{', '}')
+   451→
+   452→
+   453→def find_matching_bracket(masked: str, open_pos: int) -> int:
+   454→    return find_matching(masked, open_pos, '[', ']')
+   455→
+   456→
+   457→def parse_functions(masked: str) -> list[FuncRange]:
+   458→    funcs: list[FuncRange] = []
+   459→    for m in FUNC_DECL_RE.finditer(masked):
+   460→        name = m.group('name')
+   461→        i = m.end()
+   462→        n = len(masked)
+   463→        depth_paren = 1
+   464→        brace_pos = -1
+   465→        while i < n:
+   466→            c = masked[i]
+   467→            if c == '(':
+   468→                depth_paren += 1
+   469→            elif c == ')':
+   470→                depth_paren -= 1
+   471→            elif c == '{' and depth_paren == 0:
+   472→                brace_pos = i
+   473→                break
+   474→            i += 1
+   475→        if brace_pos < 0:
+   476→            continue
+   477→        close_pos = find_matching_brace(masked, brace_pos)
+   478→        if close_pos < 0:
+   479→            continue
+   480→        start_line = masked[:m.start()].count('\n') + 1
+   481→        end_line = masked[:close_pos].count('\n') + 1
+   482→        funcs.append(FuncRange(
+   483→            name=name,
+   484→            start_line=start_line,
+   485→            end_line=end_line,
+   486→            start_offset=m.start(),
+   487→            end_offset=close_pos,
+   488→        ))
+   489→    return funcs
+   490→
+   491→
+   492→def make_snippet(lines: list[str], start: int, end: int, max_lines: int = 8) -> str:
+   493→    if start < 1:
+   494→        start = 1
+   495→    if end > len(lines):
+   496→        end = len(lines)
+   497→    if end < start:
+   498→        end = start
+   499→    chunk = lines[start - 1:end]
+   500→    if len(chunk) > max_lines:
+   501→        chunk = chunk[:max_lines] + [f"... ({end - start - max_lines + 1} more lines)"]
+   502→    return "\n".join(line.rstrip() for line in chunk)
+   503→
+   504→
+   505→def _line_of(text: str, offset: int) -> int:
+   506→    return text[:offset].count('\n') + 1
+   507→
+   508→
+   509→def _read_balanced(text: str, open_pos: int, open_ch: str, close_ch: str) -> str:
+   510→    close_pos = find_matching(text, open_pos, open_ch, close_ch)
+   511→    if close_pos < 0:
+   512→        return text[open_pos + 1:]
+   513→    return text[open_pos + 1:close_pos]
+   514→
+   515→
+   516→# --------------------------------------------------------------------------- #
+   517→# User input tracking
+   518→# --------------------------------------------------------------------------- #
+   519→
+   520→def collect_user_inputs(
+   521→    func_src: str,
+   522→    func_masked: str,
+   523→    func_start_line: int,
+   524→) -> dict[str, UserInput]:
+   525→    """Build a map of variables holding user input.
+   526→
+   527→    Patterns are matched against ``func_src`` (original source) so that
+   528→    string literals like the ``"key"`` in ``mux.Vars(r)["key"]`` are
+   529→    preserved. Comments are pre-stripped via ``mask_comments_only`` to
+   530→    avoid matching patterns inside comments.
+   531→    """
+   532→    # Use comment-masked source for regex matching.
+   533→    func_no_comments = mask_comments_only(func_src)
+   534→
+   535→    inputs: dict[str, UserInput] = {}
+   536→    json_structs: set[str] = set()
+   537→
+   538→    def add(var: str, source: str, line: int) -> None:
+   539→        if not var:
+   540→            return
+   541→        if var in inputs and inputs[var].sanitized:
+   542→            return
+   543→        if var not in inputs:
+   544→            inputs[var] = UserInput(
+   545→                var=var, source=source, line=line, sanitized=False,
+   546→            )
+   547→
+   548→    # 1. JSON body decodes -> struct names.
+   549→    for m in JSON_DECODE_RE.finditer(func_no_comments):
+   550→        json_structs.add(m.group('target'))
+   551→    # Also catch ``dec.Decode(&req)`` patterns where ``dec`` was created
+   552→    # from r.Body.
+   553→    for m in re.finditer(r"(\w+)\.Decode\(\s*&(\w+)\s*\)", func_no_comments):
+   554→        target = m.group(2)
+   555→        window_start = max(0, m.start() - 1000)
+   556→        window = func_no_comments[window_start:m.start()]
+   557→        if re.search(r"json\.NewDecoder\(\s*\w+\.Body\s*\)", window):
+   558→            json_structs.add(target)
+   559→
+   560→    # 2. Direct user-input assignments.
+   561→    for m in URL_QUERY_GET_RE.finditer(func_no_comments):
+   562→        add(m.group('var'), f"query:{m.group('key')}",
+   563→            _line_of(func_no_comments, m.start()) + func_start_line - 1)
+   564→    for m in FORM_VALUE_RE.finditer(func_no_comments):
+   565→        add(m.group('var'), f"form:{m.group('key')}",
+   566→            _line_of(func_no_comments, m.start()) + func_start_line - 1)
+   567→    for m in POST_FORM_VALUE_RE.finditer(func_no_comments):
+   568→        add(m.group('var'), f"postform:{m.group('key')}",
+   569→            _line_of(func_no_comments, m.start()) + func_start_line - 1)
+   570→    for m in CHI_URLPARAM_RE.finditer(func_no_comments):
+   571→        add(m.group('var'), f"path:{m.group('key')}",
+   572→            _line_of(func_no_comments, m.start()) + func_start_line - 1)
+   573→    for m in MUX_VARS_RE.finditer(func_no_comments):
+   574→        add(m.group('var'), f"path:{m.group('key')}",
+   575→            _line_of(func_no_comments, m.start()) + func_start_line - 1)
+   576→
+   577→    # 3. JSON body struct fields: ``req.Email``, ``req.Password``, etc.
+   578→    for struct_name in json_structs:
+   579→        for fm in re.finditer(
+   580→            rf"\b{re.escape(struct_name)}\.(?P<field>[A-Za-z_]\w*)",
+   581→            func_no_comments,
+   582→        ):
+   583→            full = f"{struct_name}.{fm.group('field')}"
+   584→            line = _line_of(func_no_comments, fm.start()) + func_start_line - 1
+   585→            if full not in inputs:
+   586→                inputs[full] = UserInput(
+   587→                    var=full,
+   588→                    source=f"json-body:{full}",
+   589→                    line=line,
+   590→                    sanitized=False,
+   591→                )
+   592→
+   593→    # 4. Sanitized derivatives: variables assigned from a sanitizer call.
+   594→    for m in SANI_CALL_RE.finditer(func_no_comments):
+   595→        sani_name = m.group(1)
+   596→        window_start = max(0, m.start() - 400)
+   597→        window = func_no_comments[window_start:m.start()].replace('\n', ' ')
+   598→        out_vars: list[str] = []
+   599→        mr = re.search(r"(\w+)\s*,\s*\w+\s*:?=\s*$", window)
+   600→        if mr:
+   601→            out_vars.append(mr.group(1))
+   602→        else:
+   603→            sr = re.search(r"(\w+)\s*:?=\s*$", window)
+   604→            if sr:
+   605→                out_vars.append(sr.group(1))
+   606→        if not out_vars:
+   607→            vd = re.search(
+   608→                r"\bvar\s+(\w+)\s+\w+(?:\.\w+)?\s*$", window
+   609→            )
+   610→            if vd:
+   611→                out_vars.append(vd.group(1))
+   612→        for out in out_vars:
+   613→            if not out or out == '_':
+   614→                continue
+   615→            line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+   616→            arg_text = _read_balanced(func_no_comments, m.end() - 1, '(', ')')
+   617→            inputs[out] = UserInput(
+   618→                var=out,
+   619→                source=f"sanitized:{sani_name}({arg_text.strip()})",
+   620→                line=line,
+   621→                sanitized=True,
+   622→                sanitizer=sani_name,
+   623→            )
+   624→
+   625→    # 5. primitive.Regex{Pattern: ...escapeRegexInput(x)...} — the
+   626→    #    resulting variable's ``.Pattern`` field is sanitized.
+   627→    for m in re.finditer(r"\bprimitive\.Regex\s*\{", func_no_comments):
+   628→        brace_pos = m.end() - 1
+   629→        close_pos = find_matching_brace(func_masked, brace_pos)
+   630→        if close_pos < 0:
+   631→            continue
+   632→        body_masked = func_masked[brace_pos + 1:close_pos]
+   633→        if "escapeRegexInput" not in body_masked:
+   634→            continue
+   635→        window_start = max(0, m.start() - 200)
+   636→        window = func_no_comments[window_start:m.start()].replace('\n', ' ')
+   637→        out_match = re.search(r"(\w+)\s*:?=\s*$", window)
+   638→        if not out_match:
+   639→            continue
+   640→        out = out_match.group(1)
+   641→        if not out or out == '_':
+   642→            continue
+   643→        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+   644→        inputs[out] = UserInput(
+   645→            var=out,
+   646→            source="sanitized:primitive.Regex{...escapeRegexInput(...)...}",
+   647→            line=line,
+   648→            sanitized=True,
+   649→            sanitizer="primitive.Regex+escapeRegexInput",
+   650→        )
+   651→        inputs[f"{out}.Pattern"] = UserInput(
+   652→            var=f"{out}.Pattern",
+   653→            source="sanitized:primitive.Regex{...escapeRegexInput(...)...}",
+   654→            line=line,
+   655→            sanitized=True,
+   656→            sanitizer="primitive.Regex+escapeRegexInput",
+   657→        )
+   658→
+   659→    # 6. Aliasing: ``var2 := var1`` on a single line — inherit status.
+   660→    alias_line_re = re.compile(r"^\s*(?P<dst>\w+)\s*:?=\s*(?P<src>\w+)\s*(?://.*)?$")
+   661→    for raw_line in func_no_comments.split('\n'):
+   662→        m = alias_line_re.match(raw_line)
+   663→        if not m:
+   664→            continue
+   665→        dst = m.group('dst')
+   666→        src = m.group('src')
+   667→        if dst == '_' or dst == src:
+   668→            continue
+   669→        if src in inputs:
+   670→            src_in = inputs[src]
+   671→            if dst not in inputs:
+   672→                inputs[dst] = UserInput(
+   673→                    var=dst,
+   674→                    source=src_in.source,
+   675→                    line=func_start_line,
+   676→                    sanitized=src_in.sanitized,
+   677→                    sanitizer=src_in.sanitizer,
+   678→                    sanitized_at_line=src_in.sanitized_at_line,
+   679→                )
+   680→
+   681→    # 7. Per-field custom validators: ``if !isValidEmail(req.Email) {
+   682→    # respondWithError ... }`` — the variable passed to such a function
+   683→    # is validated and safe to use in subsequent queries. Functions whose
+   684→    # names start with ``isValid`` / ``valid`` / ``validate`` / ``check``
+   685→    # and which appear in a negated ``if`` guard are treated as
+   686→    # sanitizers.
+   687→    for m in PER_FIELD_VALIDATOR_RE.finditer(func_no_comments):
+   688→        arg = m.group('arg')
+   689→        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+   690→        # The arg may be ``req.Email`` (struct field) or a bare variable.
+   691→        if arg in inputs:
+   692→            ui = inputs[arg]
+   693→            # Only mark sanitized if not already sanitized earlier.
+   694→            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+   695→                inputs[arg] = UserInput(
+   696→                    var=ui.var,
+   697→                    source=ui.source,
+   698→                    line=ui.line,
+   699→                    sanitized=True,
+   700→                    sanitizer=f"custom-validator:{m.group('fn')}",
+   701→                    sanitized_at_line=line,
+   702→                )
+   703→        elif '.' in arg:
+   704→            # Struct field: validate the head var (e.g. ``req.Email``
+   705→            # → mark ``req`` as having its ``Email`` field validated).
+   706→            head = arg.split('.', 1)[0]
+   707→            if head in inputs and inputs[head].source.startswith("json-body:"):
+   708→                # Register the dotted form too.
+   709→                inputs[arg] = UserInput(
+   710→                    var=arg,
+   711→                    source=f"json-body:{arg}",
+   712→                    line=inputs[head].line,
+   713→                    sanitized=True,
+   714→                    sanitizer=f"custom-validator:{m.group('fn')}",
+   715→                    sanitized_at_line=line,
+   716→                )
+   717→
+   718→    # 7b. Compiled-regex validators: ``if !validDefName.MatchString(req.Name) {
+   719→    # respondWithError ... }`` — the variable passed to ``MatchString`` /
+   720→    # ``Match`` is validated against the regex.
+   721→    for m in REGEX_MATCH_VALIDATOR_RE.finditer(func_no_comments):
+   722→        arg = m.group('arg')
+   723→        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+   724→        sani = f"regex-validator:{m.group('regexVar')}.MatchString"
+   725→        if arg in inputs:
+   726→            ui = inputs[arg]
+   727→            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+   728→                inputs[arg] = UserInput(
+   729→                    var=ui.var,
+   730→                    source=ui.source,
+   731→                    line=ui.line,
+   732→                    sanitized=True,
+   733→                    sanitizer=sani,
+   734→                    sanitized_at_line=line,
+   735→                )
+   736→        elif '.' in arg:
+   737→            head = arg.split('.', 1)[0]
+   738→            if head in inputs and inputs[head].source.startswith("json-body:"):
+   739→                inputs[arg] = UserInput(
+   740→                    var=arg,
+   741→                    source=f"json-body:{arg}",
+   742→                    line=inputs[head].line,
+   743→                    sanitized=True,
+   744→                    sanitizer=sani,
+   745→                    sanitized_at_line=line,
+   746→                )
+   747→
+   748→    # 8. Struct-level validators: ``validator.Struct(&req)`` /
+   749→    # ``validation.Validate(&req)`` — the entire struct's fields are
+   750→    # validated. Mark every ``req.*`` input derived from the validated
+   751→    # struct as sanitized.
+   752→    for m in STRUCT_VALIDATOR_CALL_RE.finditer(func_no_comments):
+   753→        target = m.group('arg')
+   754→        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+   755→        # Mark the bare struct name (e.g. ``req``) as sanitized — this
+   756→        # catches lazy ``req.X`` lookups via the json-body fallback in
+   757→        # ``is_user_input``.
+   758→        if target in inputs:
+   759→            ui = inputs[target]
+   760→            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+   761→                inputs[target] = UserInput(
+   762→                    var=ui.var,
+   763→                    source=ui.source,
+   764→                    line=ui.line,
+   765→                    sanitized=True,
+   766→                    sanitizer="validator.Struct",
+   767→                    sanitized_at_line=line,
+   768→                )
+   769→        # Also mark every explicit ``target.Field`` input that was
+   770→        # registered earlier.
+   771→        for var_name, ui in list(inputs.items()):
+   772→            if var_name.startswith(f"{target}.") and ui.source.startswith("json-body:"):
+   773→                if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+   774→                    inputs[var_name] = UserInput(
+   775→                        var=ui.var,
+   776→                        source=ui.source,
+   777→                        line=ui.line,
+   778→                        sanitized=True,
+   779→                        sanitizer="validator.Struct",
+   780→                        sanitized_at_line=line,
+   781→                    )
+   782→
+   783→    # 9. Error-returning request validators: ``if err := validateX(&req);
+   784→    # err != nil { return }``. Functions like ``validateBundleRequest``,
+   785→    # ``validatePlanRequest``, ``validateWebhookRequest`` validate the
+   786→    # whole request struct. Mark all the struct's fields as sanitized.
+   787→    for m in ERROR_VALIDATOR_RE.finditer(func_no_comments):
+   788→        target = m.group('arg')
+   789→        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+   790→        sani = f"custom-validator:{m.group('fn')}"
+   791→        # Mark the bare struct name.
+   792→        if target in inputs:
+   793→            ui = inputs[target]
+   794→            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+   795→                inputs[target] = UserInput(
+   796→                    var=ui.var,
+   797→                    source=ui.source,
+   798→                    line=ui.line,
+   799→                    sanitized=True,
+   800→                    sanitizer=sani,
+   801→                    sanitized_at_line=line,
+   802→                )
+   803→        # Mark every explicit ``target.Field`` input.
+   804→        for var_name, ui in list(inputs.items()):
+   805→            if var_name.startswith(f"{target}.") and ui.source.startswith("json-body:"):
+   806→                if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+   807→                    inputs[var_name] = UserInput(
+   808→                        var=ui.var,
+   809→                        source=ui.source,
+   810→                        line=ui.line,
+   811→                        sanitized=True,
+   812→                        sanitizer=sani,
+   813→                        sanitized_at_line=line,
+   814→                    )
+   815→
+   816→    return inputs
+   817→
+   818→
+   819→def is_user_input(
+   820→    expr_src: str,
+   821→    expr_masked: str,
+   822→    inputs: dict[str, UserInput],
+   823→    query_line: int = 0,
+   824→) -> Optional[UserInput]:
+   825→    """Check if an expression references a user-input variable.
+   826→
+   827→    ``expr_src`` is the original source of the expression; ``expr_masked``
+   828→    is the masked version (same length). If the user-input identifier
+   829→    appears INSIDE a sanitizer call's argument list (e.g.
+   830→    ``escapeRegexInput(search)``), the returned UserInput is marked as
+   831→    sanitized.
+   832→
+   833→    ``query_line`` is the line where the MongoDB query that consumes
+   834→    this expression appears. When non-zero, struct/per-field validators
+   835→    applied AFTER the query are NOT considered sanitizers (the input was
+   836→    unvalidated at the time of the query). When zero (caller didn't pass
+   837→    a line), validator-based sanitization is trusted unconditionally.
+   838→    """
+   839→    expr_src = expr_src.strip() if expr_src else ""
+   840→    if not expr_src:
+   841→        return None
+   842→    # Direct match — but only for very simple expressions (no function calls).
+   843→    if expr_src in inputs and '(' not in expr_src:
+   844→        ui = inputs[expr_src]
+   845→        return _validated_before_query(ui, query_line)
+   846→    # Find sanitizer call argument ranges in expr_masked.
+   847→    sanitizer_ranges: list[tuple[int, int, str]] = []
+   848→    for m in SANI_CALL_RE.finditer(expr_masked):
+   849→        open_paren = m.end() - 1
+   850→        close_paren = find_matching_paren(expr_masked, open_paren)
+   851→        if close_paren < 0:
+   852→            continue
+   853→        sanitizer_ranges.append((open_paren + 1, close_paren, m.group(1)))
+   854→    # Find all identifiers in expr_src.
+   855→    for m in re.finditer(r"\b[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?", expr_src):
+   856→        tok = m.group(0)
+   857→        if tok in inputs:
+   858→            # Check if this identifier is inside a sanitizer argument.
+   859→            for s, e, sani in sanitizer_ranges:
+   860→                if s <= m.start() < e:
+   861→                    ui = inputs[tok]
+   862→                    return UserInput(
+   863→                        var=ui.var,
+   864→                        source=f"sanitized:{sani}(...{tok}...)",
+   865→                        line=ui.line,
+   866→                        sanitized=True,
+   867→                        sanitizer=sani,
+   868→                        sanitized_at_line=query_line,
+   869→                    )
+   870→            return _validated_before_query(inputs[tok], query_line)
+   871→        # Lazy struct field case.
+   872→        head = tok.split('.')[0]
+   873→        if head in inputs and inputs[head].source.startswith("json-body:"):
+   874→            ui = inputs[head]
+   875→            # If the head was validated via validator.Struct, the field
+   876→            # is also validated (after the validator's line).
+   877→            validated_ui = _validated_before_query(ui, query_line)
+   878→            if validated_ui.sanitized:
+   879→                return UserInput(
+   880→                    var=tok,
+   881→                    source=f"json-body:{tok}",
+   882→                    line=ui.line,
+   883→                    sanitized=True,
+   884→                    sanitizer=validated_ui.sanitizer,
+   885→                    sanitized_at_line=validated_ui.sanitized_at_line,
+   886→                )
+   887→            # If the dotted form was explicitly registered (e.g. via a
+   888→            # per-field validator), use that.
+   889→            if tok in inputs:
+   890→                return _validated_before_query(inputs[tok], query_line)
+   891→            return UserInput(
+   892→                var=tok,
+   893→                source=f"json-body:{tok}",
+   894→                line=ui.line,
+   895→                sanitized=False,
+   896→            )
+   897→    return None
+   898→
+   899→
+   900→def _validated_before_query(ui: UserInput, query_line: int) -> UserInput:
+   901→    """Return a copy of ``ui`` whose ``sanitized`` flag reflects whether
+   902→    the sanitization happened before the query (when ``query_line`` is
+   903→    known). If the sanitizer was applied AFTER the query, return an
+   904→    unsanitized copy so the finding is still raised.
+   905→    """
+   906→    if not ui.sanitized:
+   907→        return ui
+   908→    if ui.sanitized_at_line == 0 or query_line == 0:
+   909→        # No line info — trust the sanitized flag.
+   910→        return ui
+   911→    if ui.sanitized_at_line < query_line:
+   912→        return ui
+   913→    # Sanitizer was applied AFTER the query — input was unvalidated at
+   914→    # the time of the query.
+   915→    return UserInput(
+   916→        var=ui.var,
+   917→        source=ui.source,
+   918→        line=ui.line,
+   919→        sanitized=False,
+   920→        sanitizer="",
+   921→        sanitized_at_line=0,
+   922→    )
+   923→
+   924→
+   925→# --------------------------------------------------------------------------- #
+   926→# bson literal parsing
+   927→# --------------------------------------------------------------------------- #
+   928→
+   929→@dataclass
+   930→class FilterHit:
+   931→    field: str
+   932→    value_expr: str
+   933→    is_operator: bool
+   934→    value_start: int  # offset of value within the content
+   935→    value_end: int
+   936→
+   937→
+   938→def parse_bson_pairs(content: str) -> list[FilterHit]:
+   939→    """Parse the inside of a ``bson.M{...}`` literal into key/value pairs.
+   940→
+   941→    ``content`` is the text BETWEEN the ``{`` and ``}`` (original source).
+   942→    Returns a list of (field, value_expr, value_start_offset, value_end_offset)
+   943→    where the offsets are relative to ``content``.
+   944→    """
+   945→    hits: list[FilterHit] = []
+   946→    i = 0
+   947→    n = len(content)
+   948→    while i < n:
+   949→        while i < n and content[i] in ' \t\r\n,':
+   950→            i += 1
+   951→        if i >= n:
+   952→            break
+   953→        # Expect a quoted key (or ``Key: "..."`` for bson.D named form).
+   954→        if content[i] != '"':
+   955→            m = re.match(r"Key:\s*", content[i:])
+   956→            if m:
+   957→                i += m.end()
+   958→                if i >= n or content[i] != '"':
+   959→                    while i < n and content[i] not in ',\n':
+   960→                        i += 1
+   961→                    continue
+   962→            else:
+   963→                while i < n and content[i] not in ',\n':
+   964→                    i += 1
+   965→                continue
+   966→        # Read the quoted key.
+   967→        j = i + 1
+   968→        while j < n and content[j] != '"':
+   969→            if content[j] == '\\' and j + 1 < n:
+   970→                j += 2
+   971→                continue
+   972→            j += 1
+   973→        key = content[i + 1:j]
+   974→        i = j + 1
+   975→        while i < n and content[i] in ' \t\r\n':
+   976→            i += 1
+   977→        if i < n and content[i] == ':':
+   978→            i += 1
+   979→        elif i < n and content[i] == ',':
+   980→            i += 1
+   981→        else:
+   982→            break
+   983→        while i < n and content[i] in ' \t\r\n':
+   984→            i += 1
+   985→        # Read the value.
+   986→        value_start = i
+   987→        depth_brace = 0
+   988→        depth_paren = 0
+   989→        depth_bracket = 0
+   990→        while i < n:
+   991→            c = content[i]
+   992→            if c == '{':
+   993→                depth_brace += 1
+   994→            elif c == '}':
+   995→                if depth_brace == 0:
+   996→                    break
+   997→                depth_brace -= 1
+   998→            elif c == '(':
+   999→                depth_paren += 1
+  1000→            elif c == ')':
+  1001→                if depth_paren == 0:
+  1002→                    break
+  1003→                depth_paren -= 1
+  1004→            elif c == '[':
+  1005→                depth_bracket += 1
+  1006→            elif c == ']':
+  1007→                if depth_bracket == 0:
+  1008→                    break
+  1009→                depth_bracket -= 1
+  1010→            elif c == ',' and depth_brace == 0 and depth_paren == 0 and depth_bracket == 0:
+  1011→                break
+  1012→            i += 1
+  1013→        value_expr = content[value_start:i].strip()
+  1014→        hits.append(FilterHit(
+  1015→            field=key,
+  1016→            value_expr=value_expr,
+  1017→            is_operator=key.startswith("$"),
+  1018→            value_start=value_start,
+  1019→            value_end=i,
+  1020→        ))
+  1021→        while i < n and content[i] in ' \t\r\n,':
+  1022→            i += 1
+  1023→    return hits
+  1024→
+  1025→
+  1026→def risk_for_field(field: str, is_operator: bool) -> str:
+  1027→    if field == "$where":
+  1028→        return RISK_CRITICAL
+  1029→    if field == "$regex":
+  1030→        return RISK_HIGH
+  1031→    if field in ("$or", "$and", "$nor"):
+  1032→        return RISK_MEDIUM
+  1033→    return RISK_HIGH
+  1034→
+  1035→
+  1036→# --------------------------------------------------------------------------- #
+  1037→# Filter analysis
+  1038→# --------------------------------------------------------------------------- #
+  1039→
+  1040→def analyze_filter_literal(
+  1041→    content_start: int,
+  1042→    content_end: int,
+  1043→    func_masked: str,
+  1044→    func_src: str,
+  1045→    inputs: dict[str, UserInput],
+  1046→    findings: list[Finding],
+  1047→    file: str,
+  1048→    function: str,
+  1049→    operation: str,
+  1050→    call_line: int,
+  1051→    lines: list[str],
+  1052→    query_snippet: str,
+  1053→    parent_field: str = "",
+  1054→) -> None:
+  1055→    """Walk a parsed bson.M/bson.D literal and emit findings.
+  1056→
+  1057→    ``content_start`` and ``content_end`` are offsets (relative to
+  1058→    ``func_masked`` and ``func_src``, which have the same length) of the
+  1059→    literal's inner content — i.e. between the ``{`` and ``}``.
+  1060→    """
+  1061→    content_src = func_src[content_start:content_end]
+  1062→    content_masked = func_masked[content_start:content_end]
+  1063→    hits = parse_bson_pairs(content_src)
+  1064→    for hit in hits:
+  1065→        field = (parent_field + "." if parent_field else "") + hit.field
+  1066→        # The value expression's offsets are relative to ``content_src``;
+  1067→        # translate to func_src offsets for nested-literal scanning.
+  1068→        v_start_abs = content_start + hit.value_start
+  1069→        v_end_abs = content_start + hit.value_end
+  1070→        v_masked = func_masked[v_start_abs:v_end_abs]
+  1071→        v_src = func_src[v_start_abs:v_end_abs]
+  1072→        # Find any nested bson.M{...} / bson.D{...} / bson.A{...} literals.
+  1073→        nested = list(BSON_LITERAL_RE.finditer(v_masked))
+  1074→        if nested:
+  1075→            for nm in nested:
+  1076→                brace_in_v = nm.end() - 1
+  1077→                close_in_v = find_matching_brace(v_masked, brace_in_v)
+  1078→                if close_in_v < 0:
+  1079→                    continue
+  1080→                # Translate back to func_masked offsets.
+  1081→                inner_start = v_start_abs + brace_in_v + 1
+  1082→                inner_end = v_start_abs + close_in_v
+  1083→                analyze_filter_literal(
+  1084→                    inner_start, inner_end,
+  1085→                    func_masked, func_src, inputs, findings,
+  1086→                    file, function, operation, call_line, lines,
+  1087→                    query_snippet, parent_field=field,
+  1088→                )
+  1089→            # Also check the bare-identifier part of the value (if any).
+  1090→            stripped_v_masked = BSON_LITERAL_RE.sub("", v_masked)
+  1091→            stripped_v_src = BSON_LITERAL_RE.sub("", v_src)
+  1092→            ui = is_user_input(stripped_v_src, stripped_v_masked, inputs, call_line)
+  1093→            if ui:
+  1094→                _emit_finding(
+  1095→                    findings, file, function, operation, call_line,
+  1096→                    lines, query_snippet,
+  1097→                    field=field, ui=ui, value_expr=v_src,
+  1098→                )
+  1099→        else:
+  1100→            ui = is_user_input(v_src, v_masked, inputs, call_line)
+  1101→            if ui:
+  1102→                _emit_finding(
+  1103→                    findings, file, function, operation, call_line,
+  1104→                    lines, query_snippet,
+  1105→                    field=field, ui=ui, value_expr=v_src,
+  1106→                )
+  1107→
+  1108→
+  1109→def _emit_finding(
+  1110→    findings: list[Finding],
+  1111→    file: str,
+  1112→    function: str,
+  1113→    operation: str,
+  1114→    call_line: int,
+  1115→    lines: list[str],
+  1116→    query_snippet: str,
+  1117→    field: str,
+  1118→    ui: UserInput,
+  1119→    value_expr: str,
+  1120→) -> None:
+  1121→    base_risk = risk_for_field(field.split(".")[-1], field.startswith("$"))
+  1122→    if ui.sanitized:
+  1123→        risk = RISK_LOW
+  1124→    else:
+  1125→        risk = base_risk
+  1126→    note_parts: list[str] = []
+  1127→    if ui.sanitized:
+  1128→        note_parts.append(
+  1129→            f"value passed through sanitizer '{ui.sanitizer}' before query"
+  1130→        )
+  1131→    leaf = field.split(".")[-1]
+  1132→    if leaf == "$where":
+  1133→        note_parts.append(
+  1134→            "$where allows JavaScript execution in MongoDB — CRITICAL if "
+  1135→            "the value is attacker-controlled"
+  1136→        )
+  1137→    elif leaf == "$regex":
+  1138→        note_parts.append(
+  1139→            "$regex with user input enables regex injection / ReDoS — "
+  1140→            "ensure input is escaped via escapeRegexInput()"
+  1141→        )
+  1142→    elif leaf in ("$or", "$and", "$nor"):
+  1143→        note_parts.append(
+  1144→            f"user input inside {leaf} array element — "
+  1145→            "validate structure before query"
+  1146→        )
+  1147→    else:
+  1148→        note_parts.append(
+  1149→            "direct user input in filter value — ensure type checking "
+  1150→            "(e.g. primitive.ObjectIDFromHex) prevents operator injection"
+  1151→        )
+  1152→    findings.append(Finding(
+  1153→        file=file,
+  1154→        line=call_line,
+  1155→        end_line=call_line,
+  1156→        function=function,
+  1157→        operation=operation,
+  1158→        query=query_snippet,
+  1159→        source=ui.source,
+  1160→        source_var=ui.var,
+  1161→        field=field,
+  1162→        risk=risk,
+  1163→        sanitized=ui.sanitized,
+  1164→        sanitizer=ui.sanitizer,
+  1165→        snippet=query_snippet,
+  1166→        note="; ".join(note_parts),
+  1167→    ))
+  1168→
+  1169→
+  1170→def analyze_filter_var(
+  1171→    var_name: str,
+  1172→    func_masked: str,
+  1173→    func_src: str,
+  1174→    func_start_line: int,
+  1175→    inputs: dict[str, UserInput],
+  1176→    findings: list[Finding],
+  1177→    file: str,
+  1178→    function: str,
+  1179→    operation: str,
+  1180→    call_line: int,
+  1181→    lines: list[str],
+  1182→    query_snippet: str,
+  1183→) -> None:
+  1184→    """When a query call passes a filter *variable* (not a literal),
+  1185→    scan the function for ``varname["..."] = value`` assignments.
+  1186→    """
+  1187→    func_no_comments = mask_comments_only(func_src)
+  1188→    for m in FILTER_ASSIGN_RE.finditer(func_no_comments):
+  1189→        if m.group('filter') != var_name:
+  1190→            continue
+  1191→        key = m.group('key')
+  1192→        value = m.group('value').strip()
+  1193→        value = re.sub(r"//.*$", "", value).strip()
+  1194→        if not value:
+  1195→            continue
+  1196→        assign_line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+  1197→        # Find the value's offsets within func_src.
+  1198→        v_start_abs = m.start('value')
+  1199→        v_end_abs = m.end('value')
+  1200→        v_masked = func_masked[v_start_abs:v_end_abs]
+  1201→        v_src = func_src[v_start_abs:v_end_abs]
+  1202→        nested = list(BSON_LITERAL_RE.finditer(v_masked))
+  1203→        if nested:
+  1204→            for nm in nested:
+  1205→                brace_in_v = nm.end() - 1
+  1206→                close_in_v = find_matching_brace(v_masked, brace_in_v)
+  1207→                if close_in_v < 0:
+  1208→                    continue
+  1209→                inner_start = v_start_abs + brace_in_v + 1
+  1210→                inner_end = v_start_abs + close_in_v
+  1211→                analyze_filter_literal(
+  1212→                    inner_start, inner_end,
+  1213→                    func_masked, func_src, inputs, findings,
+  1214→                    file, function, operation, assign_line, lines,
+  1215→                    query_snippet, parent_field=key,
+  1216→                )
+  1217→            stripped_v_masked = BSON_LITERAL_RE.sub("", v_masked)
+  1218→            stripped_v_src = BSON_LITERAL_RE.sub("", v_src)
+  1219→            ui = is_user_input(stripped_v_src, stripped_v_masked, inputs, assign_line)
+  1220→            if ui:
+  1221→                _emit_finding(
+  1222→                    findings, file, function, operation, assign_line,
+  1223→                    lines, query_snippet,
+  1224→                    field=key, ui=ui, value_expr=v_src,
+  1225→                )
+  1226→        else:
+  1227→            ui = is_user_input(v_src, v_masked, inputs, assign_line)
+  1228→            if ui:
+  1229→                # Determine if the assignment is inside a switch allowlist.
+  1230→                if _in_switch_allowlist(func_masked, m.start(), var_name, ui):
+  1231→                    ui = UserInput(
+  1232→                        var=ui.var,
+  1233→                        source=ui.source,
+  1234→                        line=ui.line,
+  1235→                        sanitized=True,
+  1236→                        sanitizer="switch-allowlist",
+  1237→                        sanitized_at_line=assign_line,
+  1238→                    )
+  1239→                _emit_finding(
+  1240→                    findings, file, function, operation, assign_line,
+  1241→                    lines, query_snippet,
+  1242→                    field=key, ui=ui, value_expr=v_src,
+  1243→                )
+  1244→
+  1245→
+  1246→def _in_switch_allowlist(
+  1247→    func_masked: str, assign_offset: int, filter_var: str, ui: UserInput,
+  1248→) -> bool:
+  1249→    """Check if an assignment is inside a ``switch <expr> { ... }`` block
+  1250→    whose expression mentions the user-input variable (allowlist validation
+  1251→    pattern like ``switch models.BillingStatus(bs) { case ...: filter[...] = bs }``).
+  1252→    """
+  1253→    depth = 0
+  1254→    i = assign_offset - 1
+  1255→    while i >= 0:
+  1256→        c = func_masked[i]
+  1257→        if c == '}':
+  1258→            depth += 1
+  1259→        elif c == '{':
+  1260→            if depth == 0:
+  1261→                # Found the enclosing block's opening brace. Look backward
+  1262→                # for ``switch <expr>``.
+  1263→                head = func_masked[max(0, i - 300):i]
+  1264→                sm = re.search(
+  1265→                    r"\bswitch\s+(?P<expr>[^{;]+?)\s*$", head,
+  1266→                )
+  1267→                if sm:
+  1268→                    expr = sm.group('expr')
+  1269→                    # Check if the user input variable appears in expr.
+  1270→                    ui_var = ui.var
+  1271→                    # Match as a whole word.
+  1272→                    if re.search(rf"\b{re.escape(ui_var)}\b", expr):
+  1273→                        return True
+  1274→                return False
+  1275→            else:
+  1276→                depth -= 1
+  1277→        i -= 1
+  1278→    return False
+  1279→
+  1280→
+  1281→# --------------------------------------------------------------------------- #
+  1282→# Per-file scan
+  1283→# --------------------------------------------------------------------------- #
+  1284→
+  1285→def _split_args(masked_args_text: str) -> list[tuple[int, int, int]]:
+  1286→    """Split a call's argument list on top-level commas.
+  1287→
+  1288→    Returns a list of (start_offset, end_offset, depth_close) tuples —
+  1289→    but actually we return (start, end) offsets relative to
+  1290→    ``masked_args_text``.
+  1291→    """
+  1292→    args: list[tuple[int, int]] = []
+  1293→    depth_paren = 0
+  1294→    depth_bracket = 0
+  1295→    depth_brace = 0
+  1296→    start = 0
+  1297→    for i, c in enumerate(masked_args_text):
+  1298→        if c == '(':
+  1299→            depth_paren += 1
+  1300→        elif c == ')':
+  1301→            depth_paren -= 1
+  1302→        elif c == '[':
+  1303→            depth_bracket += 1
+  1304→        elif c == ']':
+  1305→            depth_bracket -= 1
+  1306→        elif c == '{':
+  1307→            depth_brace += 1
+  1308→        elif c == '}':
+  1309→            depth_brace -= 1
+  1310→        elif c == ',' and depth_paren == 0 and depth_bracket == 0 and depth_brace == 0:
+  1311→            args.append((start, i))
+  1312→            start = i + 1
+  1313→    args.append((start, len(masked_args_text)))
+  1314→    return args
+  1315→
+  1316→
+  1317→def scan_query_calls(
+  1318→    func_masked: str,
+  1319→    func_src: str,
+  1320→    func_start_line: int,
+  1321→    inputs: dict[str, UserInput],
+  1322→    findings: list[Finding],
+  1323→    file: str,
+  1324→    function: str,
+  1325→    lines: list[str],
+  1326→) -> int:
+  1327→    """Find all MongoDB query calls in the function and analyze their filters."""
+  1328→    count = 0
+  1329→    for m in OP_CALL_RE.finditer(func_masked):
+  1330→        op = m.group(1)
+  1331→        open_paren = m.end() - 1
+  1332→        close_paren = find_matching_paren(func_masked, open_paren)
+  1333→        if close_paren < 0:
+  1334→            continue
+  1335→        call_line = _line_of(func_masked, m.start()) + func_start_line - 1
+  1336→        call_end_line = _line_of(func_masked, close_paren) + func_start_line - 1
+  1337→        snippet = make_snippet(lines, call_line, call_end_line, max_lines=8)
+  1338→        # Split args on the masked source.
+  1339→        args_start = open_paren + 1
+  1340→        args_end = close_paren
+  1341→        arg_spans = _split_args(func_masked[args_start:args_end])
+  1342→        # Translate arg spans to func_masked offsets.
+  1343→        arg_spans_abs = [(args_start + s, args_start + e) for s, e in arg_spans]
+  1344→        # Skip leading ``ctx`` arg (position 0).
+  1345→        count += 1
+  1346→        filter_pos = OP_FILTER_POS.get(op, 1)
+  1347→        if filter_pos < 0 or filter_pos >= len(arg_spans_abs):
+  1348→            continue
+  1349→        fs, fe = arg_spans_abs[filter_pos]
+  1350→        filter_masked = func_masked[fs:fe]
+  1351→        filter_src = func_src[fs:fe]
+  1352→        # Strip whitespace.
+  1353→        stripped = filter_masked.strip()
+  1354→        lead = len(filter_masked) - len(filter_masked.lstrip())
+  1355→        if lead:
+  1356→            fs += lead
+  1357→        trail = len(filter_masked) - len(filter_masked.rstrip())
+  1358→        if trail:
+  1359→            fe -= trail
+  1360→        filter_masked = func_masked[fs:fe]
+  1361→        filter_src = func_src[fs:fe]
+  1362→        if not filter_masked:
+  1363→            continue
+  1364→        # If filter is a bson.M{...} / bson.D{...} / bson.A{...} literal:
+  1365→        bsm = BSON_LITERAL_RE.match(filter_masked)
+  1366→        if bsm:
+  1367→            brace_pos_in_arg = bsm.end() - 1
+  1368→            close_in_arg = find_matching_brace(filter_masked, brace_pos_in_arg)
+  1369→            if close_in_arg >= 0:
+  1370→                inner_start = fs + brace_pos_in_arg + 1
+  1371→                inner_end = fs + close_in_arg
+  1372→                analyze_filter_literal(
+  1373→                    inner_start, inner_end,
+  1374→                    func_masked, func_src, inputs, findings,
+  1375→                    file, function, op, call_line, lines, snippet,
+  1376→                )
+  1377→        elif re.fullmatch(r"\w+", filter_masked):
+  1378→            # Filter is a bare variable — scan for varname["..."] = ...
+  1379→            analyze_filter_var(
+  1380→                filter_masked, func_masked, func_src, func_start_line,
+  1381→                inputs, findings, file, function, op, call_line, lines,
+  1382→                snippet,
+  1383→            )
+  1384→        # For UpdateByID, also scan the update doc (3rd arg).
+  1385→        if op == "UpdateByID" and len(arg_spans_abs) >= 3:
+  1386→            us, ue = arg_spans_abs[2]
+  1387→            upd_masked = func_masked[us:ue]
+  1388→            ubm = BSON_LITERAL_RE.match(upd_masked)
+  1389→            if ubm:
+  1390→                brace_pos_in_arg = ubm.end() - 1
+  1391→                close_in_arg = find_matching_brace(upd_masked, brace_pos_in_arg)
+  1392→                if close_in_arg >= 0:
+  1393→                    inner_start = us + brace_pos_in_arg + 1
+  1394→                    inner_end = us + close_in_arg
+  1395→                    analyze_filter_literal(
+  1396→                        inner_start, inner_end,
+  1397→                        func_masked, func_src, inputs, findings,
+  1398→                        file, function, op, call_line, lines, snippet,
+  1399→                    )
+  1400→    return count
+  1401→
+  1402→
+  1403→def scan_file(path: Path, project_root: Path) -> tuple[list[Finding], FileStats]:
+  1404→    try:
+  1405→        src = path.read_text(encoding='utf-8', errors='replace')
+  1406→    except Exception:
+  1407→        return [], FileStats(path=str(path), is_test=path.name.endswith("_test.go"))
+  1408→
+  1409→    try:
+  1410→        rel_path = str(path.relative_to(project_root))
+  1411→        if rel_path == ".":
+  1412→            rel_path = path.name
+  1413→    except ValueError:
+  1414→        rel_path = str(path)
+  1415→
+  1416→    is_test = path.name.endswith("_test.go")
+  1417→    masked = mask_source(src)
+  1418→    lines = src.splitlines()
+  1419→    funcs = parse_functions(masked)
+  1420→
+  1421→    findings: list[Finding] = []
+  1422→    queries_scanned = 0
+  1423→    for f in funcs:
+  1424→        func_masked = masked[f.start_offset:f.end_offset + 1]
+  1425→        func_src = src[f.start_offset:f.end_offset + 1]
+  1426→        inputs = collect_user_inputs(func_src, func_masked, f.start_line)
+  1427→        queries_scanned += scan_query_calls(
+  1428→            func_masked, func_src, f.start_line, inputs,
+  1429→            findings, rel_path, f.name, lines,
+  1430→        )
+  1431→
+  1432→    stats = FileStats(
+  1433→        path=rel_path,
+  1434→        is_test=is_test,
+  1435→        lines=len(lines),
+  1436→        queries_scanned=queries_scanned,
+  1437→        findings=len(findings),
+  1438→    )
+  1439→    return findings, stats
+  1440→
+  1441→
+  1442→# --------------------------------------------------------------------------- #
+  1443→# Aggregation
+  1444→# --------------------------------------------------------------------------- #
+  1445→
+  1446→def collect_files(root: Path) -> list[Path]:
+  1447→    if root.is_file():
+  1448→        return [root] if root.suffix == ".go" else []
+  1449→    out: list[Path] = []
+  1450→    for p in root.rglob("*.go"):
+  1451→        if any(part in SKIP_DIRS for part in p.parts):
+  1452→            continue
+  1453→        out.append(p)
+  1454→    return sorted(out)
+  1455→
+  1456→
+  1457→def scan_project(root: Path) -> dict:
+  1458→    files = collect_files(root)
+  1459→    all_findings: list[Finding] = []
+  1460→    all_stats: list[FileStats] = []
+  1461→    for path in files:
+  1462→        findings, stats = scan_file(path, root)
+  1463→        all_stats.append(stats)
+  1464→        if not stats.is_test:
+  1465→            all_findings.extend(findings)
+  1466→
+  1467→    non_test_stats = [s for s in all_stats if not s.is_test]
+  1468→    test_stats = [s for s in all_stats if s.is_test]
+  1469→
+  1470→    risk_counts = Counter(f.risk for f in all_findings)
+  1471→    risky_findings = [f for f in all_findings if f.risk != RISK_LOW]
+  1472→
+  1473→    by_file: dict[str, dict] = defaultdict(lambda: {
+  1474→        "queries": 0, "findings": 0, "critical": 0, "high": 0, "medium": 0, "low": 0,
+  1475→    })
+  1476→    for s in non_test_stats:
+  1477→        by_file[s.path]["queries"] += s.queries_scanned
+  1478→    for f in all_findings:
+  1479→        by_file[f.file]["findings"] += 1
+  1480→        rk = f.risk.lower()
+  1481→        if rk in by_file[f.file]:
+  1482→            by_file[f.file][rk] += 1
+  1483→
+  1484→    top_files = sorted(
+  1485→        by_file.items(),
+  1486→        key=lambda kv: (
+  1487→            -kv[1]["critical"],
+  1488→            -kv[1]["high"],
+  1489→            -kv[1]["medium"],
+  1490→            -kv[1]["findings"],
+  1491→            kv[0],
+  1492→        ),
+  1493→    )[:20]
+  1494→
+  1495→    source_counts = Counter(f.source.split(":")[0] for f in all_findings)
+  1496→
+  1497→    return {
+  1498→        "root": str(root),
+  1499→        "summary": {
+  1500→            "total_files": len(files),
+  1501→            "non_test_files": len(non_test_stats),
+  1502→            "test_files": len(test_stats),
+  1503→            "non_test_lines": sum(s.lines for s in non_test_stats),
+  1504→            "queries_scanned": sum(s.queries_scanned for s in non_test_stats),
+  1505→            "total_findings": len(all_findings),
+  1506→            "risky_findings": len(risky_findings),
+  1507→            "sanitized_findings": risk_counts.get(RISK_LOW, 0),
+  1508→            "by_risk": {
+  1509→                "CRITICAL": risk_counts.get(RISK_CRITICAL, 0),
+  1510→                "HIGH":     risk_counts.get(RISK_HIGH, 0),
+  1511→                "MEDIUM":   risk_counts.get(RISK_MEDIUM, 0),
+  1512→                "LOW":      risk_counts.get(RISK_LOW, 0),
+  1513→            },
+  1514→            "by_source": dict(source_counts),
+  1515→        },
+  1516→        "top_files": [
+  1517→            {"file": f, **stats} for f, stats in top_files
+  1518→        ],
+  1519→        "findings": [asdict(f) for f in all_findings],
+  1520→        "file_stats": [asdict(s) for s in all_stats],
+  1521→    }
+  1522→
+  1523→
+  1524→# --------------------------------------------------------------------------- #
+  1525→# Markdown rendering
+  1526→# --------------------------------------------------------------------------- #
+  1527→
+  1528→def render_markdown(report: dict) -> str:
+  1529→    s = report["summary"]
+  1530→    by_risk = s["by_risk"]
+  1531→    by_source = s["by_source"]
+  1532→    findings = report["findings"]
+  1533→    top_files = report["top_files"]
+  1534→
+  1535→    out: list[str] = []
+  1536→    out.append("# NoSQL Injection Audit")
+  1537→    out.append("")
+  1538→    out.append(f"**Target:** `{report['root']}`")
+  1539→    out.append("")
+  1540→    out.append("## Summary (non-test files)")
+  1541→    out.append("")
+  1542→    out.append("| Metric | Value |")
+  1543→    out.append("| --- | ---: |")
+  1544→    out.append(f"| Files scanned | {s['non_test_files']} |")
+  1545→    out.append(f"| Total lines | {s['non_test_lines']:,} |")
+  1546→    out.append(f"| MongoDB queries scanned | **{s['queries_scanned']}** |")
+  1547→    out.append(f"| Total findings | {s['total_findings']} |")
+  1548→    out.append(f"| Risky findings (CRITICAL/HIGH/MEDIUM) | **{s['risky_findings']}** |")
+  1549→    out.append(f"| Sanitized (LOW) | {s['sanitized_findings']} |")
+  1550→    out.append("")
+  1551→    out.append("### Findings by risk")
+  1552→    out.append("")
+  1553→    out.append("| Risk | Count | Meaning |")
+  1554→    out.append("| --- | ---: | --- |")
+  1555→    out.append(f"| CRITICAL | {by_risk['CRITICAL']} | `$where` with user input — JS injection |")
+  1556→    out.append(f"| HIGH | {by_risk['HIGH']} | Direct user input in filter / `$regex` injection |")
+  1557→    out.append(f"| MEDIUM | {by_risk['MEDIUM']} | User input in `$or`/`$and`/`$nor` arrays |")
+  1558→    out.append(f"| LOW | {by_risk['LOW']} | User input was sanitized before query |")
+  1559→    out.append("")
+  1560→    out.append("### Findings by user-input source")
+  1561→    out.append("")
+  1562→    out.append("| Source | Count |")
+  1563→    out.append("| --- | ---: |")
+  1564→    for src, n in sorted(by_source.items(), key=lambda kv: -kv[1]):
+  1565→        out.append(f"| {src} | {n} |")
+  1566→    out.append("")
+  1567→
+  1568→    out.append("## Top Files by Risk")
+  1569→    out.append("")
+  1570→    if not top_files:
+  1571→        out.append("_No files with findings._")
+  1572→    else:
+  1573→        out.append("| File | Queries | Findings | CRITICAL | HIGH | MEDIUM | LOW |")
+  1574→        out.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+  1575→        for f in top_files:
+  1576→            st = {k: f[k] for k in ("queries", "findings", "critical", "high", "medium", "low")}
+  1577→            out.append(
+  1578→                f"| `{f['file']}` | {st['queries']} | {st['findings']} | "
+  1579→                f"{st['critical']} | {st['high']} | {st['medium']} | {st['low']} |"
+  1580→            )
+  1581→    out.append("")
+  1582→
+  1583→    by_file: dict[str, list[dict]] = {}
+  1584→    for f in findings:
+  1585→        by_file.setdefault(f["file"], []).append(f)
+  1586→
+  1587→    out.append("## Detailed Findings")
+  1588→    out.append("")
+  1589→    if not by_file:
+  1590→        out.append("_No injection risks detected._")
+  1591→    else:
+  1592→        sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+  1593→        for file in sorted(by_file):
+  1594→            file_findings = by_file[file]
+  1595→            file_findings.sort(
+  1596→                key=lambda f: (sev_order.get(f["risk"], 4), f["line"])
+  1597→            )
+  1598→            out.append(f"### `{file}`")
+  1599→            out.append("")
+  1600→            for f in file_findings:
+  1601→                out.append(
+  1602→                    f"- **[{f['risk']}] {f['operation']}** — "
+  1603→                    f"`{f['file']}:{f['line']}` in `{f['function']}`"
+  1604→                )
+  1605→                out.append(f"  - **Field:** `{f['field']}`")
+  1606→                out.append(f"  - **Source:** `{f['source']}` (var `{f['source_var']}`)")
+  1607→                if f["sanitized"]:
+  1608→                    out.append(
+  1609→                        f"  - **Sanitized:** yes, via `{f['sanitizer']}`"
+  1610→                    )
+  1611→                else:
+  1612→                    out.append(f"  - **Sanitized:** no")
+  1613→                if f["note"]:
+  1614→                    out.append(f"  - _{f['note']}_")
+  1615→                snippet = f["snippet"].rstrip()
+  1616→                out.append("  ```go")
+  1617→                for line in snippet.splitlines():
+  1618→                    out.append(f"  {line}")
+  1619→                out.append("  ```")
+  1620→            out.append("")
+  1621→
+  1622→    out.append("## Methodology")
+  1623→    out.append("")
+  1624→    out.append(
+  1625→        "The scanner walks every `.go` file (excluding `vendor/`, "
+  1626→        "`node_modules/`, `.git/`, `graphify-out/`, `testdata/`) and "
+  1627→        "applies these heuristics:"
+  1628→    )
+  1629→    out.append("")
+  1630→    out.append(
+  1631→        "1. **Function-level user input tracking.** For each top-level "
+  1632→        "function/method, build a map of variables that hold user input. "
+  1633→        "Sources recognized: `r.URL.Query().Get(...)`, `q.Get(...)` (where "
+  1634→        "`q := r.URL.Query()`), `r.FormValue(...)`, `chi.URLParam(...)`, "
+  1635→        "`mux.Vars(r)[...]`, and JSON-body struct fields (`req.Field` "
+  1636→        "where `req` was decoded from `r.Body`). String literals are "
+  1637→        "preserved during pattern matching (only comments are stripped)."
+  1638→    )
+  1639→    out.append(
+  1640→        "2. **Sanitizer tracking.** Variables assigned from "
+  1641→        "`primitive.ObjectIDFromHex(...)`, `escapeRegexInput(...)`, "
+  1642→        "`strconv.Atoi/ParseInt/ParseFloat/ParseBool(...)`, "
+  1643→        "`time.Parse(...)`, `url.PathEscape/QueryEscape(...)`, "
+  1644→        "`regexp.MustCompile(...)`, `uuid.Parse(...)`, or "
+  1645→        "`primitive.Regex{Pattern: ...escapeRegexInput(...)...}` are marked "
+  1646→        "sanitized. `switch X { case ... }` allowlist validation is also "
+  1647→        "recognized when the case body assigns a literal (not `X`) to the "
+  1648→        "filter. Struct-level validation via `validator.Struct(&req)` or "
+  1649→        "the project's `validation.Validate(&req)` wrapper marks every "
+  1650→        "`req.*` field as sanitized (when the validation call occurs "
+  1651→        "BEFORE the query). Per-field custom validators "
+  1652→        "(`if !isValidEmail(req.Email) { return ... }`) are recognized "
+  1653→        "by function-name prefix (`is*`/`valid*`/`validate*`/`check*`) "
+  1654→        "and mark their argument as sanitized."
+  1655→    )
+  1656→    out.append(
+  1657→        "3. **MongoDB query detection.** Every call to a known mongo-driver "
+  1658→        "method (`Find`, `FindOne`, `InsertOne`, `UpdateOne`, `DeleteOne`, "
+  1659→        "`Aggregate`, `CountDocuments`, etc.) is located via paren matching "
+  1660→        "on a masked source (strings/comments blanked out)."
+  1661→    )
+  1662→    out.append(
+  1663→        "4. **Filter analysis.** The filter argument (positional after "
+  1664→        "`ctx`) is parsed. If it's a `bson.M{...}` / `bson.D{...}` "
+  1665→        "literal, every key/value pair is extracted via balanced-brace "
+  1666→        "matching on the masked source, then re-read from the original "
+  1667→        "source to preserve string-literal field names; nested literals "
+  1668→        "(e.g. inside `$or` arrays) are recursed. If the filter is a "
+  1669→        "variable, the function is scanned for "
+  1670→        "`varname[\"...\"] = value` assignments."
+  1671→    )
+  1672→    out.append(
+  1673→        "5. **Risk classification.** `$where` with user input → CRITICAL "
+  1674→        "(JS execution). Direct user input in a field value, or `$regex` "
+  1675→        "with user input → HIGH. User input in `$or`/`$and`/`$nor` array "
+  1676→        "elements → MEDIUM. Sanitized user input → LOW (informational)."
+  1677→    )
+  1678→    out.append("")
+  1679→    out.append(
+  1680→        "**Note on Go type safety:** Go struct fields and `string`-returning "
+  1681→        "APIs (`r.URL.Query().Get`) are statically typed, so classic "
+  1682→        "operator-injection (`{\"$ne\": null}` passed as a *string*) is "
+  1683→        "not directly exploitable. The real risks in Go are (a) `$where` "
+  1684→        "(JavaScript execution context), (b) `$regex` (ReDoS), and (c) "
+  1685→        "any code path that decodes user JSON into an `interface{}` / "
+  1686→        "`map[string]interface{}` and passes it directly to a query. The "
+  1687→        "HIGH findings for plain string fields are flagged conservatively "
+  1688→        "for human review — most are safe but warrant a glance."
+  1689→    )
+  1690→    out.append("")
+  1691→    return "\n".join(out)
+  1692→
+  1693→
+  1694→# --------------------------------------------------------------------------- #
+  1695→# CLI
+  1696→# --------------------------------------------------------------------------- #
+  1697→
+  1698→def main(argv: Optional[list[str]] = None) -> int:
+  1699→    parser = argparse.ArgumentParser(
+  1700→        description="Scan Go source for NoSQL injection risks in MongoDB queries.",
+  1701→    )
+  1702→    parser.add_argument(
+  1703→        "path",
+  1704→        nargs="?",
+  1705→        default=".",
+  1706→        help="Path to scan (file or directory). Default: current directory.",
+  1707→    )
+  1708→    parser.add_argument(
+  1709→        "--out",
+  1710→        default=None,
+  1711→        help="Write markdown report to this path (in addition to public/NOSQL_INJECTION.md).",
+  1712→    )
+  1713→    parser.add_argument(
+  1714→        "--json",
+  1715→        action="store_true",
+  1716→        help="Print the JSON report to stdout.",
+  1717→    )
+  1718→    args = parser.parse_args(argv)
+  1719→
+  1720→    root = Path(args.path).resolve()
+  1721→    if not root.exists():
+  1722→        print(f"ERROR: path not found: {root}", file=sys.stderr)
+  1723→        return 2
+  1724→
+  1725→    print(f"Scanning {root} ...", file=sys.stderr)
+  1726→    report = scan_project(root)
+  1727→
+  1728→    public_dir = Path("/home/z/my-project/public")
+  1729→    json_path = public_dir / "nosql-injection.json"
+  1730→    md_path = public_dir / "NOSQL_INJECTION.md"
+  1731→    try:
+  1732→        public_dir.mkdir(parents=True, exist_ok=True)
+  1733→        json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+  1734→    except Exception as e:
+  1735→        print(f"WARN: could not write {json_path}: {e}", file=sys.stderr)
+  1736→    try:
+  1737→        md_path.write_text(render_markdown(report), encoding="utf-8")
+  1738→    except Exception as e:
+  1739→        print(f"WARN: could not write {md_path}: {e}", file=sys.stderr)
+  1740→
+  1741→    if args.out:
+  1742→        out_path = Path(args.out)
+  1743→        try:
+  1744→            out_path.parent.mkdir(parents=True, exist_ok=True)
+  1745→            out_path.write_text(render_markdown(report), encoding="utf-8")
+  1746→            print(f"Markdown report written to {out_path}", file=sys.stderr)
+  1747→        except Exception as e:
+  1748→            print(f"ERROR: could not write --out file: {e}", file=sys.stderr)
+  1749→            return 1
+  1750→
+  1751→    if args.json:
+  1752→        print(json.dumps(report, indent=2))
+  1753→
+  1754→    s = report["summary"]
+  1755→    print(
+  1756→        f"Scanned {s['non_test_files']} non-test Go files "
+  1757→        f"({s['queries_scanned']} MongoDB queries).",
+  1758→        file=sys.stderr,
+  1759→    )
+  1760→    print(
+  1761→        f"Findings: CRITICAL={s['by_risk']['CRITICAL']}  "
+  1762→        f"HIGH={s['by_risk']['HIGH']}  "
+  1763→        f"MEDIUM={s['by_risk']['MEDIUM']}  "
+  1764→        f"LOW={s['by_risk']['LOW']}",
+  1765→        file=sys.stderr,
+  1766→    )
+  1767→    return 0
+  1768→
+  1769→
+  1770→if __name__ == "__main__":
+  1771→    raise SystemExit(main())
+  1772→
