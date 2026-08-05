@@ -58,6 +58,22 @@ export default function Home() {
         </nav>
         <div style={styles.headerRight}>
           <a
+            href="/DIGEST.md"
+            target="_blank"
+            rel="noreferrer"
+            style={styles.linkBtn}
+          >
+            Digest →
+          </a>
+          <a
+            href="/PR_REPORT.md"
+            target="_blank"
+            rel="noreferrer"
+            style={styles.linkBtn}
+          >
+            PR Report →
+          </a>
+          <a
             href="/ARCHITECTURE_MAP.md"
             target="_blank"
             rel="noreferrer"
