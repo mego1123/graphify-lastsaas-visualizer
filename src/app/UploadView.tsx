@@ -15,6 +15,8 @@ export default function UploadView() {
   const [results, setResults] = useState<AnalysisResults | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [repoUrl, setRepoUrl] = useState('')
+  const [mode, setMode] = useState<'zip' | 'repo'>('zip')
 
   const handleUpload = useCallback(async (file: File) => {
     if (!file.name.endsWith('.zip')) {
@@ -29,23 +31,41 @@ export default function UploadView() {
     formData.append('file', file)
 
     try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
+      const response = await fetch('/api/upload', { method: 'POST', body: formData })
       const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'Upload failed')
-      } else {
-        setResults(data)
-      }
+      if (!response.ok) setError(data.error || 'Upload failed')
+      else setResults(data)
     } catch (e) {
       setError(String(e))
     } finally {
       setUploading(false)
     }
   }, [])
+
+  const handleRepoClone = useCallback(async () => {
+    if (!repoUrl.includes('github.com')) {
+      setError('Please enter a valid GitHub URL')
+      return
+    }
+
+    setUploading(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repoUrl }),
+      })
+      const data = await response.json()
+      if (!response.ok) setError(data.error || 'Clone failed')
+      else setResults(data)
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setUploading(false)
+    }
+  }, [repoUrl])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -64,46 +84,78 @@ export default function UploadView() {
         </p>
       </div>
 
-      {/* Drop zone */}
-      <div
-        style={{
-          ...styles.dropZone,
-          ...(dragOver ? styles.dropZoneActive : {}),
-        }}
-        onDrop={handleDrop}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onClick={() => document.getElementById('file-input')?.click()}
-      >
-        {uploading ? (
-          <div style={styles.uploading}>
-            <div style={styles.spinner} />
-            <p style={styles.uploadingText}>Analyzing your template…</p>
-            <p style={styles.uploadingHint}>Running 10 frontend checks (may take 30-60 seconds)</p>
-          </div>
-        ) : (
-          <div style={styles.dropContent}>
-            <div style={styles.dropIcon}>📦</div>
-            <p style={styles.dropText}>
-              {dragOver ? 'Drop your .zip here' : 'Drag & drop your .zip file here'}
-            </p>
-            <p style={styles.dropHint}>or click to browse</p>
-            <p style={styles.dropNote}>
-              Accepts: .zip containing your frontend source (src/ or frontend/src/)
-            </p>
-          </div>
-        )}
-        <input
-          id="file-input"
-          type="file"
-          accept=".zip"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) handleUpload(file)
-          }}
-        />
+      {/* Mode toggle */}
+      <div style={styles.modeToggle}>
+        <button
+          style={{ ...styles.modeBtn, ...(mode === 'zip' ? styles.modeBtnActive : {}) }}
+          onClick={() => setMode('zip')}
+        >
+          📦 Upload ZIP
+        </button>
+        <button
+          style={{ ...styles.modeBtn, ...(mode === 'repo' ? styles.modeBtnActive : {}) }}
+          onClick={() => setMode('repo')}
+        >
+          🔗 GitHub URL
+        </button>
       </div>
+
+      {/* Upload zone or repo URL input */}
+      {mode === 'zip' ? (
+        <div
+          style={{ ...styles.dropZone, ...(dragOver ? styles.dropZoneActive : {}) }}
+          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onClick={() => document.getElementById('file-input')?.click()}
+        >
+          {uploading ? (
+            <div style={styles.uploading}>
+              <div style={styles.spinner} />
+              <p style={styles.uploadingText}>Analyzing your template…</p>
+              <p style={styles.uploadingHint}>Running 10 frontend checks (may take 30-60 seconds)</p>
+            </div>
+          ) : (
+            <div style={styles.dropContent}>
+              <div style={styles.dropIcon}>📦</div>
+              <p style={styles.dropText}>{dragOver ? 'Drop your .zip here' : 'Drag & drop your .zip file here'}</p>
+              <p style={styles.dropHint}>or click to browse</p>
+              <p style={styles.dropNote}>Accepts: .zip containing your frontend source (src/ or frontend/src/)</p>
+            </div>
+          )}
+          <input id="file-input" type="file" accept=".zip" style={{ display: 'none' }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f) }}
+          />
+        </div>
+      ) : (
+        <div style={styles.repoZone}>
+          {uploading ? (
+            <div style={styles.uploading}>
+              <div style={styles.spinner} />
+              <p style={styles.uploadingText}>Cloning & analyzing…</p>
+              <p style={styles.uploadingHint}>Cloning repo and running 10 frontend checks</p>
+            </div>
+          ) : (
+            <>
+              <div style={styles.repoIcon}>🔗</div>
+              <p style={styles.repoText}>Enter a GitHub repository URL</p>
+              <div style={styles.repoInputRow}>
+                <input
+                  style={styles.repoInput}
+                  placeholder="https://github.com/user/repo"
+                  value={repoUrl}
+                  onChange={(e) => setRepoUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleRepoClone() }}
+                />
+                <button style={styles.repoBtn} onClick={handleRepoClone}>
+                  Analyze →
+                </button>
+              </div>
+              <p style={styles.repoHint}>The repo will be cloned (shallow) and analyzed with all 10 checks</p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -349,4 +401,14 @@ const styles: Record<string, React.CSSProperties> = {
   stepNum: { width: 24, height: 24, borderRadius: '50%', background: '#4E79A7', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 },
   checkList: { fontSize: 10, color: '#666', marginTop: 4, fontFamily: 'ui-monospace, monospace' },
   privacyNote: { marginTop: 16, fontSize: 11, color: '#555', textAlign: 'center', padding: 8, background: '#0f0f1a', borderRadius: 4 },
+  modeToggle: { display: 'flex', gap: 4, marginBottom: 16, background: '#1a1a2e', borderRadius: 6, padding: 3, border: '1px solid #2a2a4e' },
+  modeBtn: { background: 'transparent', color: '#888', border: 'none', padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 4 },
+  modeBtnActive: { background: '#4E79A7', color: '#fff' },
+  repoZone: { border: '2px dashed #3a3a5e', borderRadius: 12, padding: 48, textAlign: 'center', background: '#1a1a2e', marginBottom: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 },
+  repoIcon: { fontSize: 48 },
+  repoText: { fontSize: 16, color: '#e0e0e0', fontWeight: 600 },
+  repoInputRow: { display: 'flex', gap: 8, marginTop: 12, width: '100%', maxWidth: 500 },
+  repoInput: { flex: 1, background: '#0f0f1a', border: '1px solid #3a3a5e', color: '#e0e0e0', padding: '10px 14px', borderRadius: 6, fontSize: 13, outline: 'none' },
+  repoBtn: { background: '#4E79A7', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
+  repoHint: { fontSize: 11, color: '#555', marginTop: 4 },
 }
