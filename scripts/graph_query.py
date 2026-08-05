@@ -95,17 +95,10 @@ def get_function_filter_fields(graph: dict, function_name: str) -> set[str]:
     Queries filter_writes_field edges in the enriched graph.
     Returns fields from both literal and dynamic (map_update) construction.
     """
-    # Find the function node
-    func_node = None
-    for n in graph.get("nodes", []):
-        label = n.get("label", "")
-        if label == function_name or label == function_name + "()":
-            func_node = n
-            break
-    
+    func_node = _find_function_node(graph, function_name)
     if not func_node:
         return set()
-    
+
     func_id = func_node["id"]
     fields = set()
     for edge in graph.get("links", []):
@@ -115,7 +108,7 @@ def get_function_filter_fields(graph: dict, function_name: str) -> set[str]:
                 field_name = field_node.get("label", "")
                 if field_name and field_name != "?":
                     fields.add(field_name)
-    
+
     return fields
 
 
@@ -167,6 +160,48 @@ def _candidate_labels_for_function(function_name: str) -> list[str]:
     return candidates
 
 
+def _find_function_node(graph: dict, function_name: str) -> dict | None:
+    """Find a function node in the graph by name, with disambiguation.
+
+    When multiple nodes share the same label (e.g., .ExchangeCode() exists
+    on AuthHandler, GitHubOAuthService, GoogleOAuthService, MicrosoftOAuthService),
+    disambiguate using the receiver type extracted from function_name.
+
+    For "(*AuthHandler).ExchangeCode", prefers nodes whose id or source_file
+    contains "authhandler" or "auth" (derived from the receiver type).
+    """
+    candidate_set = set(_candidate_labels_for_function(function_name))
+    matches = [n for n in graph.get("nodes", []) if n.get("label", "") in candidate_set]
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+
+    # Multiple matches — disambiguate by receiver type.
+    # Extract receiver type from function_name like "(*AdminHandler).ListTenants"
+    receiver_type = ""
+    if ")." in function_name:
+        idx = function_name.rfind(").")
+        receiver_part = function_name[:idx + 1]  # e.g. "(*AdminHandler)"
+        # Extract the type name (AdminHandler)
+        import re
+        m = re.search(r"\(\s*\*?\s*(\w+)\s*\)", receiver_part)
+        if m:
+            receiver_type = m.group(1)
+
+    if receiver_type:
+        # Try to find a node whose id or source_file contains the receiver type
+        receiver_lower = receiver_type.lower()
+        for n in matches:
+            nid = n.get("id", "").lower()
+            src = n.get("source_file", "").lower()
+            if receiver_lower in nid or receiver_lower in src:
+                return n
+
+    # Fallback: first match
+    return matches[0]
+
+
 def get_function_filter_fields_with_confidence(graph: dict, function_name: str) -> dict[str, str]:
     """Get filter field names with their method/confidence level.
     
@@ -175,18 +210,10 @@ def get_function_filter_fields_with_confidence(graph: dict, function_name: str) 
     - "map_update": dynamic filter["field"] = value — medium confidence
     - "struct_type": InsertOne(ctx, struct) — inferred from struct type
     """
-    func_node = None
-    candidates = _candidate_labels_for_function(function_name)
-    candidate_set = set(candidates)
-    for n in graph.get("nodes", []):
-        label = n.get("label", "")
-        if label in candidate_set:
-            func_node = n
-            break
-    
+    func_node = _find_function_node(graph, function_name)
     if not func_node:
         return {}
-    
+
     func_id = func_node["id"]
     fields = {}
     for edge in graph.get("links", []):
@@ -197,14 +224,24 @@ def get_function_filter_fields_with_confidence(graph: dict, function_name: str) 
                 method = edge.get("method", "unknown")
                 if field_name and field_name != "?":
                     fields[field_name] = method
-    
+
     return fields
 
 
 def is_filter_field_static(graph: dict, function_name: str, field_name: str) -> bool:
     """Check if a filter field is written via a static literal (high confidence)
     vs dynamic map_update (medium confidence).
+
+    Returns True for:
+    - "literal": static bson.M{"field": value} — high confidence, statically known
+    - "struct_type": InsertOne(ctx, struct) — inferred from struct type's bson tags,
+      which are compile-time constants (the struct definition doesn't change at runtime)
+
+    Returns False for:
+    - "map_update": dynamic filter["field"] = value — the field NAME is known but
+      the VALUE is computed at runtime, so the filter shape is only partially static
+    - "unknown" or missing: can't determine
     """
     fields = get_function_filter_fields_with_confidence(graph, function_name)
     method = fields.get(field_name, "")
-    return method == "literal"
+    return method in ("literal", "struct_type")

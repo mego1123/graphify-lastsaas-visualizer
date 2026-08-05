@@ -225,47 +225,40 @@ def enrich_with_ssa(graph: dict, functions: list[dict], repo: Path) -> dict:
     nodes = graph.get("nodes", [])
     links = graph.get("links", [])
 
-    # Build lookup: function name → graph node ID
-    # Index multiple label forms for robust matching.
-    node_by_label: dict[str, str] = {}
-    # Also build a (file_substring, method_name) → node_id index for
-    # file-scoped fallback matching.
-    node_by_file_and_method: dict[tuple[str, str], str] = {}
+    # Build lookup: label → LIST of node IDs (not just one, because multiple
+    # structs can have same-named methods, e.g. (*AdminHandler).List and
+    # (*TenantHandler).List both produce label ".List()").
+    nodes_by_label: dict[str, list[dict]] = {}
+    # Also build a (file_basename, method_name) → list of nodes index.
+    nodes_by_file_and_method: dict[tuple[str, str], list[dict]] = {}
     for n in nodes:
         label = n.get("label", "")
         nid = n.get("id", "")
         if not label or not nid:
             continue
-        # Try exact match and () suffix match
-        node_by_label[label] = nid
-        node_by_label[label + "()"] = nid
-        node_by_label[label.lower()] = nid
-        node_by_label[label.lower() + "()"] = nid
+        # Index all label forms for this node
+        for lbl in [label, label + "()", label.lower(), label.lower() + "()"]:
+            nodes_by_label.setdefault(lbl, []).append(n)
 
         # For method labels like ".ListTenants()", also index without the
         # leading dot so "ListTenants()" and "ListTenants" match.
         if label.startswith(".") and label.endswith("()"):
             method = label[1:-2]  # strip leading "." and trailing "()"
             if method:
-                node_by_label[method] = nid
-                node_by_label[method + "()"] = nid
-                node_by_label[method.lower()] = nid
-                node_by_label[method.lower() + "()"] = nid
+                for lbl in [method, method + "()", method.lower(), method.lower() + "()"]:
+                    nodes_by_label.setdefault(lbl, []).append(n)
 
-        # File-scoped index: (file_substring, method_name) → node_id
+        # File-scoped index: (file_basename, method_name) → list of nodes
         src = n.get("source_file", "")
         if src:
-            # Extract the method name from the label (strip leading "." and
-            # trailing "()")
             method = label
             if method.startswith("."):
                 method = method[1:]
             if method.endswith("()"):
                 method = method[:-2]
             if method:
-                # Use the basename of the source file for the key
                 file_basename = src.rsplit("/", 1)[-1] if "/" in src else src
-                node_by_file_and_method[(file_basename, method)] = nid
+                nodes_by_file_and_method.setdefault((file_basename, method), []).append(n)
 
     new_nodes = []
     new_links = []
@@ -279,48 +272,74 @@ def enrich_with_ssa(graph: dict, functions: list[dict], repo: Path) -> dict:
         func_file = func.get("file", "")
         func_line = func.get("line", 0)
 
-        # Strategy 1: try all candidate labels derived from the tracer name
-        func_node_id = None
+        # Strategy 1: try all candidate labels derived from the tracer name.
+        # When multiple nodes share the same label (same method name on
+        # different receivers), prefer the one whose source_file matches
+        # the tracer's func_file.
+        func_node = None
         candidates = _normalize_go_method_name(func_name)
+        matched_strategy = None
         for cand in candidates:
-            if cand in node_by_label:
-                func_node_id = node_by_label[cand]
-                lookup_hits_by_strategy["exact" if cand == func_name or cand == func_name + "()" else "method_suffix"] += 1
+            matches = nodes_by_label.get(cand, [])
+            if not matches:
+                continue
+            if len(matches) == 1:
+                func_node = matches[0]
+                matched_strategy = "exact" if cand == func_name or cand == func_name + "()" else "method_suffix"
                 break
+            # Multiple nodes match — prefer the one whose source_file contains
+            # the tracer's func_file. This prevents over-matching when two
+            # structs have the same method name.
+            if func_file:
+                for n in matches:
+                    src = n.get("source_file", "")
+                    # Tracer file is relative to backend/ (e.g. "internal/api/handlers/auth.go")
+                    # Graph source_file includes "backend/" prefix.
+                    if func_file in src or f"backend/{func_file}" in src:
+                        func_node = n
+                        matched_strategy = "method_suffix"
+                        break
+            if func_node:
+                break
+            # No file match — take the first one (best effort)
+            func_node = matches[0]
+            matched_strategy = "method_suffix"
+            break
 
         # Strategy 2: file-scoped fallback — match by (file_basename, method_name)
-        if not func_node_id and func_file:
+        if not func_node and func_file:
             file_basename = func_file.rsplit("/", 1)[-1] if "/" in func_file else func_file
-            # Extract method name from tracer function name
             method = func_name
             if ")." in method:
                 idx = method.rfind(").")
                 method = method[idx + 2:]
-            # Try (file_basename, method)
             key = (file_basename, method)
-            if key in node_by_file_and_method:
-                func_node_id = node_by_file_and_method[key]
-                lookup_hits_by_strategy["file_scoped"] += 1
+            matches = nodes_by_file_and_method.get(key, [])
+            if matches:
+                func_node = matches[0]
+                matched_strategy = "file_scoped"
 
         # Strategy 3: linear scan of nodes by file + label suffix
-        if not func_node_id:
+        if not func_node:
+            method = func_name
+            if ")." in method:
+                idx = method.rfind(").")
+                method = method[idx + 2:]
             for n in nodes:
                 src = n.get("source_file", "")
                 if func_file and func_file in src:
                     label = n.get("label", "")
-                    # Match if label ends with the method name (with or without ())
-                    method = func_name
-                    if ")." in method:
-                        idx = method.rfind(").")
-                        method = method[idx + 2:]
                     if label == method or label == method + "()" or label == f".{method}()" or label == f".{method}":
-                        func_node_id = n.get("id", "")
-                        lookup_hits_by_strategy["file_scoped"] += 1
+                        func_node = n
+                        matched_strategy = "file_scoped"
                         break
 
-        if not func_node_id:
+        if not func_node:
             lookup_hits_by_strategy["miss"] += 1
             continue
+
+        lookup_hits_by_strategy[matched_strategy] += 1
+        func_node_id = func_node["id"]
 
         for finding in func.get("findings", []):
             method = finding.get("method", "")
