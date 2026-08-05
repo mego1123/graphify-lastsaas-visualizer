@@ -150,53 +150,227 @@ def get_god_nodes(graph: dict, top_n: int = 10) -> list[dict]:
     ]
 
 
-def categorize_isolated_nodes(graph: dict, isolated_nodes: list[dict]) -> dict:
-    """Categorize isolated nodes into meaningful buckets instead of labeling all as 'dead code'."""
+def categorize_isolated_nodes(graph: dict, isolated_nodes: list[dict], repo: Path = None) -> dict:
+    """Categorize isolated nodes into meaningful buckets.
+
+    The key insight: degree-0 nodes are NOT necessarily dead code. They fall into
+    several categories, most of which are expected:
+
+    1. Tooling files — config/test files loaded by build tools (vite, vitest,
+       playwright, eslint), not by import statements. Recognized by name pattern.
+    2. Package-level declarations — Go package-level vars/consts (atomic.Int64).
+       These ARE referenced in code (e.g. apicounter.StripeAPICalls) but tree-sitter
+       doesn't create edges for package.Var references.
+    3. Graph resolution gaps — files where methods ARE called but graphify missed
+       the receiver method resolution. Detected by checking if OTHER nodes in the
+       same file have edges.
+    4. Module declarations — go.mod, package.json (the file itself, not its fields)
+    5. True dead code — genuinely never referenced anywhere. We verify this by
+       checking if the file appears in ANY edge, not just if the specific node
+       has degree 0.
+    """
     categories = {
-        "builtin_types": [],      # Context, MongoDB, Time — referenced but no source
-        "api_types": [],          # Request/Response structs — leaf by design
-        "react_pages": [],        # Imported once in router
-        "type_definitions": [],   # TS/Go type defs
-        "config_fields": [],      # package.json fields, tsconfig
-        "e2e_tests": [],          # Playwright spec files
-        "init_functions": [],     # Go init() — called automatically
-        "true_dead_code": [],     # Genuinely unused (degree 0, has source)
-        "documents": [],          # Doc/concept nodes
+        "builtin_types": [],          # Context, MongoDB, Time — no source file
+        "api_types": [],              # Request/Response structs — leaf by design
+        "react_pages": [],            # Imported once in router — normal
+        "type_definitions": [],       # Struct/interface defs
+        "config_fields": [],          # package.json keys, tsconfig fields
+        "tooling_files": [],          # vite.config, vitest.config, eslint.config, etc.
+        "e2e_tests": [],              # Playwright/Cypress spec files
+        "test_setup": [],             # src/test/setup.ts — loaded by test runner
+        "init_functions": [],         # Go init() — called by runtime
+        "package_level_vars": [],     # Go package-level vars — referenced but no AST edge
+        "graph_resolution_gaps": [],  # Methods called but receiver resolution missed
+        "module_declarations": [],    # go.mod, package.json (file-level)
+        "documents": [],              # Doc/concept nodes
+        "true_dead_code": [],         # Genuinely never referenced anywhere
     }
+
+    # Build a lookup: which files have ANY edges (in or out)?
+    files_with_edges: set[str] = set()
+    node_to_file: dict[str, str] = {}
+    for n in graph.get("nodes", []):
+        if n.get("source_file"):
+            node_to_file[n["id"]] = n["source_file"]
+    for e in graph.get("links", []):
+        sf = node_to_file.get(e.get("source", ""), "")
+        tf = node_to_file.get(e.get("target", ""), "")
+        if sf:
+            files_with_edges.add(sf)
+        if tf:
+            files_with_edges.add(tf)
 
     degree = Counter()
     for e in graph.get("links", []):
         degree[e.get("source", "")] += 1
         degree[e.get("target", "")] += 1
 
+    # Tooling file patterns (loaded by build tools, not import statements)
+    TOOLING_PATTERNS = [
+        "vite.config", "vitest.config", "webpack.config", "rollup.config",
+        "tsconfig.json", "jsconfig.json", "babel.config", ".babelrc",
+        "eslint.config", ".eslintrc", "prettier.config", ".prettierrc",
+        "playwright.config", "cypress.config", "jest.config", "jest.setup",
+        "postcss.config", "tailwind.config", "next.config", "nuxt.config",
+        "angular.json", "vue.config", "svelte.config",
+        ".gitignore", ".dockerignore", "Dockerfile", "docker-compose",
+        "Makefile", "CMakeLists.txt", "build.gradle", "pom.xml",
+        "go.mod", "go.sum", "Cargo.toml", "Gemfile", "requirements.txt",
+        "package-lock.json", "yarn.lock", "bun.lock", "pnpm-lock.yaml",
+        "turbo.json", "nx.json", "lerna.json",
+    ]
+
+    # E2E test patterns
+    E2E_PATTERNS = [".spec.ts", ".spec.tsx", ".spec.js", ".spec.jsx",
+                    ".cy.ts", ".cy.js", ".test.e2e.ts", "e2e/"]
+
+    # Test setup patterns
+    TEST_SETUP_PATTERNS = ["test/setup", "test-utils", "testUtils",
+                           "__tests__/setup", "jest.setup", "setupTests"]
+
     for n in isolated_nodes:
         src = n.get("source_file", "")
         label = n.get("label", "")
         ft = n.get("file_type", "code")
         deg = degree.get(n.get("id", ""), 0)
+        node_id = n.get("id", "")
 
+        # --- Category 1: No source file (built-in types) ---
         if not src:
             categories["builtin_types"].append({"label": label, "degree": deg})
-        elif ft == "document" or ft == "concept":
+            continue
+
+        # --- Category 2: Documents/concepts ---
+        if ft in ("document", "concept"):
             categories["documents"].append({"label": label, "source": src, "degree": deg})
-        elif "_test.go" in src or "test" in label.lower():
-            categories["init_functions"].append({"label": label, "source": src, "degree": deg}) if label == "init()" else categories["documents"].append({"label": label, "source": src, "degree": deg})
-        elif ".spec.ts" in src or "playwright" in src or "e2e" in src:
-            categories["e2e_tests"].append({"label": label, "source": src, "degree": deg})
-        elif src.endswith("package.json") or src.endswith("tsconfig.json") or "config" in src.lower():
+            continue
+
+        # --- Category 3: Tooling files (config, build tools) ---
+        is_tooling = False
+        for pattern in TOOLING_PATTERNS:
+            if pattern in src or src.endswith(pattern):
+                categories["tooling_files"].append({"label": label, "source": src, "degree": deg})
+                is_tooling = True
+                break
+        if is_tooling:
+            continue
+
+        # --- Category 4: E2E test files ---
+        is_e2e = False
+        for pattern in E2E_PATTERNS:
+            if pattern in src:
+                categories["e2e_tests"].append({"label": label, "source": src, "degree": deg})
+                is_e2e = True
+                break
+        if is_e2e:
+            continue
+
+        # --- Category 5: Test setup files ---
+        is_test_setup = False
+        for pattern in TEST_SETUP_PATTERNS:
+            if pattern in src:
+                categories["test_setup"].append({"label": label, "source": src, "degree": deg})
+                is_test_setup = True
+                break
+        if is_test_setup:
+            continue
+
+        # --- Category 6: Config file fields (package.json keys, etc.) ---
+        if src.endswith("package.json") or src.endswith("tsconfig.json") or "config" in src.lower():
             categories["config_fields"].append({"label": label, "source": src, "degree": deg})
-        elif label.endswith("Request") or label.endswith("Response") or label.endswith("Claims"):
-            categories["api_types"].append({"label": label, "source": src, "degree": deg})
-        elif src.endswith(".tsx") and ("Page" in label or "Modal" in label or "Tab" in label):
-            categories["react_pages"].append({"label": label, "source": src, "degree": deg})
-        elif label[0:1].isupper() and not label.endswith("()") and not label.startswith("."):
-            categories["type_definitions"].append({"label": label, "source": src, "degree": deg})
-        elif label == "init()":
+            continue
+
+        # --- Category 7: init() functions ---
+        if label == "init()":
             categories["init_functions"].append({"label": label, "source": src, "degree": deg})
-        elif deg == 0 and src:
+            continue
+
+        # --- Category 8: API types ---
+        if label.endswith("Request") or label.endswith("Response") or label.endswith("Claims"):
+            categories["api_types"].append({"label": label, "source": src, "degree": deg})
+            continue
+
+        # --- Category 9: React page components ---
+        if src.endswith(".tsx") and ("Page" in label or "Modal" in label or "Tab" in label):
+            categories["react_pages"].append({"label": label, "source": src, "degree": deg})
+            continue
+
+        # --- Category 10: Type definitions ---
+        if label[0:1].isupper() and not label.endswith("()") and not label.startswith("."):
+            categories["type_definitions"].append({"label": label, "source": src, "degree": deg})
+            continue
+
+        # --- Category 11: Package-level vars (Go) ---
+        # These are files where the only node is the file itself (degree 0)
+        # but the file IS referenced by other files via package.Var access.
+        # We detect this by checking if the file name appears in other files' source.
+        if src.endswith(".go") and deg == 0:
+            # Check if this file's package is imported elsewhere
+            # by looking at the file name in other nodes' source paths
+            package_name = Path(src).stem  # e.g., "counter"
+            # If the file has edges from OTHER nodes in the same file,
+            # it's a graph resolution gap, not dead code
+            same_file_nodes = [n2 for n2 in graph.get("nodes", [])
+                              if n2.get("source_file") == src and n2["id"] != node_id]
+            if same_file_nodes:
+                # Other nodes exist in this file — the file is used,
+                # but this particular node (the file itself) has no edges
+                categories["graph_resolution_gaps"].append(
+                    {"label": label, "source": src, "degree": deg,
+                     "reason": "file-level node; other symbols in this file have edges"})
+                continue
+            # Check if the file appears in any edge (file is imported)
+            if src in files_with_edges:
+                categories["package_level_vars"].append(
+                    {"label": label, "source": src, "degree": deg,
+                     "reason": "package-level declarations; referenced via package.Var but no AST edge"})
+                continue
+
+        # --- Category 12: Graph resolution gaps (methods called but resolution missed) ---
+        if deg == 0 and src in files_with_edges:
+            categories["graph_resolution_gaps"].append(
+                {"label": label, "source": src, "degree": deg,
+                 "reason": "other nodes in this file have edges; method resolution may have been missed"})
+            continue
+
+        # --- Category 13: Module declarations ---
+        if src.endswith("go.mod") or src == "package.json":
+            categories["module_declarations"].append({"label": label, "source": src, "degree": deg})
+            continue
+
+        # --- FINAL: True dead code ---
+        # Only if: degree 0, has source file, file NOT in any edge
+        if deg == 0 and src and src not in files_with_edges:
+            # FINAL VERIFICATION: grep the codebase to confirm
+            # The graph may have missed package-level var references or
+            # method calls where receiver resolution failed.
+            file_stem = Path(src).stem
+            grep_cwd = str(repo) if repo else "."
+            try:
+                result = subprocess.run(
+                    ["grep", "-r", "-l", "--include=*.go", "--include=*.ts", "--include=*.tsx",
+                     "--include=*.js", "--include=*.jsx",
+                     file_stem, grep_cwd],
+                    capture_output=True, text=True, timeout=5,
+                )
+                referenced_files = [f for f in result.stdout.strip().split("\n")
+                                   if f.strip() and src not in f and "graphify-out" not in f and "node_modules" not in f]
+                if referenced_files:
+                    # File IS referenced in source code — graph just missed the edge
+                    categories["graph_resolution_gaps"].append(
+                        {"label": label, "source": src, "degree": deg,
+                         "reason": f"referenced in {len(referenced_files)} other file(s) but no AST edge"})
+                    continue
+            except Exception:
+                pass  # If grep fails, fall through to true_dead_code
+
             categories["true_dead_code"].append({"label": label, "source": src, "degree": deg})
         else:
-            categories["true_dead_code"].append({"label": label, "source": src, "degree": deg})
+            # Fallback: if we couldn't categorize, put in graph_resolution_gaps
+            # (not true dead code — we just couldn't figure out why)
+            categories["graph_resolution_gaps"].append(
+                {"label": label, "source": src, "degree": deg,
+                 "reason": "uncategorized — likely a graph resolution artifact"})
 
     return categories
 
@@ -300,43 +474,48 @@ def generate_digest(repo: Path, since_days: int = 7) -> str:
         lines.append(f"**Largest community:** {lc[1][0].get('community_name', f'Community {lc[0]}')} ({len(lc[1])} nodes)")
         lines.append("")
 
-    # Compute degree for isolated node categorization
-    all_nodes = graph.get("nodes", [])
-    degree = Counter()
+    # Categorize isolated nodes
+    all_graph_nodes = graph.get("nodes", [])
+    graph_degree = Counter()
     for e in graph.get("links", []):
-        degree[e.get("source", "")] += 1
-        degree[e.get("target", "")] += 1
+        graph_degree[e.get("source", "")] += 1
+        graph_degree[e.get("target", "")] += 1
+    isolated_list = [n for n in all_graph_nodes if graph_degree.get(n.get("id", ""), 0) <= 1]
+    cats = categorize_isolated_nodes(graph, isolated_list, repo)
 
-    cats: dict = {}
     if stats["isolated_nodes"] > 0:
-        # Categorize isolated nodes instead of labeling all as dead code
-        isolated_list = [n for n in all_nodes if degree.get(n.get("id", ""), 0) <= 1]
-        cats = categorize_isolated_nodes(graph, isolated_list)
 
         lines.append(f"### 📋 Isolated Nodes Breakdown ({stats['isolated_nodes']} total, {100*stats['isolated_nodes']/max(stats['total_nodes'],1):.0f}%)")
         lines.append("")
-        lines.append("These nodes have degree ≤ 1. Most are **NOT dead code** — they're leaf nodes by design:")
+        lines.append("These nodes have degree ≤ 1. **Most are NOT dead code** — they're leaf nodes, tooling files, or graph resolution artifacts:")
         lines.append("")
         lines.append("| Category | Count | What it means |")
         lines.append("|----------|-------|--------------|")
         lines.append(f"| Built-in types (no source) | {len(cats['builtin_types'])} | `Context`, `MongoDB`, `Time` — referenced everywhere but have no definition file |")
-        lines.append(f"| API request/response types | {len(cats['api_types'])} | `RegisterRequest`, `LoginResponse` — leaf structs used once at API boundary |")
-        lines.append(f"| React page components | {len(cats['react_pages'])} | Imported once in `App.tsx` router — normal |")
-        lines.append(f"| Type definitions | {len(cats['type_definitions'])} | Struct/interface defs — referenced in their definition file |")
-        lines.append(f"| Config file fields | {len(cats['config_fields'])} | `package.json` keys like `name`, `version` |")
-        lines.append(f"| E2E test files | {len(cats['e2e_tests'])} | Playwright spec files — not imported by app code |")
-        lines.append(f"| init() functions | {len(cats['init_functions'])} | Go `init()` — called automatically by runtime |")
-        lines.append(f"| Documents/concepts | {len(cats['documents'])} | Doc nodes — connected to content, not code |")
-        lines.append(f"| **Actual dead code** | {len(cats['true_dead_code'])} | Degree 0 with a source file — genuinely unused |")
+        lines.append(f"| Tooling files | {len(cats['tooling_files'])} | Config/build files (`vite.config`, `eslint.config`, `go.mod`) — loaded by tools, not imports |")
+        lines.append(f"| E2E test specs | {len(cats['e2e_tests'])} | Playwright/Cypress specs — run by CI, not imported |")
+        lines.append(f"| Test setup | {len(cats['test_setup'])} | `setup.ts`, `jest.setup` — loaded by test runner |")
+        lines.append(f"| Package-level vars | {len(cats['package_level_vars'])} | Go `var`/`const` — referenced via `package.Var` but no AST edge |")
+        lines.append(f"| Graph resolution gaps | {len(cats['graph_resolution_gaps'])} | Methods called but receiver resolution missed — file IS used |")
+        lines.append(f"| Module declarations | {len(cats['module_declarations'])} | `go.mod`, `package.json` — not code |")
+        lines.append(f"| API request/response types | {len(cats['api_types'])} | `RegisterRequest`, `LoginResponse` — leaf structs at API boundary |")
+        lines.append(f"| React page components | {len(cats['react_pages'])} | Imported once in router — normal |")
+        lines.append(f"| Type definitions | {len(cats['type_definitions'])} | Struct/interface defs |")
+        lines.append(f"| Config file fields | {len(cats['config_fields'])} | `package.json` keys (`name`, `version`) |")
+        lines.append(f"| init() functions | {len(cats['init_functions'])} | Go `init()` — called by runtime |")
+        lines.append(f"| Documents/concepts | {len(cats['documents'])} | Doc nodes |")
+        lines.append(f"| **Actual dead code** | {len(cats['true_dead_code'])} | Degree 0, file NOT referenced by ANY edge — genuinely unused |")
         lines.append("")
 
         if cats["true_dead_code"]:
-            lines.append("#### 🗑️ Actual Dead Code (degree 0, has source file)")
+            lines.append("#### 🗑️ Actual Dead Code (genuinely never referenced)")
             lines.append("")
-            for item in cats["true_dead_code"][:10]:
+            for item in cats["true_dead_code"][:15]:
                 lines.append(f"- `{item['label']}` — `{item['source']}`")
-            if len(cats["true_dead_code"]) > 10:
-                lines.append(f"- _... and {len(cats['true_dead_code']) - 10} more_")
+            if len(cats["true_dead_code"]) > 15:
+                lines.append(f"- _... and {len(cats['true_dead_code']) - 15} more_")
+            lines.append("")
+            lines.append("> ⚠️ **Verify manually before deleting.** These nodes have no graph edges, but the graph may not capture all reference patterns (e.g., dynamic imports, string-based lookups). Use `grep -rn '<label>' .` to confirm.")
             lines.append("")
 
     # God nodes
@@ -399,9 +578,9 @@ def generate_digest(repo: Path, since_days: int = 7) -> str:
         insights.append(f"📈 **High commit velocity** ({len(commits)} commits in {since_days} days) — consider whether the pace is sustainable")
 
     # Insight: actual dead code (not all isolated nodes)
-    true_dead = len(cats.get("true_dead_code", [])) if cats else 0
-    if true_dead > 5:
-        insights.append(f"🗑️ **{true_dead} genuinely dead code nodes** (degree 0 with source file) — candidates for removal")
+    true_dead = len(cats.get("true_dead_code", []))
+    if true_dead > 0:
+        insights.append(f"🗑️ **{true_dead} genuinely dead code node(s)** — degree 0, file not referenced by ANY edge. Verify with `grep` before deleting.")
 
     # Insight: inferred edges ratio
     if stats["total_edges"] > 0:
