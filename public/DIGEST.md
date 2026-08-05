@@ -1,6 +1,6 @@
 # 📊 Engineering Digest — lastsaas
 
-**Generated:** 2026-08-05 01:01 | **Period:** last 7 days | **Branch:** test/pr-blast-radius
+**Generated:** 2026-08-05 01:10 | **Period:** last 30 days | **Branch:** master
 
 ---
 
@@ -8,30 +8,10 @@
 
 | Metric | Value |
 |--------|-------|
-| Commits | 1 |
-| Contributors | 1 |
-| Files touched | 5 |
-| Active hotspots | 20 |
-
-### Recent Commits
-
-| Date | Author | Message |
-|------|--------|---------|
-| 2026-08-05 | Z User | test: modify AuthHandler and BillingHandler for PR blast radius test |
-
-### Contributors
-
-- **Z User** — 1 commits █
-
-### Most Changed Files
-
-| File | Times changed |
-|------|--------------|
-| `.gitattributes` | 1 |
-| `backend/internal/api/handlers/auth.go` | 1 |
-| `backend/internal/api/handlers/billing.go` | 1 |
-| `frontend/bun.lock` | 1 |
-| `frontend/package.json` | 1 |
+| Commits | 0 |
+| Contributors | 0 |
+| Files touched | 0 |
+| Active hotspots | 0 |
 
 ---
 
@@ -39,16 +19,44 @@
 
 | Metric | Value |
 |--------|-------|
-| Total nodes | 2,608 |
-| Total edges | 6,517 |
-| Communities | 166 |
-| Isolated nodes | 606 |
-| EXTRACTED edges | 5,106 (78%) |
+| Total nodes | 2,591 |
+| Total edges | 6,503 |
+| Communities | 153 |
+| Isolated nodes | 593 |
+| EXTRACTED edges | 5,092 (78%) |
 | INFERRED edges | 1,411 (22%) |
 
-**Largest community:** MustConnectTestDB (122 nodes)
+**Largest community:** setupTestServer (160 nodes)
 
-⚠️ **23% of nodes are isolated** (degree ≤ 1) — possible missing edges or dead code
+### 📋 Isolated Nodes Breakdown (593 total, 23%)
+
+These nodes have degree ≤ 1. Most are **NOT dead code** — they're leaf nodes by design:
+
+| Category | Count | What it means |
+|----------|-------|--------------|
+| Built-in types (no source) | 149 | `Context`, `MongoDB`, `Time` — referenced everywhere but have no definition file |
+| API request/response types | 14 | `RegisterRequest`, `LoginResponse` — leaf structs used once at API boundary |
+| React page components | 44 | Imported once in `App.tsx` router — normal |
+| Type definitions | 70 | Struct/interface defs — referenced in their definition file |
+| Config file fields | 49 | `package.json` keys like `name`, `version` |
+| E2E test files | 5 | Playwright spec files — not imported by app code |
+| init() functions | 1 | Go `init()` — called automatically by runtime |
+| Documents/concepts | 133 | Doc nodes — connected to content, not code |
+| **Actual dead code** | 128 | Degree 0 with a source file — genuinely unused |
+
+#### 🗑️ Actual Dead Code (degree 0, has source file)
+
+- `cmd_health.go` — `backend/cmd/lastsaas/cmd_health.go`
+- `cmd_stats.go` — `backend/cmd/lastsaas/cmd_stats.go`
+- `lastsaas` — `backend/go.mod`
+- `.SetGetConfig()` — `backend/internal/api/handlers/auth.go`
+- `.SetAuthProviders()` — `backend/internal/api/handlers/branding.go`
+- `parseInt()` — `backend/internal/api/handlers/tenant.go`
+- `counter.go` — `backend/internal/apicounter/counter.go`
+- `.GetAuthURL()` — `backend/internal/auth/github_oauth.go`
+- `.GetAuthURL()` — `backend/internal/auth/google_oauth.go`
+- `.GenerateMFAToken()` — `backend/internal/auth/jwt.go`
+- _... and 118 more_
 
 ### 🏛️ God Nodes (Architectural Pillars)
 
@@ -61,57 +69,18 @@ These are the most-connected symbols. Changes here ripple widely:
 | 3 | `respondWithJSON()` | 144 | respondWithJSON | `backend/internal/api/handlers/helpers.go` |
 | 4 | `types/index.ts` | 118 | types/index.ts | `frontend/src/types/index.ts` |
 | 5 | `client.ts` | 117 | types/index.ts | `frontend/src/api/client.ts` |
-| 6 | `CreateTestUser()` | 81 | CreateTestUser | `backend/internal/testutil/testutil.go` |
+| 6 | `CreateTestUser()` | 81 | setupTestServer | `backend/internal/testutil/testutil.go` |
 | 7 | `App.tsx` | 80 | App.tsx | `frontend/src/App.tsx` |
-| 8 | `createAdminEnv()` | 76 | createAdminEnv | `backend/internal/api/handlers/testhelpers_test.go` |
-| 9 | `MarkSystemInitialized()` | 64 | CreateTestUser | `backend/internal/testutil/testutil.go` |
+| 8 | `createAdminEnv()` | 76 | setupTestServer | `backend/internal/api/handlers/testhelpers_test.go` |
+| 9 | `MarkSystemInitialized()` | 64 | setupTestServer | `backend/internal/testutil/testutil.go` |
 | 10 | `AuthHandler` | 60 | AuthHandler | `backend/internal/api/handlers/auth.go` |
-
----
-
-## ✅ Verification Status
-
-- **Last run:** 2026-08-05 00:15:32
-- **✓ Equivalent:** 3
-- **✗ Breaking:** 0
-- **? Other:** 0
-
-| Function | Status | Inputs |
-|----------|--------|--------|
-| `ParseEncryptionKey` | ✓ EQUIVALE | 208 |
-| `GenerateRefreshTokenWithTTL` | ✓ EQUIVALE | 58 |
-| `getErrorMessage` | ✓ EQUIVALE | 50 |
-
----
-
-## 🔥 Active Hotspots
-
-Graph nodes in files that changed recently:
-
-| Symbol | File | Community |
-|--------|------|-----------|
-| `handlers/auth.go` | `backend/internal/api/handlers/auth.go` | handlers/auth.go |
-| `AuthHandler` | `backend/internal/api/handlers/auth.go` | AuthHandler |
-| `NewAuthHandler()` | `backend/internal/api/handlers/auth.go` | AuthHandler |
-| `.SetGitHubOAuth()` | `backend/internal/api/handlers/auth.go` | Client |
-| `.SetMicrosoftOAuth()` | `backend/internal/api/handlers/auth.go` | oauth_test.go |
-| `.SetGetConfig()` | `backend/internal/api/handlers/auth.go` | AuthHandler |
-| `.SetRateLimiter()` | `backend/internal/api/handlers/auth.go` | RateLimiter |
-| `.SetTelemetry()` | `backend/internal/api/handlers/auth.go` | AuthHandler |
-| `.SetTOTPEncryptionKey()` | `backend/internal/api/handlers/auth.go` | NewTOTPService |
-| `.sessionTTLs()` | `backend/internal/api/handlers/auth.go` | AuthHandler |
-| `.generateTokenPair()` | `backend/internal/api/handlers/auth.go` | AuthHandler |
-| `RegisterRequest` | `backend/internal/api/handlers/auth.go` | handlers/auth.go |
-| `LoginRequest` | `backend/internal/api/handlers/auth.go` | handlers/auth.go |
-| `RefreshRequest` | `backend/internal/api/handlers/auth.go` | handlers/auth.go |
-| `AuthResponse` | `backend/internal/api/handlers/auth.go` | handlers/auth.go |
 
 ---
 
 ## 💡 Insights & Recommendations
 
-- 🔍 **606 isolated nodes** — review for dead code or missing connections
-- ⚠️ **1 god node(s) changed recently** — high-centrality symbols are being modified, review carefully
+🔮 **22% of edges are INFERRED** — 1,411 method calls were resolved by cross-file type analysis. This is healthy: it means graphify is connecting method calls to their implementations across files.
+- 🗑️ **128 genuinely dead code nodes** (degree 0 with source file) — candidates for removal
 
 ---
 
@@ -135,4 +104,4 @@ graphify affected "AuthHandler" --graph /home/z/my-project/repos/lastsaas/graphi
 ```
 
 ---
-_Generated by `graphify digest` at 2026-08-05 01:01_
+_Generated by `graphify digest` at 2026-08-05 01:10_

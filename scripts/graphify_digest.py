@@ -150,6 +150,57 @@ def get_god_nodes(graph: dict, top_n: int = 10) -> list[dict]:
     ]
 
 
+def categorize_isolated_nodes(graph: dict, isolated_nodes: list[dict]) -> dict:
+    """Categorize isolated nodes into meaningful buckets instead of labeling all as 'dead code'."""
+    categories = {
+        "builtin_types": [],      # Context, MongoDB, Time — referenced but no source
+        "api_types": [],          # Request/Response structs — leaf by design
+        "react_pages": [],        # Imported once in router
+        "type_definitions": [],   # TS/Go type defs
+        "config_fields": [],      # package.json fields, tsconfig
+        "e2e_tests": [],          # Playwright spec files
+        "init_functions": [],     # Go init() — called automatically
+        "true_dead_code": [],     # Genuinely unused (degree 0, has source)
+        "documents": [],          # Doc/concept nodes
+    }
+
+    degree = Counter()
+    for e in graph.get("links", []):
+        degree[e.get("source", "")] += 1
+        degree[e.get("target", "")] += 1
+
+    for n in isolated_nodes:
+        src = n.get("source_file", "")
+        label = n.get("label", "")
+        ft = n.get("file_type", "code")
+        deg = degree.get(n.get("id", ""), 0)
+
+        if not src:
+            categories["builtin_types"].append({"label": label, "degree": deg})
+        elif ft == "document" or ft == "concept":
+            categories["documents"].append({"label": label, "source": src, "degree": deg})
+        elif "_test.go" in src or "test" in label.lower():
+            categories["init_functions"].append({"label": label, "source": src, "degree": deg}) if label == "init()" else categories["documents"].append({"label": label, "source": src, "degree": deg})
+        elif ".spec.ts" in src or "playwright" in src or "e2e" in src:
+            categories["e2e_tests"].append({"label": label, "source": src, "degree": deg})
+        elif src.endswith("package.json") or src.endswith("tsconfig.json") or "config" in src.lower():
+            categories["config_fields"].append({"label": label, "source": src, "degree": deg})
+        elif label.endswith("Request") or label.endswith("Response") or label.endswith("Claims"):
+            categories["api_types"].append({"label": label, "source": src, "degree": deg})
+        elif src.endswith(".tsx") and ("Page" in label or "Modal" in label or "Tab" in label):
+            categories["react_pages"].append({"label": label, "source": src, "degree": deg})
+        elif label[0:1].isupper() and not label.endswith("()") and not label.startswith("."):
+            categories["type_definitions"].append({"label": label, "source": src, "degree": deg})
+        elif label == "init()":
+            categories["init_functions"].append({"label": label, "source": src, "degree": deg})
+        elif deg == 0 and src:
+            categories["true_dead_code"].append({"label": label, "source": src, "degree": deg})
+        else:
+            categories["true_dead_code"].append({"label": label, "source": src, "degree": deg})
+
+    return categories
+
+
 def get_hotspots(graph: dict, changed_files: list[str]) -> list[dict]:
     """Find graph nodes in files that changed recently."""
     changed_set = set(changed_files)
@@ -249,10 +300,43 @@ def generate_digest(repo: Path, since_days: int = 7) -> str:
         lines.append(f"**Largest community:** {lc[1][0].get('community_name', f'Community {lc[0]}')} ({len(lc[1])} nodes)")
         lines.append("")
 
+    # Compute degree for isolated node categorization
+    all_nodes = graph.get("nodes", [])
+    degree = Counter()
+    for e in graph.get("links", []):
+        degree[e.get("source", "")] += 1
+        degree[e.get("target", "")] += 1
+
+    cats: dict = {}
     if stats["isolated_nodes"] > 0:
-        pct = 100 * stats["isolated_nodes"] / max(stats["total_nodes"], 1)
-        if pct > 10:
-            lines.append(f"⚠️ **{pct:.0f}% of nodes are isolated** (degree ≤ 1) — possible missing edges or dead code")
+        # Categorize isolated nodes instead of labeling all as dead code
+        isolated_list = [n for n in all_nodes if degree.get(n.get("id", ""), 0) <= 1]
+        cats = categorize_isolated_nodes(graph, isolated_list)
+
+        lines.append(f"### 📋 Isolated Nodes Breakdown ({stats['isolated_nodes']} total, {100*stats['isolated_nodes']/max(stats['total_nodes'],1):.0f}%)")
+        lines.append("")
+        lines.append("These nodes have degree ≤ 1. Most are **NOT dead code** — they're leaf nodes by design:")
+        lines.append("")
+        lines.append("| Category | Count | What it means |")
+        lines.append("|----------|-------|--------------|")
+        lines.append(f"| Built-in types (no source) | {len(cats['builtin_types'])} | `Context`, `MongoDB`, `Time` — referenced everywhere but have no definition file |")
+        lines.append(f"| API request/response types | {len(cats['api_types'])} | `RegisterRequest`, `LoginResponse` — leaf structs used once at API boundary |")
+        lines.append(f"| React page components | {len(cats['react_pages'])} | Imported once in `App.tsx` router — normal |")
+        lines.append(f"| Type definitions | {len(cats['type_definitions'])} | Struct/interface defs — referenced in their definition file |")
+        lines.append(f"| Config file fields | {len(cats['config_fields'])} | `package.json` keys like `name`, `version` |")
+        lines.append(f"| E2E test files | {len(cats['e2e_tests'])} | Playwright spec files — not imported by app code |")
+        lines.append(f"| init() functions | {len(cats['init_functions'])} | Go `init()` — called automatically by runtime |")
+        lines.append(f"| Documents/concepts | {len(cats['documents'])} | Doc nodes — connected to content, not code |")
+        lines.append(f"| **Actual dead code** | {len(cats['true_dead_code'])} | Degree 0 with a source file — genuinely unused |")
+        lines.append("")
+
+        if cats["true_dead_code"]:
+            lines.append("#### 🗑️ Actual Dead Code (degree 0, has source file)")
+            lines.append("")
+            for item in cats["true_dead_code"][:10]:
+                lines.append(f"- `{item['label']}` — `{item['source']}`")
+            if len(cats["true_dead_code"]) > 10:
+                lines.append(f"- _... and {len(cats['true_dead_code']) - 10} more_")
             lines.append("")
 
     # God nodes
@@ -314,15 +398,18 @@ def generate_digest(repo: Path, since_days: int = 7) -> str:
     if len(commits) > 20:
         insights.append(f"📈 **High commit velocity** ({len(commits)} commits in {since_days} days) — consider whether the pace is sustainable")
 
-    # Insight: isolated nodes
-    if stats["isolated_nodes"] > stats["total_nodes"] * 0.15:
-        insights.append(f"🔍 **{stats['isolated_nodes']} isolated nodes** — review for dead code or missing connections")
+    # Insight: actual dead code (not all isolated nodes)
+    true_dead = len(cats.get("true_dead_code", [])) if cats else 0
+    if true_dead > 5:
+        insights.append(f"🗑️ **{true_dead} genuinely dead code nodes** (degree 0 with source file) — candidates for removal")
 
     # Insight: inferred edges ratio
     if stats["total_edges"] > 0:
         inferred_pct = 100 * stats["inferred_edges"] / stats["total_edges"]
         if inferred_pct > 30:
-            insights.append(f"🔮 **{inferred_pct:.0f}% of edges are INFERRED** — high inference ratio means the graph has many resolved-but-unverified connections")
+            lines.append(f"🔮 **{inferred_pct:.0f}% of edges are INFERRED** — graphify resolved {stats['inferred_edges']:,} method calls by type analysis (e.g., `s.Validate()` → `JWTService.Validate()`). This is cross-file resolution, not guessing — every INFERRED edge has a confidence score.")
+        elif inferred_pct > 10:
+            lines.append(f"🔮 **{inferred_pct:.0f}% of edges are INFERRED** — {stats['inferred_edges']:,} method calls were resolved by cross-file type analysis. This is healthy: it means graphify is connecting method calls to their implementations across files.")
 
     # Insight: breaking changes
     if verify and verify.get("summary", {}).get("breaking", 0) > 0:

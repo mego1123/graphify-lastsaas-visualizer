@@ -4,8 +4,9 @@ import { useState, useCallback } from 'react'
 import GraphView from './GraphView'
 import ArchitectureView from './ArchitectureView'
 import VerifyView from './VerifyView'
+import AuditView from './AuditView'
 
-type Tab = 'graph' | 'architecture' | 'verify'
+type Tab = 'graph' | 'architecture' | 'verify' | 'audit'
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('graph')
@@ -55,6 +56,15 @@ export default function Home() {
           >
             Verify
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(tab === 'audit' ? styles.tabActive : {}),
+            }}
+            onClick={() => setTab('audit')}
+          >
+            Audit
+          </button>
         </nav>
         <div style={styles.headerRight}>
           <a
@@ -103,6 +113,9 @@ export default function Home() {
         </div>
         <div style={{ display: tab === 'verify' ? 'block' : 'none', height: '100%' }}>
           <VerifyView />
+        </div>
+        <div style={{ display: tab === 'audit' ? 'block' : 'none', height: '100%' }}>
+          <AuditView />
         </div>
       </main>
     </div>
