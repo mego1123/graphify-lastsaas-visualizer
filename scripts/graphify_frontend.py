@@ -578,6 +578,521 @@ def emit_route_tree(routes: list[RouteNode], repo: Path) -> str:
 
 
 # ============================================================
+# Feature 3: Bundle Impact Analyzer
+# ============================================================
+
+@dataclass
+class BundleImpactResult:
+    component: str
+    file: str
+    affected_routes: list[dict]  # [{path, component, is_lazy, file}]
+    affected_chunks: list[str]   # chunk names (e.g., "settings", "admin-dashboard")
+    shared_components: list[dict]  # components that import this one and are themselves imported by routes
+    risk_level: str  # LOW, MEDIUM, HIGH
+
+
+def build_import_graph(repo: Path) -> dict[str, list[str]]:
+    """Build a reverse import graph: file → list of files that import it.
+
+    For each .tsx/.ts file, parse its import statements and record
+    which files it imports. Then reverse the graph so we can look up
+    "who imports this file?" efficiently.
+    """
+    src_dirs = detect_src_dirs(repo)
+    # Forward graph: importer → [imported files]
+    forward: dict[str, list[str]] = {}
+    # All source files
+    all_files: list[Path] = []
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+        for ext in ["*.tsx", "*.ts", "*.jsx", "*.js"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f) or ".next" in str(f):
+                    continue
+                all_files.append(f)
+                rel = str(f.relative_to(repo))
+                forward[rel] = []
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                # Parse import paths: import X from './path' or import('./path')
+                for m in re.finditer(r'(?:import\s+[^;]+from\s+|import\s*\(\s*)[\'"`]([^\'"`]+)[\'"`]', content):
+                    import_path = m.group(1)
+                    if import_path.startswith(".") or import_path.startswith("/"):
+                        # Resolve relative path
+                        resolved = (f.parent / import_path).resolve()
+                        # Try with extensions
+                        for ext2 in [".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts"]:
+                            candidate = resolved.with_suffix(ext2) if not ext2.startswith("/") else resolved.parent / f"index{ext2}"
+                            if candidate.exists():
+                                try:
+                                    rel2 = str(candidate.relative_to(repo))
+                                    forward[rel].append(rel2)
+                                except ValueError:
+                                    pass
+                                break
+
+    # Reverse graph: imported → [importers]
+    reverse: dict[str, list[str]] = defaultdict(list)
+    for importer, imported_list in forward.items():
+        for imported in imported_list:
+            reverse[imported].append(importer)
+
+    return dict(reverse)
+
+
+def analyze_bundle_impact(repo: Path, component_name: str) -> Optional[BundleImpactResult]:
+    """Analyze the bundle impact of changing a component.
+
+    Traces: component → importers → routes (lazy or eager)
+    Shows which routes' bundles would be affected by a change.
+    """
+    # Find the component's file
+    components = find_components(repo)
+    comp = next((c for c in components if c.name == component_name), None)
+    if not comp:
+        return None
+
+    # Build reverse import graph
+    reverse_graph = build_import_graph(repo)
+
+    # Parse routes to know which files are route entry points
+    routes = parse_react_router(repo)
+    if not routes:
+        routes = parse_nextjs_app_router(repo)
+
+    # Flatten routes to {file → route_path}
+    route_files: dict[str, list[dict]] = defaultdict(list)
+    def collect_route_files(route: RouteNode):
+        if route.file:
+            # Resolve the import path to a real file
+            # route.file is like './pages/auth/LoginPage'
+            app_file = None
+            for candidate in ["src/App.tsx", "frontend/src/App.tsx"]:
+                if (repo / candidate).exists():
+                    app_file = repo / candidate
+                    break
+            if app_file:
+                resolved = (app_file.parent / route.file).resolve()
+                for ext in [".tsx", ".ts", ".jsx", ".js"]:
+                    candidate = resolved.with_suffix(ext)
+                    if candidate.exists():
+                        try:
+                            rel = str(candidate.relative_to(repo))
+                            route_files[rel].append({
+                                "path": route.path,
+                                "component": route.component,
+                                "is_lazy": route.is_lazy,
+                                "file": rel,
+                            })
+                        except ValueError:
+                            pass
+                        break
+        for child in route.children:
+            collect_route_files(child)
+
+    for r in routes:
+        collect_route_files(r)
+
+    # BFS: find all files that transitively import this component's file
+    # Start from the component's file, walk up the reverse import graph
+    affected_routes: list[dict] = []
+    affected_chunks: set[str] = set()
+    visited: set[str] = set()
+    queue: list[str] = [comp.file]
+
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+
+        # Is this file a route entry point?
+        if current in route_files:
+            for r in route_files[current]:
+                if r not in affected_routes:
+                    affected_routes.append(r)
+                    # Determine chunk name
+                    if r["is_lazy"]:
+                        chunk_name = r["path"].strip("/").replace("/", "-") or "root"
+                        affected_chunks.add(f"chunk:{chunk_name}")
+                    else:
+                        affected_chunks.add("main bundle")
+
+        # Walk up: who imports this file?
+        importers = reverse_graph.get(current, [])
+        for imp in importers:
+            if imp not in visited:
+                queue.append(imp)
+
+    # Find shared components (components imported by multiple routes)
+    shared: list[dict] = []
+    if len(affected_routes) > 1:
+        shared.append({
+            "component": component_name,
+            "file": comp.file,
+            "route_count": len(affected_routes),
+            "note": "This component is imported by multiple routes — changes affect all of them",
+        })
+
+    # Risk assessment
+    if len(affected_routes) >= 5:
+        risk = "HIGH"
+    elif len(affected_routes) >= 2:
+        risk = "MEDIUM"
+    else:
+        risk = "LOW"
+
+    return BundleImpactResult(
+        component=component_name,
+        file=comp.file,
+        affected_routes=affected_routes,
+        affected_chunks=list(affected_chunks),
+        shared_components=shared,
+        risk_level=risk,
+    )
+
+
+def emit_bundle_impact_report(result: BundleImpactResult, repo: Path) -> str:
+    """Emit markdown report for bundle impact analysis."""
+    risk_icon = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠"}[result.risk_level]
+
+    lines = [
+        f"# {risk_icon} Bundle Impact: `{result.component}`",
+        "",
+        f"**File:** `{result.file}`",
+        f"**Risk Level:** {result.risk_level}",
+        f"**Affected routes:** {len(result.affected_routes)}",
+        f"**Affected bundles:** {len(result.affected_chunks)}",
+        "",
+    ]
+
+    if result.affected_routes:
+        lines.append("## Affected Routes")
+        lines.append("")
+        lines.append("| Route | Component | Lazy? | Bundle |")
+        lines.append("|-------|-----------|-------|--------|")
+        for r in result.affected_routes:
+            lazy = "✓ lazy" if r["is_lazy"] else "eager"
+            chunk = f"chunk:{r['path'].strip('/').replace('/', '-')}" if r["is_lazy"] else "main bundle"
+            lines.append(f"| `{r['path']}` | `{r['component']}` | {lazy} | `{chunk}` |")
+        lines.append("")
+
+    if result.affected_chunks:
+        lines.append("## Affected Bundles")
+        lines.append("")
+        for chunk in result.affected_chunks:
+            lines.append(f"- `{chunk}`")
+        lines.append("")
+
+    if result.shared_components:
+        lines.append("## ⚠️ Shared Component Warning")
+        lines.append("")
+        for s in result.shared_components:
+            lines.append(f"- `{s['component']}` is imported by **{s['route_count']} routes** — changes ripple across all of them")
+        lines.append("")
+
+    lines.append("## Recommendations")
+    lines.append("")
+    if result.risk_level == "HIGH":
+        lines.append("- 🔴 **High impact** — this component is used by many routes")
+        lines.append("- Consider whether the change is necessary")
+        lines.append("- If changing, test all affected routes")
+        lines.append("- Consider extracting shared logic to avoid coupling")
+    elif result.risk_level == "MEDIUM":
+        lines.append("- 🟡 **Medium impact** — changes affect a few routes")
+        lines.append("- Test the affected routes after changes")
+    else:
+        lines.append("- 🟢 **Low impact** — only one route is affected")
+        lines.append("- Standard testing is sufficient")
+
+    lines.append("")
+    lines.append("---")
+    lines.append(f"_Generated by `graphify frontend bundle-impact` — "
+                 f"{len(result.affected_routes)} route(s), {len(result.affected_chunks)} bundle(s)_")
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# Feature 4: Prop Drilling Detector
+# ============================================================
+
+@dataclass
+class PropFlow:
+    prop_name: str
+    source_file: str       # where the prop originates (Context/state)
+    source_component: str  # component that provides the prop
+    chain: list[dict]      # [{component, file, uses_prop (bool)}]
+    depth: int
+
+
+def find_prop_sources(repo: Path) -> list[dict]:
+    """Find where props originate — Context providers, useState, props from API calls.
+
+    Returns a list of {prop_name, component, file, source_type} where source_type
+    is one of: context, useState, useReducer, props (from parent).
+    """
+    src_dirs = detect_src_dirs(repo)
+    sources: list[dict] = []
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                rel = str(f.relative_to(repo))
+
+                # Find Context usage: const { prop } = useSomeContext()
+                for m in re.finditer(r'(?:const|let)\s*\{\s*([^}]+)\s*\}\s*=\s*(use\w+)\s*\(', content):
+                    props = [p.strip() for p in m.group(1).split(",")]
+                    hook = m.group(2)
+                    for prop in props:
+                        # Skip destructured renames: "prop: alias"
+                        prop = prop.split(":")[0].strip()
+                        if prop and prop[0].islower():
+                            sources.append({
+                                "prop_name": prop,
+                                "component": "",  # will be filled later
+                                "file": rel,
+                                "source_type": "context",
+                                "hook": hook,
+                            })
+
+                # Find useState: const [prop, setProp] = useState(...)
+                for m in re.finditer(r'(?:const|let)\s*\[\s*(\w+)\s*,\s*(\w+)\s*\]\s*=\s*useState', content):
+                    prop = m.group(1)
+                    if prop[0].islower():
+                        sources.append({
+                            "prop_name": prop,
+                            "component": "",
+                            "file": rel,
+                            "source_type": "useState",
+                            "hook": "useState",
+                        })
+
+    return sources
+
+
+def find_prop_passing(repo: Path) -> list[dict]:
+    """Find places where props are passed to child components.
+
+    Looks for: <ChildComponent propName={propName} ... />
+    Returns: [{prop_name, from_component, from_file, to_component, to_file}]
+    """
+    src_dirs = detect_src_dirs(repo)
+    passes: list[dict] = []
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                rel = str(f.relative_to(repo))
+
+                # Find JSX elements with prop passing: <Component propName={propName}
+                # Match: <CapitalWord ... propName={propName} ... >
+                for m in re.finditer(r'<([A-Z]\w+)[^>]*?\s(\w+)=\{(\w+)\}', content):
+                    child_component = m.group(1)
+                    attr_name = m.group(2)
+                    prop_value = m.group(3)
+
+                    # Only track if the attribute name matches the prop value
+                    # (i.e., passing a prop through unchanged: prop={prop})
+                    if attr_name == prop_value and prop_value[0].islower():
+                        passes.append({
+                            "prop_name": prop_value,
+                            "attr_name": attr_name,
+                            "from_file": rel,
+                            "to_component": child_component,
+                        })
+
+    return passes
+
+
+def detect_prop_drilling(repo: Path, min_depth: int = 3) -> list[PropFlow]:
+    """Detect props that are drilled through multiple layers.
+
+    A prop is "drilled" when:
+    1. It originates from a Context/useState in component A
+    2. A passes it to B as a prop
+    3. B passes it to C as a prop (without using it itself)
+    4. C passes it to D as a prop
+    5. Depth >= min_depth (default 3)
+
+    We trace each prop through the component tree.
+    """
+    sources = find_prop_sources(repo)
+    passes = find_prop_passing(repo)
+
+    # Build a map: prop_name → list of passes
+    passes_by_prop: dict[str, list[dict]] = defaultdict(list)
+    for p in passes:
+        passes_by_prop[p["prop_name"]].append(p)
+
+    # Build a map: file → component name (for resolving "from_file" to component)
+    file_to_component: dict[str, str] = {}
+    components = find_components(repo)
+    for c in components:
+        file_to_component[c.file] = c.name
+
+    # For each source, trace the prop through passes
+    drilling: list[PropFlow] = []
+
+    for source in sources:
+        prop_name = source["prop_name"]
+        source_component = file_to_component.get(source["file"], "")
+        if not source_component:
+            continue
+
+        # BFS through passes
+        chain: list[dict] = [{
+            "component": source_component,
+            "file": source["file"],
+            "uses_prop": True,  # source uses it (from Context/useState)
+        }]
+
+        current_file = source["file"]
+        visited: set[str] = {current_file}
+        depth = 0
+
+        # Find all passes of this prop from the current file
+        queue: list[tuple[str, int]] = [(current_file, 0)]
+        chains_found: list[list[dict]] = []
+
+        def trace_chain(start_file: str, prop: str, visited_set: set[str]) -> list[dict]:
+            """Recursively trace prop passing from a file."""
+            result = []
+            for p in passes_by_prop.get(prop, []):
+                if p["from_file"] == start_file and p["from_file"] not in visited_set:
+                    to_comp = p["to_component"]
+                    # Find the file of the child component
+                    to_file = next((c.file for c in components if c.name == to_comp), "")
+                    if to_file and to_file not in visited_set:
+                        # Check if this component uses the prop (not just passes it)
+                        try:
+                            child_content = (repo / to_file).read_text(encoding="utf-8", errors="ignore")
+                            uses_prop = bool(re.search(rf'\b{re.escape(prop)}\b', child_content))
+                        except Exception:
+                            uses_prop = False
+
+                        result.append({
+                            "component": to_comp,
+                            "file": to_file,
+                            "uses_prop": uses_prop,
+                        })
+                        # Recurse
+                        new_visited = visited_set | {to_file}
+                        result.extend(trace_chain(to_file, prop, new_visited))
+            return result
+
+        chain_extension = trace_chain(current_file, prop_name, visited)
+        if chain_extension:
+            full_chain = chain + chain_extension
+            depth = len(full_chain)
+            if depth >= min_depth:
+                drilling.append(PropFlow(
+                    prop_name=prop_name,
+                    source_file=source["file"],
+                    source_component=source_component,
+                    chain=full_chain,
+                    depth=depth,
+                ))
+
+    # Deduplicate by prop_name + source_component (keep longest chain)
+    seen: dict[str, PropFlow] = {}
+    for pf in drilling:
+        key = f"{pf.prop_name}@{pf.source_component}"
+        if key not in seen or pf.depth > seen[key].depth:
+            seen[key] = pf
+
+    return sorted(seen.values(), key=lambda x: -x.depth)
+
+
+def emit_prop_drilling_report(drilling: list[PropFlow], repo: Path) -> str:
+    """Emit markdown report for prop drilling."""
+    lines = [
+        f"# 🔗 Prop Drilling Report — {repo.name}",
+        "",
+        f"**Found {len(drilling)} prop(s) drilled through 3+ layers.**",
+        "",
+        "Props that are passed through multiple components without being used by intermediates",
+        "are candidates for Context or a state management solution.",
+        "",
+    ]
+
+    if not drilling:
+        lines.append("✅ No significant prop drilling detected (depth ≥ 3).")
+        return "\n".join(lines)
+
+    lines.append("| Prop | Source | Depth | Chain | Pass-through (unused by) |")
+    lines.append("|------|--------|-------|-------|-------------------------|")
+
+    for pf in drilling:
+        chain_str = " → ".join(f"`{c['component']}`" for c in pf.chain)
+        # Find intermediate components that don't use the prop
+        pass_through = [c["component"] for c in pf.chain if not c["uses_prop"]]
+        pt_str = ", ".join(f"`{c}`" for c in pass_through) if pass_through else "—"
+        lines.append(f"| `{pf.prop_name}` | `{pf.source_component}` | {pf.depth} | {chain_str} | {pt_str} |")
+
+    lines.append("")
+
+    # Detailed chains
+    lines.append("## Detailed Chains")
+    lines.append("")
+
+    for pf in drilling[:10]:  # top 10
+        lines.append(f"### `{pf.prop_name}` (depth {pf.depth})")
+        lines.append("")
+        lines.append(f"**Source:** `{pf.source_component}` in `{pf.source_file}`")
+        lines.append("")
+        lines.append("```")
+        for i, c in enumerate(pf.chain):
+            indent = "  " * i
+            icon = "✅" if c["uses_prop"] else "➡️"
+            lines.append(f"{indent}{icon} {c['component']} [{c['file']}]")
+        lines.append("```")
+        lines.append("")
+
+        # Recommendation
+        pass_through_count = sum(1 for c in pf.chain if not c["uses_prop"])
+        if pass_through_count >= 2:
+            lines.append(f"⚠️ **{pass_through_count} intermediate components** receive this prop but don't use it — consider Context.")
+        lines.append("")
+
+    lines.append("## Recommendations")
+    lines.append("")
+    lines.append("- **Props with depth ≥ 4:** Strong candidates for Context API or a state manager (Zustand, Jotai)")
+    lines.append("- **Props with depth 3:** Consider Context if the prop is used by leaf components only")
+    lines.append("- **Pass-through components:** Components that receive a prop but don't use it are coupling smells")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ============================================================
 # CLI
 # ============================================================
 
@@ -601,6 +1116,20 @@ def main():
     rt.add_argument("--out", "-o", help="Output file (default: stdout)")
     rt.add_argument("--framework", choices=["auto", "react-router", "nextjs"], default="auto",
                     help="Router framework (default: auto-detect)")
+
+    # bundle-impact
+    bi = sub.add_parser("bundle-impact", help="Analyze which routes/bundles are affected by changing a component")
+    bi.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    bi.add_argument("--component", "-c", required=True, help="Component name to analyze")
+    bi.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    bi.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # prop-drilling
+    pd = sub.add_parser("prop-drilling", help="Detect props drilled through 3+ component layers")
+    pd.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    pd.add_argument("--min-depth", "-d", type=int, default=3, help="Minimum depth to report (default: 3)")
+    pd.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    pd.add_argument("--out", "-o", help="Output file (default: stdout)")
 
     args = ap.parse_args()
     repo = Path(args.path).resolve()
@@ -673,6 +1202,59 @@ def main():
 
         print(f"\n{len(routes)} route(s) found.", file=sys.stderr)
         sys.exit(0)
+
+    elif args.command == "bundle-impact":
+        print(f"graphify frontend bundle-impact — analyzing `{args.component}`...", file=sys.stderr)
+        result = analyze_bundle_impact(repo, args.component)
+
+        if not result:
+            print(f"ERROR: Component '{args.component}' not found.", file=sys.stderr)
+            sys.exit(2)
+
+        if args.format == "json":
+            output = json.dumps({
+                "component": result.component,
+                "file": result.file,
+                "risk_level": result.risk_level,
+                "affected_routes": result.affected_routes,
+                "affected_chunks": result.affected_chunks,
+                "shared_components": result.shared_components,
+            }, indent=2)
+        else:
+            output = emit_bundle_impact_report(result, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\nRisk: {result.risk_level}, {len(result.affected_routes)} route(s) affected.", file=sys.stderr)
+        sys.exit(0)
+
+    elif args.command == "prop-drilling":
+        print(f"graphify frontend prop-drilling — scanning {repo}...", file=sys.stderr)
+        drilling = detect_prop_drilling(repo, min_depth=args.min_depth)
+
+        if args.format == "json":
+            output = json.dumps([{
+                "prop_name": pf.prop_name,
+                "source_component": pf.source_component,
+                "source_file": pf.source_file,
+                "depth": pf.depth,
+                "chain": pf.chain,
+            } for pf in drilling], indent=2)
+        else:
+            output = emit_prop_drilling_report(drilling, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\n{len(drilling)} prop(s) drilled through {args.min_depth}+ layers.", file=sys.stderr)
+        sys.exit(1 if drilling else 0)
 
 
 if __name__ == "__main__":

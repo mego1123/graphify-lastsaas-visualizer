@@ -1,0 +1,171 @@
+{
+  "component": "LoadingSpinner",
+  "file": "frontend/src/components/LoadingSpinner.tsx",
+  "risk_level": "HIGH",
+  "affected_routes": [
+    {
+      "path": "branding",
+      "component": "AdminBrandingPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/BrandingPage.tsx"
+    },
+    {
+      "path": "api",
+      "component": "AdminAPIPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/APIPage.tsx"
+    },
+    {
+      "path": "pm",
+      "component": "AdminPMPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/PMPage.tsx"
+    },
+    {
+      "path": "plans",
+      "component": "AdminPlansPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/PlansPage.tsx"
+    },
+    {
+      "path": "members",
+      "component": "AdminRootMembersPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/RootMembersPage.tsx"
+    },
+    {
+      "path": "health",
+      "component": "AdminHealthPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/HealthPage.tsx"
+    },
+    {
+      "path": "users/:userId",
+      "component": "AdminUserProfilePage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/UserProfilePage.tsx"
+    },
+    {
+      "path": "tenants/:tenantId",
+      "component": "AdminTenantProfilePage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/TenantProfilePage.tsx"
+    },
+    {
+      "path": "",
+      "component": "AdminDashboardPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/DashboardPage.tsx"
+    },
+    {
+      "path": "/messages",
+      "component": "AdminMessagesPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/MessagesPage.tsx"
+    },
+    {
+      "path": "messages",
+      "component": "AdminMessagesPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/MessagesPage.tsx"
+    },
+    {
+      "path": "about",
+      "component": "AdminAboutPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/AboutPage.tsx"
+    },
+    {
+      "path": "logs",
+      "component": "AdminLogsPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/LogsPage.tsx"
+    },
+    {
+      "path": "config",
+      "component": "AdminConfigPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/admin/ConfigPage.tsx"
+    },
+    {
+      "path": "/auth/magic-link",
+      "component": "MagicLinkVerifyPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/auth/MagicLinkVerifyPage.tsx"
+    },
+    {
+      "path": "/auth/callback",
+      "component": "AuthCallbackPage",
+      "is_lazy": true,
+      "file": "frontend/src/pages/auth/AuthCallbackPage.tsx"
+    },
+    {
+      "path": "/team",
+      "component": "TeamPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/app/TeamPage.tsx"
+    },
+    {
+      "path": "/plan",
+      "component": "PlanPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/app/PlanPage.tsx"
+    },
+    {
+      "path": "/activity",
+      "component": "ActivityPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/app/ActivityPage.tsx"
+    },
+    {
+      "path": "/buy-credits",
+      "component": "BuyCreditsPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/app/BuyCreditsPage.tsx"
+    },
+    {
+      "path": "/test-entitlements",
+      "component": "TestEntitlementsPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/app/TestEntitlementsPage.tsx"
+    },
+    {
+      "path": "/p/:slug",
+      "component": "CustomPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/public/CustomPage.tsx"
+    },
+    {
+      "path": "/settings",
+      "component": "SettingsPage",
+      "is_lazy": false,
+      "file": "frontend/src/pages/app/SettingsPage.tsx"
+    }
+  ],
+  "affected_chunks": [
+    "chunk:branding",
+    "chunk:plans",
+    "chunk:health",
+    "chunk:about",
+    "chunk:pm",
+    "main bundle",
+    "chunk:messages",
+    "chunk:root",
+    "chunk:users-:userId",
+    "chunk:config",
+    "chunk:api",
+    "chunk:auth-magic-link",
+    "chunk:members",
+    "chunk:auth-callback",
+    "chunk:tenants-:tenantId",
+    "chunk:logs"
+  ],
+  "shared_components": [
+    {
+      "component": "LoadingSpinner",
+      "file": "frontend/src/components/LoadingSpinner.tsx",
+      "route_count": 23,
+      "note": "This component is imported by multiple routes \u2014 changes affect all of them"
+    }
+  ]
+}
