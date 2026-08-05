@@ -44,6 +44,41 @@ type HookIssue = {
   unnecessary_vars: string[]
 }
 
+type ComplexityItem = {
+  name: string
+  file: string
+  lines: number
+  prop_count: number
+  hook_count: number
+  nesting_depth: number
+  complexity_score: number
+  flags: string[]
+}
+
+type I18nData = {
+  has_i18n: boolean
+  hardcoded_count: number
+  translated_count: number
+  coverage_pct: number
+  hardcoded_samples: Array<{ text: string; type: string; file: string }>
+}
+
+type A11yIssue = {
+  file: string
+  line: number
+  severity: string
+  rule: string
+  message: string
+}
+
+type TestCoverageData = {
+  total_components: number
+  with_tests: number
+  without_tests: number
+  coverage_pct: number
+  untested: Array<{ name: string; file: string }>
+}
+
 type ContextInfo = {
   name: string
   file: string
@@ -59,6 +94,10 @@ export default function FrontendView() {
   const [propDrilling, setPropDrilling] = useState<PropDrilling>([])
   const [hookIssues, setHookIssues] = useState<HookIssue[]>([])
   const [contexts, setContexts] = useState<ContextInfo[]>([])
+  const [complexity, setComplexity] = useState<ComplexityItem[]>([])
+  const [i18n, setI18n] = useState<I18nData | null>(null)
+  const [a11y, setA11y] = useState<A11yIssue[]>([])
+  const [testCoverage, setTestCoverage] = useState<TestCoverageData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -69,13 +108,21 @@ export default function FrontendView() {
       fetch('/prop-drilling.json').then(r => r.json()).catch(() => []),
       fetch('/hook-deps.json').then(r => r.json()).catch(() => []),
       fetch('/context-usage.json').then(r => r.json()).catch(() => []),
-    ]).then(([dead, rts, bi, pd, hd, cu]: [DeadComponent[], RouteNode[], BundleImpact | null, PropDrilling, HookIssue[], ContextInfo[]]) => {
+      fetch('/complexity.json').then(r => r.json()).catch(() => []),
+      fetch('/i18n.json').then(r => r.json()).catch(() => null),
+      fetch('/a11y.json').then(r => r.json()).catch(() => []),
+      fetch('/test-coverage.json').then(r => r.json()).catch(() => null),
+    ]).then(([dead, rts, bi, pd, hd, cu, cx, i18nData, a11yData, tc]) => {
       setDeadComponents(dead)
       setRoutes(rts)
       setBundleImpact(bi)
       setPropDrilling(pd)
       setHookIssues(hd)
       setContexts(cu)
+      setComplexity(cx)
+      setI18n(i18nData)
+      setA11y(a11yData)
+      setTestCoverage(tc)
       setLoading(false)
     })
   }, [])
@@ -275,6 +322,176 @@ export default function FrontendView() {
           )}
         </div>
 
+        {/* Component Complexity */}
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>📊 Component Complexity</h2>
+          <span style={styles.sectionMeta}>
+            {complexity.length} components, {complexity.filter(c => c.flags.length > 0).length} flagged
+          </span>
+        </div>
+        <div style={styles.panel}>
+          {complexity.length === 0 ? (
+            <p style={styles.empty}>No components analyzed.</p>
+          ) : (
+            <>
+              <div style={styles.complexList}>
+                {complexity.slice(0, 8).map((c, i) => (
+                  <div key={i} style={styles.complexRow}>
+                    <span style={styles.complexScore(c.complexity_score)}>{c.complexity_score}</span>
+                    <div style={styles.complexInfo}>
+                      <span style={styles.complexName}>{c.name}</span>
+                      <span style={styles.complexFile}>{c.file}</span>
+                    </div>
+                    <div style={styles.complexMetrics}>
+                      <span style={styles.metricTag}>{c.lines}L</span>
+                      <span style={styles.metricTag}>{c.prop_count}P</span>
+                      <span style={styles.metricTag}>{c.hook_count}H</span>
+                      <span style={styles.metricTag}>{c.nesting_depth}D</span>
+                    </div>
+                    {c.flags.length > 0 && (
+                      <span style={styles.flagBadge}>⚠️</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {complexity.length > 8 && (
+                <span style={styles.moreRoutes}>+ {complexity.length - 8} more</span>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* i18n Coverage */}
+        {i18n && (
+          <>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>🌍 i18n Coverage</h2>
+              <span style={styles.sectionMeta}>{i18n.coverage_pct.toFixed(0)}% translated</span>
+            </div>
+            <div style={styles.panel}>
+              <div style={styles.i18nBar}>
+                <div
+                  style={{
+                    ...styles.i18nFill,
+                    width: `${i18n.coverage_pct}%`,
+                    background: i18n.coverage_pct > 50 ? '#4CAF50' : i18n.coverage_pct > 20 ? '#FF9800' : '#F44336',
+                  }}
+                />
+              </div>
+              <div style={styles.i18nStats}>
+                <span style={styles.i18nStat}>
+                  <span style={styles.i18nStatVal}>{i18n.translated_count}</span> translated
+                </span>
+                <span style={styles.i18nStat}>
+                  <span style={styles.i18nStatVal}>{i18n.hardcoded_count}</span> hardcoded
+                </span>
+                {!i18n.has_i18n && (
+                  <span style={styles.i18nWarning}>⚠️ No i18n library detected</span>
+                )}
+              </div>
+              {i18n.hardcoded_samples.length > 0 && (
+                <div style={styles.hardcodedList}>
+                  <span style={styles.hardcodedTitle}>Sample hardcoded strings:</span>
+                  {i18n.hardcoded_samples.slice(0, 5).map((s, i) => (
+                    <div key={i} style={styles.hardcodedItem}>
+                      <code style={styles.hardcodedText}>"{s.text.slice(0, 30)}"</code>
+                      <span style={styles.hardcodedType}>{s.type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Accessibility */}
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>♿ Accessibility</h2>
+          <span style={styles.sectionMeta}>{a11y.length} issues</span>
+        </div>
+        <div style={styles.panel}>
+          {a11y.length === 0 ? (
+            <p style={styles.successMsg}>✅ No accessibility issues found.</p>
+          ) : (
+            <>
+              <div style={styles.a11yStats}>
+                {['high', 'medium'].map(sev => {
+                  const count = a11y.filter(a => a.severity === sev).length
+                  if (count === 0) return null
+                  return (
+                    <div key={sev} style={styles.a11yStat(sev)}>
+                      <span style={styles.a11yStatCount}>{count}</span>
+                      <span style={styles.a11yStatLabel}>{sev}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={styles.a11yList}>
+                {a11y.slice(0, 6).map((a, i) => (
+                  <div key={i} style={styles.a11yRow}>
+                    <span style={styles.a11yIcon(a.severity)}>
+                      {a.severity === 'high' ? '🔴' : '🟡'}
+                    </span>
+                    <div style={styles.a11yInfo}>
+                      <span style={styles.a11yRule}>{a.rule}</span>
+                      <span style={styles.a11yFile}>{a.file}:{a.line}</span>
+                    </div>
+                    <span style={styles.a11yMsg}>{a.message}</span>
+                  </div>
+                ))}
+                {a11y.length > 6 && (
+                  <span style={styles.moreRoutes}>+ {a11y.length - 6} more issues</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Test Coverage */}
+        {testCoverage && (
+          <>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>🧪 Test Coverage</h2>
+              <span style={styles.sectionMeta}>{testCoverage.coverage_pct.toFixed(0)}%</span>
+            </div>
+            <div style={styles.panel}>
+              <div style={styles.coverageBar}>
+                <div
+                  style={{
+                    ...styles.coverageFill,
+                    width: `${testCoverage.coverage_pct}%`,
+                    background: testCoverage.coverage_pct > 80 ? '#4CAF50' : testCoverage.coverage_pct > 50 ? '#FF9800' : '#F44336',
+                  }}
+                />
+              </div>
+              <div style={styles.coverageStats}>
+                <span style={styles.coverageStat}>
+                  <span style={styles.coverageStatVal}>{testCoverage.with_tests}</span> tested
+                </span>
+                <span style={styles.coverageStat}>
+                  <span style={styles.coverageStatVal}>{testCoverage.without_tests}</span> untested
+                </span>
+                <span style={styles.coverageStat}>
+                  <span style={styles.coverageStatVal}>{testCoverage.total_components}</span> total
+                </span>
+              </div>
+              {testCoverage.untested.length > 0 && (
+                <div style={styles.untestedList}>
+                  <span style={styles.untestedTitle}>Untested components:</span>
+                  <div style={styles.untestedChips}>
+                    {testCoverage.untested.slice(0, 12).map((u, i) => (
+                      <span key={i} style={styles.untestedChip}>{u.name}</span>
+                    ))}
+                    {testCoverage.without_tests > 12 && (
+                      <span style={styles.moreUntested}>+{testCoverage.without_tests - 12} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Route Summary */}
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitle}>🌳 Route Tree Summary</h2>
@@ -421,4 +638,45 @@ const styles: Record<string, React.CSSProperties> = {
   consumerLabel: { fontSize: 8, color: '#888', textTransform: 'uppercase' },
   consumerBar: { flex: '0 0 80px', height: 6, background: '#0f0f1a', borderRadius: 3, overflow: 'hidden' },
   consumerBarFill: { height: '100%', borderRadius: 3, transition: 'width 0.3s' },
+  complexList: { display: 'flex', flexDirection: 'column', gap: 2 },
+  complexRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: '#0f0f1a', borderRadius: 4, fontSize: 11 },
+  complexScore: (score: number) => ({ width: 32, textAlign: 'center', fontSize: 14, fontWeight: 700, color: score > 100 ? '#F44336' : score > 50 ? '#FF9800' : '#4CAF50' }),
+  complexInfo: { flex: 1, display: 'flex', flexDirection: 'column' },
+  complexName: { color: '#e0e0e0', fontWeight: 600, fontSize: 11 },
+  complexFile: { color: '#555', fontSize: 9, fontFamily: 'ui-monospace, monospace' },
+  complexMetrics: { display: 'flex', gap: 3 },
+  metricTag: { fontSize: 9, padding: '1px 4px', borderRadius: 2, background: '#2a2a4e', color: '#aaa', fontFamily: 'ui-monospace, monospace' },
+  flagBadge: { fontSize: 12 },
+  i18nBar: { height: 10, background: '#0f0f1a', borderRadius: 5, overflow: 'hidden', marginBottom: 8 },
+  i18nFill: { height: '100%', borderRadius: 5, transition: 'width 0.3s' },
+  i18nStats: { display: 'flex', gap: 12, fontSize: 11, color: '#aaa', alignItems: 'center' },
+  i18nStat: { display: 'flex', gap: 4 },
+  i18nStatVal: { fontWeight: 700, color: '#fff' },
+  i18nWarning: { color: '#FF6B6B', fontSize: 10 },
+  hardcodedList: { marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 },
+  hardcodedTitle: { fontSize: 10, color: '#888' },
+  hardcodedItem: { display: 'flex', gap: 6, alignItems: 'center' },
+  hardcodedText: { fontSize: 10, color: '#FFB347', fontFamily: 'ui-monospace, monospace' },
+  hardcodedType: { fontSize: 9, color: '#666', padding: '1px 4px', background: '#2a2a4e', borderRadius: 2 },
+  a11yStats: { display: 'flex', gap: 8, marginBottom: 8 },
+  a11yStat: (sev: string) => ({ flex: 1, background: '#0f0f1a', borderRadius: 4, padding: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', borderLeft: `3px solid ${sev === 'high' ? '#F44336' : '#FF9800'}` }),
+  a11yStatCount: { fontSize: 16, fontWeight: 700, color: '#fff' },
+  a11yStatLabel: { fontSize: 9, color: '#888', textTransform: 'uppercase' },
+  a11yList: { display: 'flex', flexDirection: 'column', gap: 2 },
+  a11yRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', background: '#0f0f1a', borderRadius: 3, fontSize: 10 },
+  a11yIcon: (sev: string) => ({ fontSize: 10 }),
+  a11yInfo: { display: 'flex', flexDirection: 'column', minWidth: 100 },
+  a11yRule: { color: '#4E79A7', fontWeight: 600, fontSize: 10 },
+  a11yFile: { color: '#555', fontSize: 9, fontFamily: 'ui-monospace, monospace' },
+  a11yMsg: { color: '#aaa', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  coverageBar: { height: 10, background: '#0f0f1a', borderRadius: 5, overflow: 'hidden', marginBottom: 8 },
+  coverageFill: { height: '100%', borderRadius: 5, transition: 'width 0.3s' },
+  coverageStats: { display: 'flex', gap: 12, fontSize: 11, color: '#aaa' },
+  coverageStat: { display: 'flex', gap: 4 },
+  coverageStatVal: { fontWeight: 700, color: '#fff' },
+  untestedList: { marginTop: 8 },
+  untestedTitle: { fontSize: 10, color: '#888', display: 'block', marginBottom: 4 },
+  untestedChips: { display: 'flex', flexWrap: 'wrap', gap: 4 },
+  untestedChip: { fontSize: 10, padding: '2px 6px', borderRadius: 3, background: '#3a1f1f', color: '#FF6B6B', fontFamily: 'ui-monospace, monospace' },
+  moreUntested: { fontSize: 10, color: '#666', alignSelf: 'center' },
 }
