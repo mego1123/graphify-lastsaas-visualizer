@@ -1,0 +1,942 @@
+     1→package main
+     2→
+     3→import (
+     4→        "bufio"
+     5→        "context"
+     6→        "flag"
+     7→        "fmt"
+     8→        "os"
+     9→        "strings"
+    10→        "syscall"
+    11→        "time"
+    12→        "unicode/utf8"
+    13→
+    14→        "lastsaas/internal/auth"
+    15→        "lastsaas/internal/config"
+    16→        "lastsaas/internal/configstore"
+    17→        "lastsaas/internal/db"
+    18→        "lastsaas/internal/models"
+    19→        "lastsaas/internal/validation"
+    20→        "lastsaas/internal/version"
+    21→
+    22→        "go.mongodb.org/mongo-driver/bson"
+    23→        "go.mongodb.org/mongo-driver/bson/primitive"
+    24→        "golang.org/x/term"
+    25→)
+    26→
+    27→func main() {
+    28→        config.LoadEnvFile()
+    29→        version.Load()
+    30→        parseGlobalFlags()
+    31→
+    32→        if len(os.Args) < 2 {
+    33→                printUsage()
+    34→                os.Exit(1)
+    35→        }
+    36→
+    37→        switch os.Args[1] {
+    38→        case "setup":
+    39→                cmdSetup()
+    40→        case "start":
+    41→                cmdStart()
+    42→        case "stop":
+    43→                cmdStop()
+    44→        case "restart":
+    45→                cmdRestart()
+    46→        case "change-password":
+    47→                cmdChangePassword()
+    48→        case "send-message":
+    49→                cmdSendMessage()
+    50→        case "transfer-root-owner":
+    51→                cmdTransferRootOwner()
+    52→        case "config":
+    53→                cmdConfig()
+    54→        case "version":
+    55→                cmdVersion()
+    56→        case "status":
+    57→                cmdStatus()
+    58→        case "logs":
+    59→                cmdLogs()
+    60→        case "users":
+    61→                cmdUsers()
+    62→        case "tenants":
+    63→                cmdTenants()
+    64→        case "health":
+    65→                cmdHealth()
+    66→        case "stats":
+    67→                cmdStats()
+    68→        case "doctor":
+    69→                cmdDoctor()
+    70→        case "financial":
+    71→                cmdFinancial()
+    72→        case "db":
+    73→                cmdDB()
+    74→        case "mcp":
+    75→                cmdMCP()
+    76→        case "help", "-h", "--help":
+    77→                printUsage()
+    78→        default:
+    79→                fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
+    80→                printUsage()
+    81→                os.Exit(1)
+    82→        }
+    83→}
+    84→
+    85→func printUsage() {
+    86→        fmt.Println(`lastsaas - LastSaaS system administration tool
+    87→
+    88→Usage:
+    89→  lastsaas <command> [flags] [--json]
+    90→
+    91→Commands:
+    92→  setup                Initialize the system (create root tenant + owner account)
+    93→  start                Start backend and/or frontend servers
+    94→  stop                 Stop running servers
+    95→  restart              Restart servers (stop + start)
+    96→  status               Check system and database status
+    97→  version              Show software and database version
+    98→
+    99→  logs                 View and tail system logs
+   100→  users                Manage users (list, get, suspend, activate, revoke-sessions)
+   101→  tenants              Manage tenants (list, get)
+   102→  health               Show system health and node status
+   103→  stats                Dashboard summary statistics
+   104→  financial            Financial data and reporting (summary, transactions, metrics)
+   105→  doctor               Run comprehensive system diagnostics
+   106→  db                   Database statistics (stats)
+   107→  mcp                  Start MCP server (stdio) for AI assistant integration
+   108→
+   109→  change-password      Change a user's password
+   110→  send-message         Send a message to a user
+   111→  transfer-root-owner  Transfer root tenant ownership
+   112→  config               Manage configuration variables (list, get, set, reset)
+   113→  help                 Show this help message
+   114→
+   115→Global flags:
+   116→  --json               Output in JSON format (works with most commands)
+   117→
+   118→Examples:
+   119→  lastsaas setup
+   120→  lastsaas start --backend
+   121→  lastsaas stop
+   122→
+   123→  lastsaas logs --severity critical,high --tail 100
+   124→  lastsaas logs --follow --category security
+   125→  lastsaas logs --from 24h
+   126→  lastsaas users list --json
+   127→  lastsaas users get --email admin@example.com
+   128→  lastsaas users suspend --email bad@example.com
+   129→  lastsaas tenants list
+   130→  lastsaas tenants get root
+   131→
+   132→  lastsaas health
+   133→  lastsaas stats --json
+   134→  lastsaas financial summary
+   135→  lastsaas financial transactions --type subscription --limit 50
+   136→  lastsaas financial metrics --days 30
+   137→  lastsaas doctor
+   138→  lastsaas db stats
+   139→
+   140→  lastsaas config list
+   141→  lastsaas config get log.min_level
+   142→  lastsaas config set log.min_level high
+   143→  lastsaas config reset log.min_level
+   144→  lastsaas change-password --email admin@example.com
+   145→
+   146→  LASTSAAS_URL=http://localhost:3000 LASTSAAS_API_KEY=lsk_xxx lastsaas mcp`)
+   147→}
+   148→
+   149→// connectDB loads config and connects to MongoDB, printing helpful guidance on failure.
+   150→func connectDB() (*db.MongoDB, *config.Config, func()) {
+   151→        env := config.GetEnv()
+   152→        cfg, err := config.Load(env)
+   153→        if err != nil {
+   154→                fmt.Fprintf(os.Stderr, "Error loading config: %v\n\n", err)
+   155→                printConfigHelp(env)
+   156→                os.Exit(1)
+   157→        }
+   158→
+   159→        database, err := db.NewMongoDB(cfg.Database.URI, cfg.Database.Name)
+   160→        if err != nil {
+   161→                fmt.Fprintf(os.Stderr, "Error connecting to MongoDB: %v\n\n", err)
+   162→                printMongoHelp(env)
+   163→                os.Exit(1)
+   164→        }
+   165→
+   166→        cleanup := func() {
+   167→                ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+   168→                defer cancel()
+   169→                database.Close(ctx)
+   170→        }
+   171→
+   172→        return database, cfg, cleanup
+   173→}
+   174→
+   175→func printConfigHelp(env string) {
+   176→        fmt.Fprintf(os.Stderr, `Configuration file not found or invalid.
+   177→
+   178→Make sure you have a config file at: config/%s.yaml
+   179→You can copy from the example:
+   180→  cp config/%s.example.yaml config/%s.yaml
+   181→
+   182→Then edit config/%s.yaml with your settings.
+   183→`, env, env, env, env)
+   184→}
+   185→
+   186→func printMongoHelp(env string) {
+   187→        fmt.Fprintf(os.Stderr, `Could not connect to MongoDB. Check your database.uri in config/%s.yaml.
+   188→
+   189→--- Using MongoDB Atlas (recommended for getting started) ---
+   190→
+   191→1. Go to https://www.mongodb.com/atlas and create a free account
+   192→2. Create a free M0 cluster (the free tier is sufficient)
+   193→3. Set up database access:
+   194→   - Go to "Database Access" in the left sidebar
+   195→   - Click "Add New Database User"
+   196→   - Choose password authentication and create a username/password
+   197→4. Set up network access:
+   198→   - Go to "Network Access" in the left sidebar
+   199→   - Click "Add IP Address"
+   200→   - Add your current IP or use 0.0.0.0/0 for development
+   201→5. Get your connection string:
+   202→   - Go to "Database" > click "Connect" on your cluster
+   203→   - Choose "Drivers" > select "Go"
+   204→   - Copy the connection string (looks like: mongodb+srv://user:pass@cluster.xxxxx.mongodb.net/)
+   205→6. Paste the connection string in config/%s.yaml under database.uri
+   206→
+   207→--- Using Local MongoDB ---
+   208→
+   209→Install MongoDB Community Edition and set database.uri to:
+   210→  mongodb://localhost:27017
+   211→`, env, env)
+   212→}
+   213→
+   214→// --- setup command ---
+   215→
+   216→func cmdSetup() {
+   217→        database, cfg, cleanup := connectDB()
+   218→        defer cleanup()
+   219→
+   220→        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+   221→        defer cancel()
+   222→
+   223→        // Check if already initialized
+   224→        var sys models.SystemConfig
+   225→        err := database.SystemConfig().FindOne(ctx, bson.M{}).Decode(&sys)
+   226→        if err == nil && sys.Initialized {
+   227→                fmt.Println("System is already initialized.")
+   228→                fmt.Println()
+   229→                fmt.Printf("  Database: %s\n", cfg.Database.Name)
+   230→
+   231→                // Look up root tenant owner
+   232→                var rootTenant models.Tenant
+   233→                if err := database.Tenants().FindOne(ctx, bson.M{"isRoot": true}).Decode(&rootTenant); err == nil {
+   234→                        var membership models.TenantMembership
+   235→                        if err := database.TenantMemberships().FindOne(ctx, bson.M{"tenantId": rootTenant.ID, "role": "owner"}).Decode(&membership); err == nil {
+   236→                                var owner models.User
+   237→                                if err := database.Users().FindOne(ctx, bson.M{"_id": membership.UserID}).Decode(&owner); err == nil {
+   238→                                        fmt.Printf("  Owner:    %s (%s)\n", owner.DisplayName, owner.Email)
+   239→                                }
+   240→                        }
+   241→                }
+   242→
+   243→                fmt.Println()
+   244→                fmt.Println("If you need to change a user's password, use: lastsaas change-password --email <email>")
+   245→                os.Exit(0)
+   246→        }
+   247→
+   248→        fmt.Println("=== LastSaaS Initial Setup ===")
+   249→        fmt.Println()
+   250→
+   251→        reader := bufio.NewReader(os.Stdin)
+   252→
+   253→        orgName := prompt(reader, "Organization name")
+   254→        displayName := prompt(reader, "Your name")
+   255→        email := prompt(reader, "Email address")
+   256→        email = strings.TrimSpace(strings.ToLower(email))
+   257→
+   258→        if orgName == "" || displayName == "" || email == "" {
+   259→                fmt.Fprintln(os.Stderr, "All fields are required.")
+   260→                os.Exit(1)
+   261→        }
+   262→
+   263→        passwordService := auth.NewPasswordService()
+   264→
+   265→        password := promptPassword("Password")
+   266→        confirm := promptPassword("Confirm password")
+   267→
+   268→        if password != confirm {
+   269→                fmt.Fprintln(os.Stderr, "Passwords do not match.")
+   270→                os.Exit(1)
+   271→        }
+   272→
+   273→        if err := passwordService.ValidatePasswordStrength(password); err != nil {
+   274→                fmt.Fprintf(os.Stderr, "Password too weak: %v\n", err)
+   275→                fmt.Fprintln(os.Stderr, "Requirements: 10+ characters, uppercase, lowercase, number, special character")
+   276→                os.Exit(1)
+   277→        }
+   278→
+   279→        passwordHash, err := passwordService.HashPassword(password)
+   280→        if err != nil {
+   281→                fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
+   282→                os.Exit(1)
+   283→        }
+   284→
+   285→        now := time.Now()
+   286→
+   287→        // Create root tenant
+   288→        tenant := models.Tenant{
+   289→                ID:        primitive.NewObjectID(),
+   290→                Name:      strings.TrimSpace(orgName),
+   291→                Slug:      "root",
+   292→                IsRoot:    true,
+   293→                IsActive:  true,
+   294→                CreatedAt: now,
+   295→                UpdatedAt: now,
+   296→        }
+   297→        if err := validation.Validate(&tenant); err != nil {
+   298→                fmt.Fprintf(os.Stderr, "Tenant validation failed: %v\n", err)
+   299→                os.Exit(1)
+   300→        }
+   301→        if _, err := database.Tenants().InsertOne(ctx, tenant); err != nil {
+   302→                fmt.Fprintf(os.Stderr, "Failed to create root tenant: %v\n", err)
+   303→                os.Exit(1)
+   304→        }
+   305→
+   306→        // Create owner user
+   307→        user := models.User{
+   308→                ID:            primitive.NewObjectID(),
+   309→                Email:         email,
+   310→                DisplayName:   strings.TrimSpace(displayName),
+   311→                PasswordHash:  passwordHash,
+   312→                AuthMethods:   []models.AuthMethod{models.AuthMethodPassword},
+   313→                EmailVerified: true,
+   314→                IsActive:      true,
+   315→                CreatedAt:     now,
+   316→                UpdatedAt:     now,
+   317→        }
+   318→        if err := validation.Validate(&user); err != nil {
+   319→                database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+   320→                fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err)
+   321→                os.Exit(1)
+   322→        }
+   323→        if _, err := database.Users().InsertOne(ctx, user); err != nil {
+   324→                database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+   325→                fmt.Fprintf(os.Stderr, "Failed to create user: %v\n", err)
+   326→                os.Exit(1)
+   327→        }
+   328→
+   329→        // Create owner membership
+   330→        membership := models.TenantMembership{
+   331→                ID:        primitive.NewObjectID(),
+   332→                UserID:    user.ID,
+   333→                TenantID:  tenant.ID,
+   334→                Role:      models.RoleOwner,
+   335→                JoinedAt:  now,
+   336→                UpdatedAt: now,
+   337→        }
+   338→        if err := validation.Validate(&membership); err != nil {
+   339→                database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
+   340→                database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+   341→                fmt.Fprintf(os.Stderr, "Membership validation failed: %v\n", err)
+   342→                os.Exit(1)
+   343→        }
+   344→        if _, err := database.TenantMemberships().InsertOne(ctx, membership); err != nil {
+   345→                database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
+   346→                database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+   347→                fmt.Fprintf(os.Stderr, "Failed to create membership: %v\n", err)
+   348→                os.Exit(1)
+   349→        }
+   350→
+   351→        // Mark system as initialized
+   352→        sysConfig := models.SystemConfig{
+   353→                ID:            primitive.NewObjectID(),
+   354→                Initialized:   true,
+   355→                InitializedAt: &now,
+   356→                InitializedBy: &user.ID,
+   357→                Version:       version.Current,
+   358→        }
+   359→        if _, err := database.SystemConfig().InsertOne(ctx, sysConfig); err != nil {
+   360→                database.TenantMemberships().DeleteOne(ctx, bson.M{"_id": membership.ID})
+   361→                database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
+   362→                database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+   363→                fmt.Fprintf(os.Stderr, "Failed to mark system as initialized: %v\n", err)
+   364→                os.Exit(1)
+   365→        }
+   366→
+   367→        // Send welcome message to the new owner
+   368→        welcomeMsg := models.Message{
+   369→                ID:        primitive.NewObjectID(),
+   370→                UserID:    user.ID,
+   371→                Subject:   "Welcome to LastSaaS v" + version.Current,
+   372→                Body:      "Your system has been initialized. Welcome to LastSaaS!",
+   373→                IsSystem:  true,
+   374→                Read:      false,
+   375→                CreatedAt: now,
+   376→        }
+   377→        database.Messages().InsertOne(ctx, welcomeMsg)
+   378→
+   379→        fmt.Println()
+   380→        fmt.Println("System initialized successfully!")
+   381→        fmt.Println()
+   382→        fmt.Printf("  Organization: %s\n", tenant.Name)
+   383→        fmt.Printf("  Owner:        %s (%s)\n", user.DisplayName, user.Email)
+   384→        fmt.Printf("  Database:     %s\n", cfg.Database.Name)
+   385→        fmt.Println()
+   386→        fmt.Println("You can now start the server and log in.")
+   387→}
+   388→
+   389→// --- change-password command ---
+   390→
+   391→func cmdChangePassword() {
+   392→        fs := flag.NewFlagSet("change-password", flag.ExitOnError)
+   393→        emailFlag := fs.String("email", "", "User email address (required)")
+   394→        fs.Parse(os.Args[2:])
+   395→
+   396→        if *emailFlag == "" {
+   397→                fmt.Fprintln(os.Stderr, "Usage: lastsaas change-password --email <email>")
+   398→                os.Exit(1)
+   399→        }
+   400→
+   401→        database, _, cleanup := connectDB()
+   402→        defer cleanup()
+   403→
+   404→        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+   405→        defer cancel()
+   406→
+   407→        email := strings.TrimSpace(strings.ToLower(*emailFlag))
+   408→
+   409→        var user models.User
+   410→        err := database.Users().FindOne(ctx, bson.M{"email": email}).Decode(&user)
+   411→        if err != nil {
+   412→                fmt.Fprintf(os.Stderr, "User not found: %s\n", email)
+   413→                os.Exit(1)
+   414→        }
+   415→
+   416→        fmt.Printf("Changing password for: %s (%s)\n", user.DisplayName, user.Email)
+   417→
+   418→        passwordService := auth.NewPasswordService()
+   419→
+   420→        password := promptPassword("New password")
+   421→        confirm := promptPassword("Confirm new password")
+   422→
+   423→        if password != confirm {
+   424→                fmt.Fprintln(os.Stderr, "Passwords do not match.")
+   425→                os.Exit(1)
+   426→        }
+   427→
+   428→        if err := passwordService.ValidatePasswordStrength(password); err != nil {
+   429→                fmt.Fprintf(os.Stderr, "Password too weak: %v\n", err)
+   430→                fmt.Fprintln(os.Stderr, "Requirements: 10+ characters, uppercase, lowercase, number, special character")
+   431→                os.Exit(1)
+   432→        }
+   433→
+   434→        passwordHash, err := passwordService.HashPassword(password)
+   435→        if err != nil {
+   436→                fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
+   437→                os.Exit(1)
+   438→        }
+   439→
+   440→        _, err = database.Users().UpdateOne(ctx,
+   441→                bson.M{"_id": user.ID},
+   442→                bson.M{"$set": bson.M{
+   443→                        "passwordHash": passwordHash,
+   444→                        "updatedAt":    time.Now(),
+   445→                }},
+   446→        )
+   447→        if err != nil {
+   448→                fmt.Fprintf(os.Stderr, "Failed to update password: %v\n", err)
+   449→                os.Exit(1)
+   450→        }
+   451→
+   452→        // Revoke all refresh tokens for this user
+   453→        database.RefreshTokens().DeleteMany(ctx, bson.M{"userId": user.ID})
+   454→
+   455→        fmt.Println("Password updated successfully.")
+   456→}
+   457→
+   458→// --- send-message command ---
+   459→
+   460→func cmdSendMessage() {
+   461→        fs := flag.NewFlagSet("send-message", flag.ExitOnError)
+   462→        emailFlag := fs.String("email", "", "Recipient email address (required)")
+   463→        messageFlag := fs.String("message", "", "Message body (required)")
+   464→        subjectFlag := fs.String("subject", "System Message", "Message subject")
+   465→        fs.Parse(os.Args[2:])
+   466→
+   467→        if *emailFlag == "" || *messageFlag == "" {
+   468→                fmt.Fprintln(os.Stderr, "Usage: lastsaas send-message --email <email> --message \"Your message here\"")
+   469→                fmt.Fprintln(os.Stderr, "  --subject \"Optional subject\" (default: \"System Message\")")
+   470→                os.Exit(1)
+   471→        }
+   472→
+   473→        // Validate inputs
+   474→        subject := strings.TrimSpace(*subjectFlag)
+   475→        body := strings.TrimSpace(*messageFlag)
+   476→
+   477→        if !utf8.ValidString(subject) || !utf8.ValidString(body) {
+   478→                fmt.Fprintln(os.Stderr, "Invalid characters in subject or message.")
+   479→                os.Exit(1)
+   480→        }
+   481→        if len(subject) > 200 {
+   482→                fmt.Fprintln(os.Stderr, "Subject must be 200 characters or less.")
+   483→                os.Exit(1)
+   484→        }
+   485→        if len(body) > 5000 {
+   486→                fmt.Fprintln(os.Stderr, "Message must be 5000 characters or less.")
+   487→                os.Exit(1)
+   488→        }
+   489→        if body == "" {
+   490→                fmt.Fprintln(os.Stderr, "Message body cannot be empty.")
+   491→                os.Exit(1)
+   492→        }
+   493→
+   494→        database, _, cleanup := connectDB()
+   495→        defer cleanup()
+   496→
+   497→        ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+   498→        defer cancel()
+   499→
+   500→        email := strings.TrimSpace(strings.ToLower(*emailFlag))
+   501→
+   502→        var user models.User
+   503→        err := database.Users().FindOne(ctx, bson.M{"email": email}).Decode(&user)
+   504→        if err != nil {
+   505→                fmt.Fprintf(os.Stderr, "User not found: %s\n", email)
+   506→                os.Exit(1)
+   507→        }
+   508→
+   509→        msg := models.Message{
+   510→                ID:        primitive.NewObjectID(),
+   511→                UserID:    user.ID,
+   512→                Subject:   subject,
+   513→                Body:      body,
+   514→                IsSystem:  true,
+   515→                Read:      false,
+   516→                CreatedAt: time.Now(),
+   517→        }
+   518→
+   519→        if _, err := database.Messages().InsertOne(ctx, msg); err != nil {
+   520→                fmt.Fprintf(os.Stderr, "Failed to send message: %v\n", err)
+   521→                os.Exit(1)
+   522→        }
+   523→
+   524→        fmt.Printf("Message sent to %s (%s).\n", user.DisplayName, user.Email)
+   525→}
+   526→
+   527→// --- config command ---
+   528→
+   529→func cmdConfig() {
+   530→        if len(os.Args) < 3 {
+   531→                fmt.Fprintln(os.Stderr, `Usage: lastsaas config <subcommand>
+   532→
+   533→Subcommands:
+   534→  list              List all configuration variables
+   535→  get <name>        Show details of a configuration variable
+   536→  set <name> <val>  Update a configuration variable's value
+   537→  reset <name>      Reset a variable to its default value`)
+   538→                os.Exit(1)
+   539→        }
+   540→
+   541→        switch os.Args[2] {
+   542→        case "list":
+   543→                cmdConfigList()
+   544→        case "get":
+   545→                if len(os.Args) < 4 {
+   546→                        fmt.Fprintln(os.Stderr, "Usage: lastsaas config get <name>")
+   547→                        os.Exit(1)
+   548→                }
+   549→                cmdConfigGet(os.Args[3])
+   550→        case "set":
+   551→                if len(os.Args) < 5 {
+   552→                        fmt.Fprintln(os.Stderr, "Usage: lastsaas config set <name> <value>")
+   553→                        os.Exit(1)
+   554→                }
+   555→                cmdConfigSet(os.Args[3], strings.Join(os.Args[4:], " "))
+   556→        case "reset":
+   557→                if len(os.Args) < 4 {
+   558→                        fmt.Fprintln(os.Stderr, "Usage: lastsaas config reset <name>")
+   559→                        os.Exit(1)
+   560→                }
+   561→                cmdConfigReset(os.Args[3])
+   562→        default:
+   563→                fmt.Fprintf(os.Stderr, "Unknown config subcommand: %s\n", os.Args[2])
+   564→                os.Exit(1)
+   565→        }
+   566→}
+   567→
+   568→func cmdConfigList() {
+   569→        database, _, cleanup := connectDB()
+   570→        defer cleanup()
+   571→
+   572→        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   573→        defer cancel()
+   574→
+   575→        cursor, err := database.ConfigVars().Find(ctx, bson.M{})
+   576→        if err != nil {
+   577→                fmt.Fprintf(os.Stderr, "Failed to query config vars: %v\n", err)
+   578→                os.Exit(1)
+   579→        }
+   580→        defer cursor.Close(ctx)
+   581→
+   582→        var vars []models.ConfigVar
+   583→        if err := cursor.All(ctx, &vars); err != nil {
+   584→                fmt.Fprintf(os.Stderr, "Failed to read config vars: %v\n", err)
+   585→                os.Exit(1)
+   586→        }
+   587→
+   588→        if jsonOutput {
+   589→                printJSON(vars)
+   590→                return
+   591→        }
+   592→
+   593→        if len(vars) == 0 {
+   594→                fmt.Println("No configuration variables found.")
+   595→                return
+   596→        }
+   597→
+   598→        fmt.Printf("%-40s %-10s %-8s %s\n", "NAME", "TYPE", "SYSTEM", "VALUE")
+   599→        fmt.Printf("%-40s %-10s %-8s %s\n", "----", "----", "------", "-----")
+   600→        for _, v := range vars {
+   601→                value := v.Value
+   602→                if len(value) > 60 {
+   603→                        value = value[:57] + "..."
+   604→                }
+   605→                // Replace newlines for table display
+   606→                value = strings.ReplaceAll(value, "\n", "\\n")
+   607→                sys := ""
+   608→                if v.IsSystem {
+   609→                        sys = "yes"
+   610→                }
+   611→                fmt.Printf("%-40s %-10s %-8s %s\n", v.Name, v.Type, sys, value)
+   612→        }
+   613→}
+   614→
+   615→func cmdConfigGet(name string) {
+   616→        database, _, cleanup := connectDB()
+   617→        defer cleanup()
+   618→
+   619→        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   620→        defer cancel()
+   621→
+   622→        var v models.ConfigVar
+   623→        err := database.ConfigVars().FindOne(ctx, bson.M{"name": name}).Decode(&v)
+   624→        if err != nil {
+   625→                fmt.Fprintf(os.Stderr, "Config variable not found: %s\n", name)
+   626→                os.Exit(1)
+   627→        }
+   628→
+   629→        if jsonOutput {
+   630→                printJSON(v)
+   631→                return
+   632→        }
+   633→
+   634→        fmt.Printf("Name:        %s\n", v.Name)
+   635→        fmt.Printf("Description: %s\n", v.Description)
+   636→        fmt.Printf("Type:        %s\n", v.Type)
+   637→        fmt.Printf("System:      %v\n", v.IsSystem)
+   638→        if v.Options != "" {
+   639→                fmt.Printf("Options:     %s\n", v.Options)
+   640→        }
+   641→        fmt.Printf("Updated:     %s\n", v.UpdatedAt.Format(time.RFC3339))
+   642→        fmt.Printf("Value:\n%s\n", v.Value)
+   643→}
+   644→
+   645→func cmdConfigSet(name, value string) {
+   646→        database, _, cleanup := connectDB()
+   647→        defer cleanup()
+   648→
+   649→        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   650→        defer cancel()
+   651→
+   652→        var v models.ConfigVar
+   653→        err := database.ConfigVars().FindOne(ctx, bson.M{"name": name}).Decode(&v)
+   654→        if err != nil {
+   655→                fmt.Fprintf(os.Stderr, "Config variable not found: %s\n", name)
+   656→                os.Exit(1)
+   657→        }
+   658→
+   659→        if err := configstore.ValidateValue(v.Type, value, v.Options); err != nil {
+   660→                fmt.Fprintf(os.Stderr, "Invalid value: %v\n", err)
+   661→                os.Exit(1)
+   662→        }
+   663→
+   664→        _, err = database.ConfigVars().UpdateOne(ctx,
+   665→                bson.M{"name": name},
+   666→                bson.M{"$set": bson.M{"value": value, "updatedAt": time.Now()}},
+   667→        )
+   668→        if err != nil {
+   669→                fmt.Fprintf(os.Stderr, "Failed to update config variable: %v\n", err)
+   670→                os.Exit(1)
+   671→        }
+   672→
+   673→        fmt.Printf("Updated '%s' successfully.\n", name)
+   674→        fmt.Println("Note: The running server will pick up this change on next cache reload or restart.")
+   675→}
+   676→
+   677→func cmdConfigReset(name string) {
+   678→        // Find the default value from SystemDefaults
+   679→        var defaultVal string
+   680→        found := false
+   681→        for _, def := range configstore.SystemDefaults {
+   682→                if def.Name == name {
+   683→                        defaultVal = def.Value
+   684→                        found = true
+   685→                        break
+   686→                }
+   687→        }
+   688→        if !found {
+   689→                fmt.Fprintf(os.Stderr, "No system default found for: %s\n", name)
+   690→                fmt.Fprintln(os.Stderr, "Only system-defined variables can be reset to defaults.")
+   691→                os.Exit(1)
+   692→        }
+   693→
+   694→        database, _, cleanup := connectDB()
+   695→        defer cleanup()
+   696→
+   697→        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   698→        defer cancel()
+   699→
+   700→        var v models.ConfigVar
+   701→        err := database.ConfigVars().FindOne(ctx, bson.M{"name": name}).Decode(&v)
+   702→        if err != nil {
+   703→                fmt.Fprintf(os.Stderr, "Config variable not found in database: %s\n", name)
+   704→                os.Exit(1)
+   705→        }
+   706→
+   707→        if v.Value == defaultVal {
+   708→                fmt.Printf("'%s' is already at its default value.\n", name)
+   709→                return
+   710→        }
+   711→
+   712→        _, err = database.ConfigVars().UpdateOne(ctx,
+   713→                bson.M{"name": name},
+   714→                bson.M{"$set": bson.M{"value": defaultVal, "updatedAt": time.Now()}},
+   715→        )
+   716→        if err != nil {
+   717→                fmt.Fprintf(os.Stderr, "Failed to reset config variable: %v\n", err)
+   718→                os.Exit(1)
+   719→        }
+   720→
+   721→        fmt.Printf("Reset '%s' to default value.\n", name)
+   722→        fmt.Println("Note: The running server will pick up this change on next cache reload or restart.")
+   723→}
+   724→
+   725→// --- transfer-root-owner command ---
+   726→
+   727→func cmdTransferRootOwner() {
+   728→        fs := flag.NewFlagSet("transfer-root-owner", flag.ExitOnError)
+   729→        emailFlag := fs.String("email", "", "Email of the new root tenant owner (required)")
+   730→        fs.Parse(os.Args[2:])
+   731→
+   732→        if *emailFlag == "" {
+   733→                fmt.Fprintln(os.Stderr, "Usage: lastsaas transfer-root-owner --email <new-owner-email>")
+   734→                os.Exit(1)
+   735→        }
+   736→
+   737→        database, _, cleanup := connectDB()
+   738→        defer cleanup()
+   739→
+   740→        ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+   741→        defer cancel()
+   742→
+   743→        // Find root tenant
+   744→        var rootTenant models.Tenant
+   745→        if err := database.Tenants().FindOne(ctx, bson.M{"isRoot": true}).Decode(&rootTenant); err != nil {
+   746→                fmt.Fprintln(os.Stderr, "Root tenant not found. Is the system initialized?")
+   747→                os.Exit(1)
+   748→        }
+   749→
+   750→        // Find new owner by email
+   751→        newEmail := strings.TrimSpace(strings.ToLower(*emailFlag))
+   752→        var newOwner models.User
+   753→        if err := database.Users().FindOne(ctx, bson.M{"email": newEmail}).Decode(&newOwner); err != nil {
+   754→                fmt.Fprintf(os.Stderr, "User not found: %s\n", newEmail)
+   755→                os.Exit(1)
+   756→        }
+   757→
+   758→        // Verify new owner is a member of root tenant
+   759→        var newMembership models.TenantMembership
+   760→        if err := database.TenantMemberships().FindOne(ctx, bson.M{
+   761→                "userId":   newOwner.ID,
+   762→                "tenantId": rootTenant.ID,
+   763→        }).Decode(&newMembership); err != nil {
+   764→                fmt.Fprintf(os.Stderr, "User %s is not a member of the root tenant.\n", newEmail)
+   765→                fmt.Fprintln(os.Stderr, "They must be added to the root tenant before ownership can be transferred.")
+   766→                os.Exit(1)
+   767→        }
+   768→
+   769→        if newMembership.Role == models.RoleOwner {
+   770→                fmt.Printf("User %s is already the owner of the root tenant.\n", newEmail)
+   771→                os.Exit(0)
+   772→        }
+   773→
+   774→        // Find current owner
+   775→        var currentOwnerMembership models.TenantMembership
+   776→        if err := database.TenantMemberships().FindOne(ctx, bson.M{
+   777→                "tenantId": rootTenant.ID,
+   778→                "role":     "owner",
+   779→        }).Decode(&currentOwnerMembership); err != nil {
+   780→                fmt.Fprintln(os.Stderr, "Could not find current root tenant owner.")
+   781→                os.Exit(1)
+   782→        }
+   783→
+   784→        var currentOwner models.User
+   785→        if err := database.Users().FindOne(ctx, bson.M{"_id": currentOwnerMembership.UserID}).Decode(&currentOwner); err != nil {
+   786→                fmt.Fprintln(os.Stderr, "Could not find current owner user record.")
+   787→                os.Exit(1)
+   788→        }
+   789→
+   790→        // Interactive confirmation
+   791→        fmt.Println("=== Transfer Root Tenant Ownership ===")
+   792→        fmt.Println()
+   793→        fmt.Printf("  Current owner: %s (%s)\n", currentOwner.DisplayName, currentOwner.Email)
+   794→        fmt.Printf("  New owner:     %s (%s)\n", newOwner.DisplayName, newOwner.Email)
+   795→        fmt.Println()
+   796→        fmt.Println("The current owner will be demoted to admin.")
+   797→        fmt.Println("This is a critical security operation.")
+   798→        fmt.Println()
+   799→        fmt.Print("Type 'yes' to confirm: ")
+   800→
+   801→        reader := bufio.NewReader(os.Stdin)
+   802→        answer, _ := reader.ReadString('\n')
+   803→        answer = strings.TrimSpace(answer)
+   804→
+   805→        if answer != "yes" {
+   806→                fmt.Println("Aborted.")
+   807→                os.Exit(0)
+   808→        }
+   809→
+   810→        now := time.Now()
+   811→
+   812→        // Demote current owner to admin
+   813→        _, err := database.TenantMemberships().UpdateOne(ctx,
+   814→                bson.M{"_id": currentOwnerMembership.ID},
+   815→                bson.M{"$set": bson.M{"role": "admin", "updatedAt": now}},
+   816→        )
+   817→        if err != nil {
+   818→                fmt.Fprintf(os.Stderr, "Failed to demote current owner: %v\n", err)
+   819→                os.Exit(1)
+   820→        }
+   821→
+   822→        // Promote new owner
+   823→        _, err = database.TenantMemberships().UpdateOne(ctx,
+   824→                bson.M{"_id": newMembership.ID},
+   825→                bson.M{"$set": bson.M{"role": "owner", "updatedAt": now}},
+   826→        )
+   827→        if err != nil {
+   828→                // Try to rollback
+   829→                database.TenantMemberships().UpdateOne(ctx,
+   830→                        bson.M{"_id": currentOwnerMembership.ID},
+   831→                        bson.M{"$set": bson.M{"role": "owner", "updatedAt": now}},
+   832→                )
+   833→                fmt.Fprintf(os.Stderr, "Failed to promote new owner: %v\n", err)
+   834→                os.Exit(1)
+   835→        }
+   836→
+   837→        // Write system log entry directly
+   838→        logEntry := models.SystemLog{
+   839→                ID:        primitive.NewObjectID(),
+   840→                Severity:  models.LogCritical,
+   841→                Message:   fmt.Sprintf("Root tenant ownership transferred from %s (%s) to %s (%s) via CLI", currentOwner.DisplayName, currentOwner.Email, newOwner.DisplayName, newOwner.Email),
+   842→                CreatedAt: now,
+   843→        }
+   844→        database.SystemLogs().InsertOne(ctx, logEntry)
+   845→
+   846→        fmt.Println()
+   847→        fmt.Printf("Root tenant ownership transferred to %s (%s).\n", newOwner.DisplayName, newOwner.Email)
+   848→        fmt.Printf("Previous owner %s has been demoted to admin.\n", currentOwner.Email)
+   849→}
+   850→
+   851→// --- version command ---
+   852→
+   853→func cmdVersion() {
+   854→        fmt.Printf("LastSaaS v%s (binary)\n", version.Current)
+   855→
+   856→        database, cfg, cleanup := connectDB()
+   857→        defer cleanup()
+   858→
+   859→        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   860→        defer cancel()
+   861→
+   862→        fmt.Printf("Database:    %s\n", cfg.Database.Name)
+   863→
+   864→        var sys models.SystemConfig
+   865→        err := database.SystemConfig().FindOne(ctx, bson.M{}).Decode(&sys)
+   866→        if err != nil || !sys.Initialized {
+   867→                fmt.Println("DB version:  (not initialized)")
+   868→                return
+   869→        }
+   870→        fmt.Printf("DB version:  %s\n", sys.Version)
+   871→        if sys.Version != version.Current {
+   872→                fmt.Println()
+   873→                fmt.Println("Note: Binary and database versions differ. Restart the server to trigger migration.")
+   874→        }
+   875→}
+   876→
+   877→// --- status command ---
+   878→
+   879→func cmdStatus() {
+   880→        env := config.GetEnv()
+   881→        fmt.Printf("Environment: %s\n", env)
+   882→
+   883→        cfg, err := config.Load(env)
+   884→        if err != nil {
+   885→                fmt.Printf("Config:      ERROR - %v\n", err)
+   886→                return
+   887→        }
+   888→        fmt.Printf("Config:      OK (config/%s.yaml)\n", env)
+   889→
+   890→        database, err := db.NewMongoDB(cfg.Database.URI, cfg.Database.Name)
+   891→        if err != nil {
+   892→                fmt.Printf("MongoDB:     ERROR - %v\n", err)
+   893→                return
+   894→        }
+   895→        defer func() {
+   896→                ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+   897→                defer cancel()
+   898→                database.Close(ctx)
+   899→        }()
+   900→        fmt.Printf("MongoDB:     Connected (%s)\n", cfg.Database.Name)
+   901→
+   902→        ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   903→        defer cancel()
+   904→
+   905→        var sys models.SystemConfig
+   906→        err = database.SystemConfig().FindOne(ctx, bson.M{}).Decode(&sys)
+   907→        if err != nil || !sys.Initialized {
+   908→                fmt.Println("Initialized: No")
+   909→                fmt.Println()
+   910→                fmt.Println("Run 'lastsaas setup' to initialize the system.")
+   911→                return
+   912→        }
+   913→        fmt.Printf("Initialized: Yes (v%s)\n", sys.Version)
+   914→        if sys.InitializedAt != nil {
+   915→                fmt.Printf("  Set up:    %s\n", sys.InitializedAt.Format(time.RFC3339))
+   916→        }
+   917→
+   918→        userCount, _ := database.Users().CountDocuments(ctx, bson.M{})
+   919→        tenantCount, _ := database.Tenants().CountDocuments(ctx, bson.M{})
+   920→        fmt.Printf("Users:       %d\n", userCount)
+   921→        fmt.Printf("Tenants:     %d\n", tenantCount)
+   922→}
+   923→
+   924→// --- helpers ---
+   925→
+   926→func prompt(reader *bufio.Reader, label string) string {
+   927→        fmt.Printf("%s: ", label)
+   928→        text, _ := reader.ReadString('\n')
+   929→        return strings.TrimSpace(text)
+   930→}
+   931→
+   932→func promptPassword(label string) string {
+   933→        fmt.Printf("%s: ", label)
+   934→        password, err := term.ReadPassword(int(syscall.Stdin))
+   935→        fmt.Println()
+   936→        if err != nil {
+   937→                fmt.Fprintf(os.Stderr, "Error reading password: %v\n", err)
+   938→                os.Exit(1)
+   939→        }
+   940→        return string(password)
+   941→}
+   942→

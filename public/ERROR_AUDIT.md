@@ -1,1897 +1,1847 @@
 # Error Handling Audit
 
-**Target:** `/home/z/my-project/repos/lastsaas/backend`
+**Target:** `/home/z/my-project/repos/lastsaas`
 
 ## Summary (non-test files)
 
 | Metric | Value |
 | --- | --- |
 | Files scanned | 101 |
-| Total lines | 28,236 |
-| Total error-handling sites | **998** |
-| Properly handled | 224 |
-| Logged only (no return) | 373 |
-| Swallowed errors | 133 |
-| Ignored errors (`_`) | 143 |
-| Missing error checks | 124 |
+| Total lines | 28,945 |
+| Total error-handling sites | **922** |
+| Properly handled | 271 |
+| Logged only (no return) | 494 |
+| Swallowed errors | 138 |
+| Ignored errors (`_`) | 7 |
+| Missing error checks | 11 |
 | Panic on error | 1 |
-| % properly handled | **22.44%** |
+| % properly handled | **29.39%** |
 
 ## Pattern Breakdown (non-test files)
 
 | Pattern | Count | Severity |
 | --- | ---: | --- |
-| Proper handling | 224 | LOW |
-| Logged only (no return) | 373 | MEDIUM |
-| Swallowed error | 133 | HIGH |
-| Ignored error (`_`) | 143 | HIGH |
-| Missing error check | 124 | HIGH |
+| Proper handling | 271 | LOW |
+| Logged only (no return) | 494 | MEDIUM |
+| Swallowed error | 138 | HIGH |
+| Ignored error (`_`) | 7 | HIGH |
+| Missing error check | 11 | HIGH |
 | Panic on error | 1 | MEDIUM |
 
 ## Severity Breakdown (non-test files)
 
 | Severity | Count |
 | --- | ---: |
-| HIGH | 400 |
-| MEDIUM | 374 |
-| LOW | 224 |
+| HIGH | 156 |
+| MEDIUM | 495 |
+| LOW | 271 |
 
 ## Most Problematic Files (non-test)
 
 | File | Issues | Sites | Swallowed | Ignored | Missing | Logged | Panic |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `internal/api/handlers/auth.go` | 50 | 120 | 35 | 7 | 8 | 69 | 0 |
-| `internal/api/handlers/admin.go` | 50 | 104 | 1 | 30 | 19 | 54 | 0 |
-| `internal/telemetry/service.go` | 30 | 37 | 15 | 15 | 0 | 0 | 0 |
-| `cmd/lastsaas/main.go` | 17 | 45 | 4 | 4 | 9 | 0 | 0 |
-| `internal/api/handlers/tenant.go` | 16 | 30 | 2 | 8 | 6 | 14 | 0 |
-| `internal/api/handlers/billing.go` | 15 | 44 | 2 | 10 | 3 | 29 | 0 |
-| `internal/datadog/client.go` | 14 | 35 | 2 | 6 | 6 | 4 | 0 |
-| `cmd/lastsaas/process.go` | 14 | 22 | 2 | 0 | 12 | 0 | 0 |
-| `cmd/lastsaas/cmd_financial.go` | 11 | 15 | 0 | 5 | 6 | 0 | 0 |
-| `internal/api/handlers/plans.go` | 10 | 33 | 1 | 6 | 3 | 23 | 0 |
-| `internal/testutil/testutil.go` | 10 | 28 | 1 | 4 | 5 | 0 | 0 |
-| `internal/health/integrations.go` | 9 | 17 | 1 | 0 | 8 | 0 | 0 |
-| `internal/api/handlers/webhook.go` | 8 | 20 | 2 | 5 | 1 | 4 | 0 |
-| `internal/metrics/metrics.go` | 8 | 9 | 6 | 2 | 0 | 1 | 0 |
-| `cmd/lastsaas/cmd_stats.go` | 8 | 8 | 0 | 6 | 2 | 0 | 0 |
+| `backend/internal/api/handlers/auth.go` | 50 | 120 | 35 | 7 | 8 | 69 | 0 |
+| `backend/internal/telemetry/service.go` | 15 | 36 | 15 | 0 | 0 | 14 | 0 |
+| `backend/internal/api/handlers/admin.go` | 11 | 84 | 9 | 0 | 2 | 73 | 0 |
+| `backend/internal/api/handlers/billing.go` | 10 | 41 | 10 | 0 | 0 | 31 | 0 |
+| `backend/internal/webhooks/dispatcher.go` | 6 | 12 | 6 | 0 | 0 | 3 | 0 |
+| `backend/internal/metrics/metrics.go` | 6 | 8 | 6 | 0 | 0 | 2 | 0 |
+| `backend/cmd/lastsaas/main.go` | 4 | 45 | 4 | 0 | 0 | 10 | 0 |
+| `backend/internal/api/handlers/tenant.go` | 4 | 24 | 4 | 0 | 0 | 20 | 0 |
+| `backend/internal/api/handlers/logs.go` | 4 | 11 | 3 | 0 | 1 | 7 | 0 |
+| `backend/internal/auth/totp.go` | 4 | 9 | 4 | 0 | 0 | 1 | 0 |
+| `backend/internal/datadog/client.go` | 3 | 29 | 3 | 0 | 0 | 5 | 0 |
+| `backend/internal/api/handlers/webhooks.go` | 3 | 25 | 3 | 0 | 0 | 19 | 0 |
+| `backend/internal/api/handlers/webhook.go` | 3 | 20 | 3 | 0 | 0 | 5 | 0 |
+| `backend/cmd/lastsaas/cmd_tenants.go` | 3 | 7 | 3 | 0 | 0 | 0 | 0 |
+| `backend/internal/version/check.go` | 3 | 4 | 3 | 0 | 0 | 1 | 0 |
 
 ## Detailed Findings (non-test files)
 
-### `cmd/lastsaas/cmd_db.go`
+### `backend/cmd/lastsaas/cmd_db.go`
 
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_db.go:65` in `cmdDBStats`
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_db.go:65` in `cmdDBStats`
   ```go
-  		if err != nil {
-  			continue
-  		}
+                  if err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to get stats for %s: %v\n", cName, err)
+                          continue
+                  }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_db.go:41` in `cmdDBStats`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_db.go:41` in `cmdDBStats`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to get database stats: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to get database stats: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_db.go:48` in `cmdDBStats`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_db.go:48` in `cmdDBStats`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to list collections: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-
-### `cmd/lastsaas/cmd_doctor.go`
-
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_doctor.go:57` in `cmdDoctor`
-  - _statement-form call to known error-returning 'database.Close()'_
-  ```go
-  		database.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_doctor.go:101` in `cmdDoctor`
-  - _error explicitly discarded with `_`_
-  ```go
-  			ownerCount, _ := database.TenantMemberships().CountDocuments(ctx, bson.M{
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_doctor.go:110` in `cmdDoctor`
-  - _error explicitly discarded with `_`_
-  ```go
-  	nodeCount, _ := database.SystemNodes().CountDocuments(ctx, bson.M{
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_doctor.go:42` in `cmdDoctor`
-  ```go
-  	if err != nil {
-  		fmt.Printf("\n  Results: %d passed, %d warnings, %d failed\n", passes, warnings, failures)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_doctor.go:50` in `cmdDoctor`
-  ```go
-  	if err != nil {
-  		fmt.Printf("\n  Results: %d passed, %d warnings, %d failed\n", passes, warnings, failures)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to list collections: %v\n", err)
+                  os.Exit(1)
+          }
   ```
 
-### `cmd/lastsaas/cmd_financial.go`
+### `backend/cmd/lastsaas/cmd_doctor.go`
 
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_financial.go:58` in `cmdFinancialSummary`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_doctor.go:57` in `cmdDoctor`
   ```go
-  	revCursor, _ := database.FinancialTransactions().Aggregate(ctx, revPipeline)
+                  if err := database.Close(ctx); err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to close database: %v\n", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_financial.go:68` in `cmdFinancialSummary`
-  - _statement-form call to known error-returning 'revCursor.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_doctor.go:107` in `cmdDoctor`
   ```go
-  		revCursor.Close(ctx)
+                          if err != nil {
+                                  fmt.Fprintf(os.Stderr, "warning: failed to count root tenant owners: %v\n", err)
+                          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_financial.go:81` in `cmdFinancialSummary`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_doctor.go:118` in `cmdDoctor`
   ```go
-  	refCursor, _ := database.FinancialTransactions().Aggregate(ctx, refundPipeline)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count active nodes: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_financial.go:90` in `cmdFinancialSummary`
-  - _statement-form call to known error-returning 'refCursor.Close()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_doctor.go:42` in `cmdDoctor`
   ```go
-  		refCursor.Close(ctx)
+          if err != nil {
+                  fmt.Printf("\n  Results: %d passed, %d warnings, %d failed\n", passes, warnings, failures)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_financial.go:105` in `cmdFinancialSummary`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_doctor.go:50` in `cmdDoctor`
   ```go
-  	typeCursor, _ := database.FinancialTransactions().Aggregate(ctx, typePipeline)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_financial.go:115` in `cmdFinancialSummary`
-  - _statement-form call to known error-returning 'typeCursor.Close()'_
-  ```go
-  		typeCursor.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_financial.go:122` in `cmdFinancialSummary`
-  - _error explicitly discarded with `_`_
-  ```go
-  	activeSubs, _ := database.Tenants().CountDocuments(ctx, bson.M{"billingStatus": "active"})
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_financial.go:135` in `cmdFinancialSummary`
-  - _error explicitly discarded with `_`_
-  ```go
-  	rev30Cursor, _ := database.FinancialTransactions().Aggregate(ctx, rev30Pipeline)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_financial.go:143` in `cmdFinancialSummary`
-  - _statement-form call to known error-returning 'rev30Cursor.Close()'_
-  ```go
-  		rev30Cursor.Close(ctx)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_financial.go:199` in `cmdFinancialTransactions`
-  - _statement-form call to known error-returning 'fs.Parse()'_
-  ```go
-  	fs.Parse(os.Args[3:])
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_financial.go:317` in `cmdFinancialMetrics`
-  - _statement-form call to known error-returning 'fs.Parse()'_
-  ```go
-  	fs.Parse(os.Args[3:])
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_financial.go:237` in `cmdFinancialTransactions`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query transactions: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_financial.go:244` in `cmdFinancialTransactions`
-  ```go
-  	if err := cursor.All(ctx, &txns); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to read transactions: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_financial.go:330` in `cmdFinancialMetrics`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query daily metrics: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_financial.go:337` in `cmdFinancialMetrics`
-  ```go
-  	if err := cursor.All(ctx, &metrics); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to read metrics: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Printf("\n  Results: %d passed, %d warnings, %d failed\n", passes, warnings, failures)
+                  os.Exit(1)
+          }
   ```
 
-### `cmd/lastsaas/cmd_health.go`
+### `backend/cmd/lastsaas/cmd_financial.go`
 
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_health.go:50` in `cmdHealth`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_financial.go:59` in `cmdFinancialSummary`
   ```go
-  		cursor, _ := database.SystemNodes().Find(ctx, bson.M{},
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate revenue: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_health.go:55` in `cmdHealth`
-  - _statement-form call to known error-returning 'cursor.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_financial.go:85` in `cmdFinancialSummary`
   ```go
-  			cursor.Close(ctx)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate refunds: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_health.go:101` in `cmdHealth`
-  - _statement-form call to known error-returning 'cursor.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_financial.go:112` in `cmdFinancialSummary`
   ```go
-  		cursor.Close(ctx)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate revenue by type: %v\n", err)
+          }
   ```
-
-### `cmd/lastsaas/cmd_logs.go`
-
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_logs.go:27` in `cmdLogs`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_financial.go:132` in `cmdFinancialSummary`
   ```go
-  	fs.Parse(os.Args[2:])
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count active subscriptions: %v\n", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_logs.go:191` in `logsFollow`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_financial.go:148` in `cmdFinancialSummary`
   ```go
-  		if err != nil {
-  			continue
-  		}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate 30d revenue: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_logs.go:197` in `logsFollow`
-  - _statement-form call to known error-returning 'cursor.Close()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_financial.go:214` in `cmdFinancialTransactions`
   ```go
-  		cursor.Close(ctx)
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_logs.go:138` in `queryLogs`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_financial.go:255` in `cmdFinancialTransactions`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query logs: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query transactions: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_logs.go:145` in `queryLogs`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_financial.go:262` in `cmdFinancialTransactions`
   ```go
-  	if err := cursor.All(ctx, &logs); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to read logs: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err := cursor.All(ctx, &txns); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to read transactions: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-
-### `cmd/lastsaas/cmd_mcp.go`
-
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:70` in `prettyJSON`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_financial.go:335` in `cmdFinancialMetrics`
   ```go
-  	if err := json.Indent(&buf, data, "", "  "); err != nil {
-  		return string(data)
-  	}
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:225` in `registerTenantTools`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_financial.go:351` in `cmdFinancialMetrics`
   ```go
-  			if err != nil {
-  				return mcp.NewToolResultError("id is required"), nil
-  			}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query daily metrics: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:282` in `registerUserTools`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_financial.go:358` in `cmdFinancialMetrics`
   ```go
-  			if err != nil {
-  				return mcp.NewToolResultError("id is required"), nil
-  			}
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:507` in `registerConfigTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError("name is required"), nil
-  			}
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:548` in `registerPlanTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError("id is required"), nil
-  			}
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:712` in `registerWebhookTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError("id is required"), nil
-  			}
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_mcp.go:815` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError("name is required"), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:42` in `get`
-  ```go
-  	if err != nil {
-  		return nil, fmt.Errorf("failed to create request: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:48` in `get`
-  ```go
-  	if err != nil {
-  		return nil, fmt.Errorf("request failed: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:54` in `get`
-  ```go
-  	if err != nil {
-  		return nil, fmt.Errorf("failed to read response: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:132` in `cmdMCP`
-  ```go
-  	if err := server.ServeStdio(s); err != nil {
-  		fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:150` in `registerAboutTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:170` in `registerDashboardTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:209` in `registerTenantTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:229` in `registerTenantTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:266` in `registerUserTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:286` in `registerUserTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:321` in `registerFinancialTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:342` in `registerFinancialTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:383` in `registerLogTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:398` in `registerLogTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:419` in `registerHealthTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:440` in `registerHealthTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:455` in `registerHealthTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:470` in `registerHealthTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:491` in `registerConfigTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:511` in `registerConfigTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:532` in `registerPlanTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:552` in `registerPlanTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:567` in `registerPlanTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:582` in `registerPlanTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:603` in `registerAnnouncementTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:624` in `registerPromotionTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:645` in `registerSecurityTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:660` in `registerSecurityTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:681` in `registerWebhookTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:696` in `registerWebhookTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:716` in `registerWebhookTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:741` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:756` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:779` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:798` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:823` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:838` in `registerPMTools`
-  ```go
-  			if err != nil {
-  				return mcp.NewToolResultError(err.Error()), nil
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:861` in `registerResources`
-  ```go
-  			if err != nil {
-  				return nil, fmt.Errorf("failed to fetch dashboard: %w", err)
-  			}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_mcp.go:884` in `registerResources`
-  ```go
-  			if err != nil {
-  				return nil, fmt.Errorf("failed to fetch health: %w", err)
-  			}
+          if err := cursor.All(ctx, &metrics); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to read metrics: %v\n", err)
+                  os.Exit(1)
+          }
   ```
 
-### `cmd/lastsaas/cmd_stats.go`
+### `backend/cmd/lastsaas/cmd_health.go`
 
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_stats.go:22` in `cmdStats`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_health.go:53` in `cmdHealth`
   ```go
-  	userCount, _ := database.Users().EstimatedDocumentCount(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_stats.go:23` in `cmdStats`
-  - _error explicitly discarded with `_`_
-  ```go
-  	tenantCount, _ := database.Tenants().EstimatedDocumentCount(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_stats.go:24` in `cmdStats`
-  - _error explicitly discarded with `_`_
-  ```go
-  	activeUsers, _ := database.Users().CountDocuments(ctx, bson.M{"isActive": true})
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_stats.go:27` in `cmdStats`
-  - _error explicitly discarded with `_`_
-  ```go
-  	activeSubs, _ := database.Tenants().CountDocuments(ctx, bson.M{
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_stats.go:38` in `cmdStats`
-  - _error explicitly discarded with `_`_
-  ```go
-  	logCursor, _ := database.SystemLogs().Aggregate(ctx, pipeline)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_stats.go:47` in `cmdStats`
-  - _statement-form call to known error-returning 'logCursor.Close()'_
-  ```go
-  		logCursor.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/cmd_stats.go:63` in `cmdStats`
-  - _error explicitly discarded with `_`_
-  ```go
-  	revCursor, _ := database.FinancialTransactions().Aggregate(ctx, revPipeline)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_stats.go:71` in `cmdStats`
-  - _statement-form call to known error-returning 'revCursor.Close()'_
-  ```go
-  		revCursor.Close(ctx)
+                  if err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to query nodes: %v\n", err)
+                  }
   ```
 
-### `cmd/lastsaas/cmd_tenants.go`
+### `backend/cmd/lastsaas/cmd_logs.go`
 
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_tenants.go:46` in `cmdTenantsList`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_logs.go:194` in `logsFollow`
   ```go
-  	fs.Parse(os.Args[3:])
+                  if err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to query logs: %v\n", err)
+                          continue
+                  }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_tenants.go:157` in `cmdTenantsGet`
-  - _statement-form call to known error-returning 'database.Tenants().FindOne(ctx, bson.M{"_id": oid}).Decode()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_logs.go:27` in `cmdLogs`
   ```go
-  		database.Tenants().FindOne(ctx, bson.M{"_id": oid}).Decode(&tenant)
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_tenants.go:285` in `resolveUserNames`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_logs.go:141` in `queryLogs`
   ```go
-  	if err != nil {
-  		return result
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query logs: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_tenants.go:312` in `resolvePlanNames`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_logs.go:148` in `queryLogs`
   ```go
-  	if err != nil {
-  		return names
-  	}
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_tenants.go:349` in `countMembersPerTenant`
-  ```go
-  	if err != nil {
-  		return counts
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_tenants.go:59` in `cmdTenantsList`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query tenants: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_tenants.go:66` in `cmdTenantsList`
-  ```go
-  	if err := cursor.All(ctx, &tenants); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to read tenants: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_tenants.go:169` in `cmdTenantsGet`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query memberships: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err := cursor.All(ctx, &logs); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to read logs: %v\n", err)
+                  os.Exit(1)
+          }
   ```
 
-### `cmd/lastsaas/cmd_users.go`
+### `backend/cmd/lastsaas/cmd_mcp.go`
 
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_users.go:53` in `cmdUsersList`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_mcp.go:70` in `prettyJSON`
   ```go
-  	fs.Parse(os.Args[3:])
+          if err := json.Indent(&buf, data, "", "  "); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to pretty-print JSON: %v\n", err)
+                  return string(data)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_users.go:152` in `cmdUsersGet`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:42` in `get`
   ```go
-  	fs.Parse(os.Args[3:])
+          if err != nil {
+                  return nil, fmt.Errorf("failed to create request: %w", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_users.go:263` in `cmdUsersSetActive`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:48` in `get`
   ```go
-  	fs.Parse(os.Args[3:])
+          if err != nil {
+                  return nil, fmt.Errorf("request failed: %w", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_users.go:305` in `cmdUsersSetActive`
-  - _statement-form call to known error-returning 'database.RefreshTokens().DeleteMany()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:54` in `get`
   ```go
-  		database.RefreshTokens().DeleteMany(ctx, bson.M{"userId": user.ID})
+          if err != nil {
+                  return nil, fmt.Errorf("failed to read response: %w", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/cmd_users.go:313` in `cmdUsersRevokeSessions`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:133` in `cmdMCP`
   ```go
-  	fs.Parse(os.Args[3:])
+          if err := server.ServeStdio(s); err != nil {
+                  fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_users.go:352` in `lookupUserWithMemberships`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:151` in `registerAboutTools`
   ```go
-  	if err != nil {
-  		return user, nil
-  	}
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/cmd_users.go:369` in `resolveTenantNames`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:171` in `registerDashboardTools`
   ```go
-  	if err != nil {
-  		return names
-  	}
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_users.go:71` in `cmdUsersList`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:210` in `registerTenantTools`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query users: %v\n", err)
-  		os.Exit(1)
-  	}
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_users.go:78` in `cmdUsersList`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:226` in `registerTenantTools`
   ```go
-  	if err := cursor.All(ctx, &users); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to read users: %v\n", err)
-  		os.Exit(1)
-  	}
+                          if err != nil {
+                                  return mcp.NewToolResultError("id is required: " + err.Error()), nil
+                          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_users.go:296` in `cmdUsersSetActive`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:230` in `registerTenantTools`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to update user: %v\n", err)
-  		os.Exit(1)
-  	}
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/cmd_users.go:334` in `cmdUsersRevokeSessions`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:267` in `registerUserTools`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to revoke sessions: %v\n", err)
-  		os.Exit(1)
-  	}
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:283` in `registerUserTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError("id is required: " + err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:287` in `registerUserTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:322` in `registerFinancialTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:343` in `registerFinancialTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:384` in `registerLogTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:399` in `registerLogTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:420` in `registerHealthTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:441` in `registerHealthTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:456` in `registerHealthTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:471` in `registerHealthTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:492` in `registerConfigTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:508` in `registerConfigTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError("name is required: " + err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:512` in `registerConfigTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:533` in `registerPlanTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:549` in `registerPlanTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError("id is required: " + err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:553` in `registerPlanTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:568` in `registerPlanTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:583` in `registerPlanTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:604` in `registerAnnouncementTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:625` in `registerPromotionTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:646` in `registerSecurityTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:661` in `registerSecurityTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:682` in `registerWebhookTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:697` in `registerWebhookTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:713` in `registerWebhookTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError("id is required: " + err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:717` in `registerWebhookTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:742` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:757` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:780` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:799` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:816` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError("name is required: " + err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:824` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:839` in `registerPMTools`
+  ```go
+                          if err != nil {
+                                  return mcp.NewToolResultError(err.Error()), nil
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:862` in `registerResources`
+  ```go
+                          if err != nil {
+                                  return nil, fmt.Errorf("failed to fetch dashboard: %w", err)
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_mcp.go:885` in `registerResources`
+  ```go
+                          if err != nil {
+                                  return nil, fmt.Errorf("failed to fetch health: %w", err)
+                          }
   ```
 
-### `cmd/lastsaas/main.go`
+### `backend/cmd/lastsaas/cmd_stats.go`
 
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:29` in `main`
-  - _statement-form call to known error-returning 'version.Load()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_stats.go:24` in `cmdStats`
   ```go
-  	version.Load()
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count users: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:169` in `connectDB`
-  - _statement-form call to known error-returning 'database.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_stats.go:28` in `cmdStats`
   ```go
-  		database.Close(ctx)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count tenants: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:377` in `cmdSetup`
-  - _statement-form call to known error-returning 'database.Messages().InsertOne()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_stats.go:32` in `cmdStats`
   ```go
-  	database.Messages().InsertOne(ctx, welcomeMsg)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count active users: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:394` in `cmdChangePassword`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_stats.go:40` in `cmdStats`
   ```go
-  	fs.Parse(os.Args[2:])
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count active subscriptions: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:453` in `cmdChangePassword`
-  - _statement-form call to known error-returning 'database.RefreshTokens().DeleteMany()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_stats.go:52` in `cmdStats`
   ```go
-  	database.RefreshTokens().DeleteMany(ctx, bson.M{"userId": user.ID})
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate log counts: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:465` in `cmdSendMessage`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/cmd_stats.go:80` in `cmdStats`
   ```go
-  	fs.Parse(os.Args[2:])
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate revenue: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:730` in `cmdTransferRootOwner`
-  - _statement-form call to known error-returning 'fs.Parse()'_
+
+### `backend/cmd/lastsaas/cmd_tenants.go`
+
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_tenants.go:290` in `resolveUserNames`
   ```go
-  	fs.Parse(os.Args[2:])
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to query users: %v\n", err)
+                  return result
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/main.go:802` in `cmdTransferRootOwner`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_tenants.go:318` in `resolvePlanNames`
   ```go
-  	answer, _ := reader.ReadString('\n')
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to query plans: %v\n", err)
+                  return names
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:844` in `cmdTransferRootOwner`
-  - _statement-form call to known error-returning 'database.SystemLogs().InsertOne()'_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_tenants.go:356` in `countMembersPerTenant`
   ```go
-  	database.SystemLogs().InsertOne(ctx, logEntry)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to aggregate member counts: %v\n", err)
+                  return counts
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/main.go:866` in `cmdVersion`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_tenants.go:46` in `cmdTenantsList`
   ```go
-  	if err != nil || !sys.Initialized {
-  		fmt.Println("DB version:  (not initialized)")
-  		return
-  	}
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/main.go:884` in `cmdStatus`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_tenants.go:62` in `cmdTenantsList`
   ```go
-  	if err != nil {
-  		fmt.Printf("Config:      ERROR - %v\n", err)
-  		return
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query tenants: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/main.go:891` in `cmdStatus`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_tenants.go:69` in `cmdTenantsList`
   ```go
-  	if err != nil {
-  		fmt.Printf("MongoDB:     ERROR - %v\n", err)
-  		return
-  	}
+          if err := cursor.All(ctx, &tenants); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to read tenants: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/main.go:898` in `cmdStatus`
-  - _statement-form call to known error-returning 'database.Close()'_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_tenants.go:174` in `cmdTenantsGet`
   ```go
-  		database.Close(ctx)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query memberships: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/main.go:907` in `cmdStatus`
+
+### `backend/cmd/lastsaas/cmd_users.go`
+
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_users.go:366` in `lookupUserWithMemberships`
   ```go
-  	if err != nil || !sys.Initialized {
-  		fmt.Println("Initialized: No")
-  		fmt.Println()
-  		fmt.Println("Run 'lastsaas setup' to initialize the system.")
-  		return
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to query memberships: %v\n", err)
+                  return user, nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/main.go:918` in `cmdStatus`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/cmd_users.go:384` in `resolveTenantNames`
   ```go
-  	userCount, _ := database.Users().CountDocuments(ctx, bson.M{})
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to query tenants: %v\n", err)
+                  return names
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/main.go:919` in `cmdStatus`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:53` in `cmdUsersList`
   ```go
-  	tenantCount, _ := database.Tenants().CountDocuments(ctx, bson.M{})
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/lastsaas/main.go:928` in `prompt`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:74` in `cmdUsersList`
   ```go
-  	text, _ := reader.ReadString('\n')
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query users: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:153` in `connectDB`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:81` in `cmdUsersList`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Error loading config: %v\n\n", err)
-  		printConfigHelp(env)
-  		os.Exit(1)
-  	}
+          if err := cursor.All(ctx, &users); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to read users: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:160` in `connectDB`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:155` in `cmdUsersGet`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Error connecting to MongoDB: %v\n\n", err)
-  		printMongoHelp(env)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:273` in `cmdSetup`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:269` in `cmdUsersSetActive`
   ```go
-  	if err := passwordService.ValidatePasswordStrength(password); err != nil {
-  		fmt.Fprintf(os.Stderr, "Password too weak: %v\n", err)
-  		fmt.Fprintln(os.Stderr, "Requirements: 10+ characters, uppercase, lowercase, number, special character")
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:280` in `cmdSetup`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:305` in `cmdUsersSetActive`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to update user: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:297` in `cmdSetup`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:324` in `cmdUsersRevokeSessions`
   ```go
-  	if err := validation.Validate(&tenant); err != nil {
-  		fmt.Fprintf(os.Stderr, "Tenant validation failed: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[3:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:301` in `cmdSetup`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/cmd_users.go:348` in `cmdUsersRevokeSessions`
   ```go
-  	if _, err := database.Tenants().InsertOne(ctx, tenant); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to create root tenant: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to revoke sessions: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:318` in `cmdSetup`
+
+### `backend/cmd/lastsaas/main.go`
+
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/main.go:889` in `cmdVersion`
   ```go
-  	if err := validation.Validate(&user); err != nil {
-  		database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
-  		fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil || !sys.Initialized {
+                  fmt.Println("DB version:  (not initialized)")
+                  return
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:323` in `cmdSetup`
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/main.go:907` in `cmdStatus`
   ```go
-  	if _, err := database.Users().InsertOne(ctx, user); err != nil {
-  		database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
-  		fmt.Fprintf(os.Stderr, "Failed to create user: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Printf("Config:      ERROR - %v\n", err)
+                  return
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:338` in `cmdSetup`
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/main.go:914` in `cmdStatus`
   ```go
-  	if err := validation.Validate(&membership); err != nil {
-  		database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
-  		database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
-  		fmt.Fprintf(os.Stderr, "Membership validation failed: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Printf("MongoDB:     ERROR - %v\n", err)
+                  return
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:344` in `cmdSetup`
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/main.go:935` in `cmdStatus`
   ```go
-  	if _, err := database.TenantMemberships().InsertOne(ctx, membership); err != nil {
-  		database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
-  		database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
-  		fmt.Fprintf(os.Stderr, "Failed to create membership: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil || !sys.Initialized {
+                  fmt.Println("Initialized: No")
+                  fmt.Println()
+                  fmt.Println("Run 'lastsaas setup' to initialize the system.")
+                  return
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:359` in `cmdSetup`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:169` in `connectDB`
   ```go
-  	if _, err := database.SystemConfig().InsertOne(ctx, sysConfig); err != nil {
-  		database.TenantMemberships().DeleteOne(ctx, bson.M{"_id": membership.ID})
-  		database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
-  		database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
-  		fmt.Fprintf(os.Stderr, "Failed to mark system as initialized: %v\n", err)
-  		os.Exit(1)
+                  if err := database.Close(ctx); err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to close database: %v\n", err)
+                  }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:379` in `cmdSetup`
+  ```go
+          if _, err := database.Messages().InsertOne(ctx, welcomeMsg); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to insert welcome message: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:818` in `cmdTransferRootOwner`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to read input: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:862` in `cmdTransferRootOwner`
+  ```go
+          if _, err := database.SystemLogs().InsertOne(ctx, logEntry); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to write system log: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:886` in `cmdVersion`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to read system config: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:921` in `cmdStatus`
+  ```go
+                  if err := database.Close(ctx); err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to close database: %v\n", err)
+                  }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:932` in `cmdStatus`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to read system config: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:947` in `cmdStatus`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count users: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:951` in `cmdStatus`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to count tenants: %v\n", err)
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/main.go:963` in `prompt`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to read input: %v\n", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:153` in `connectDB`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Error loading config: %v\n\n", err)
+                  printConfigHelp(env)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:160` in `connectDB`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Error connecting to MongoDB: %v\n\n", err)
+                  printMongoHelp(env)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:275` in `cmdSetup`
+  ```go
+          if err := passwordService.ValidatePasswordStrength(password); err != nil {
+                  fmt.Fprintf(os.Stderr, "Password too weak: %v\n", err)
+                  fmt.Fprintln(os.Stderr, "Requirements: 10+ characters, uppercase, lowercase, number, special character")
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:282` in `cmdSetup`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:299` in `cmdSetup`
+  ```go
+          if err := validation.Validate(&tenant); err != nil {
+                  fmt.Fprintf(os.Stderr, "Tenant validation failed: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:303` in `cmdSetup`
+  ```go
+          if _, err := database.Tenants().InsertOne(ctx, tenant); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to create root tenant: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:320` in `cmdSetup`
+  ```go
+          if err := validation.Validate(&user); err != nil {
+                  database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+                  fmt.Fprintf(os.Stderr, "User validation failed: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:325` in `cmdSetup`
+  ```go
+          if _, err := database.Users().InsertOne(ctx, user); err != nil {
+                  database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+                  fmt.Fprintf(os.Stderr, "Failed to create user: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:340` in `cmdSetup`
+  ```go
+          if err := validation.Validate(&membership); err != nil {
+                  database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
+                  database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+                  fmt.Fprintf(os.Stderr, "Membership validation failed: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:346` in `cmdSetup`
+  ```go
+          if _, err := database.TenantMemberships().InsertOne(ctx, membership); err != nil {
+                  database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
+                  database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+                  fmt.Fprintf(os.Stderr, "Failed to create membership: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:361` in `cmdSetup`
+  ```go
+          if _, err := database.SystemConfig().InsertOne(ctx, sysConfig); err != nil {
+                  database.TenantMemberships().DeleteOne(ctx, bson.M{"_id": membership.ID})
+                  database.Users().DeleteOne(ctx, bson.M{"_id": user.ID})
+                  database.Tenants().DeleteOne(ctx, bson.M{"_id": tenant.ID})
+                  fmt.Fprintf(os.Stderr, "Failed to mark system as initialized: %v\n", err)
+                  os.Exit(1)
   ... (1 more lines)
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:411` in `cmdChangePassword`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:398` in `cmdChangePassword`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "User not found: %s\n", email)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:428` in `cmdChangePassword`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:418` in `cmdChangePassword`
   ```go
-  	if err := passwordService.ValidatePasswordStrength(password); err != nil {
-  		fmt.Fprintf(os.Stderr, "Password too weak: %v\n", err)
-  		fmt.Fprintln(os.Stderr, "Requirements: 10+ characters, uppercase, lowercase, number, special character")
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "User not found: %s\n", email)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:435` in `cmdChangePassword`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:435` in `cmdChangePassword`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err := passwordService.ValidatePasswordStrength(password); err != nil {
+                  fmt.Fprintf(os.Stderr, "Password too weak: %v\n", err)
+                  fmt.Fprintln(os.Stderr, "Requirements: 10+ characters, uppercase, lowercase, number, special character")
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:447` in `cmdChangePassword`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:442` in `cmdChangePassword`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to update password: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to hash password: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:504` in `cmdSendMessage`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:454` in `cmdChangePassword`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "User not found: %s\n", email)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to update password: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:519` in `cmdSendMessage`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:474` in `cmdSendMessage`
   ```go
-  	if _, err := database.Messages().InsertOne(ctx, msg); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to send message: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:576` in `cmdConfigList`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:516` in `cmdSendMessage`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to query config vars: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "User not found: %s\n", email)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:583` in `cmdConfigList`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:531` in `cmdSendMessage`
   ```go
-  	if err := cursor.All(ctx, &vars); err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to read config vars: %v\n", err)
-  		os.Exit(1)
-  	}
+          if _, err := database.Messages().InsertOne(ctx, msg); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to send message: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:624` in `cmdConfigGet`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:588` in `cmdConfigList`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Config variable not found: %s\n", name)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to query config vars: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:654` in `cmdConfigSet`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:595` in `cmdConfigList`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Config variable not found: %s\n", name)
-  		os.Exit(1)
-  	}
+          if err := cursor.All(ctx, &vars); err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to read config vars: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:659` in `cmdConfigSet`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:636` in `cmdConfigGet`
   ```go
-  	if err := configstore.ValidateValue(v.Type, value, v.Options); err != nil {
-  		fmt.Fprintf(os.Stderr, "Invalid value: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Config variable not found: %s\n", name)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:668` in `cmdConfigSet`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:666` in `cmdConfigSet`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to update config variable: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Config variable not found: %s\n", name)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:702` in `cmdConfigReset`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:671` in `cmdConfigSet`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Config variable not found in database: %s\n", name)
-  		os.Exit(1)
-  	}
+          if err := configstore.ValidateValue(v.Type, value, v.Options); err != nil {
+                  fmt.Fprintf(os.Stderr, "Invalid value: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:716` in `cmdConfigReset`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:680` in `cmdConfigSet`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to reset config variable: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to update config variable: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:817` in `cmdTransferRootOwner`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:714` in `cmdConfigReset`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to demote current owner: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Config variable not found in database: %s\n", name)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:827` in `cmdTransferRootOwner`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:728` in `cmdConfigReset`
   ```go
-  	if err != nil {
-  		// Try to rollback
-  		database.TenantMemberships().UpdateOne(ctx,
-  			bson.M{"_id": currentOwnerMembership.ID},
-  			bson.M{"$set": bson.M{"role": "owner", "updatedAt": now}},
-  		)
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to reset config variable: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:742` in `cmdTransferRootOwner`
+  ```go
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:835` in `cmdTransferRootOwner`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to demote current owner: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:845` in `cmdTransferRootOwner`
+  ```go
+          if err != nil {
+                  // Try to rollback
+                  database.TenantMemberships().UpdateOne(ctx,
+                          bson.M{"_id": currentOwnerMembership.ID},
+                          bson.M{"$set": bson.M{"role": "owner", "updatedAt": now}},
+                  )
   ... (3 more lines)
   ```
-- **[LOW] Proper handling** — `cmd/lastsaas/main.go:936` in `promptPassword`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/main.go:973` in `promptPassword`
   ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Error reading password: %v\n", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Error reading password: %v\n", err)
+                  os.Exit(1)
+          }
   ```
 
-### `cmd/lastsaas/output.go`
+### `backend/cmd/lastsaas/output.go`
 
-- **[HIGH] Missing error check** — `cmd/lastsaas/output.go:84` in `printJSON`
-  - _statement-form call to known error-returning 'enc.Encode()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/output.go:84` in `printJSON`
   ```go
-  	enc.Encode(v)
-  ```
-
-### `cmd/lastsaas/process.go`
-
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:29` in `cmdStart`
-  - _statement-form call to known error-returning 'fs.Parse()'_
-  ```go
-  	fs.Parse(os.Args[2:])
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:49` in `cmdStop`
-  - _statement-form call to known error-returning 'fs.Parse()'_
-  ```go
-  	fs.Parse(os.Args[2:])
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:70` in `cmdRestart`
-  - _statement-form call to known error-returning 'fs.Parse()'_
-  ```go
-  	fs.Parse(os.Args[2:])
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:139` in `startBackend`
-  - _statement-form call to known error-returning 'os.WriteFile()'_
-  ```go
-  	os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:141` in `startBackend`
-  - _statement-form call to known error-returning 'lf.Close()'_
-  ```go
-  	lf.Close()
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:147` in `startBackend`
-  - _statement-form call to known error-returning 'os.Remove()'_
-  ```go
-  		os.Remove(pidFile)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:192` in `startFrontend`
-  - _statement-form call to known error-returning 'os.WriteFile()'_
-  ```go
-  	os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:194` in `startFrontend`
-  - _statement-form call to known error-returning 'lf.Close()'_
-  ```go
-  	lf.Close()
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:200` in `startFrontend`
-  - _statement-form call to known error-returning 'os.Remove()'_
-  ```go
-  		os.Remove(pidFile)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:214` in `stopService`
-  - _statement-form call to known error-returning 'os.Remove()'_
-  ```go
-  		os.Remove(pidFile)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:237` in `stopService`
-  - _statement-form call to known error-returning 'os.Remove()'_
-  ```go
-  	os.Remove(pidFile)
-  ```
-- **[HIGH] Missing error check** — `cmd/lastsaas/process.go:293` in `ensurePIDDir`
-  - _statement-form call to known error-returning 'os.MkdirAll()'_
-  ```go
-  	os.MkdirAll(pd, 0755)
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/process.go:304` in `readPID`
-  ```go
-  	if err != nil {
-  		return 0
-  	}
-  ```
-- **[HIGH] Swallowed error** — `cmd/lastsaas/process.go:308` in `readPID`
-  ```go
-  	if err != nil {
-  		return 0
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:112` in `startBackend`
-  ```go
-  	if out, err := buildCmd.CombinedOutput(); err != nil {
-  		fmt.Printf("FAILED\n%s\n", string(out))
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:120` in `startBackend`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to create log file: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:132` in `startBackend`
-  ```go
-  	if err := cmd.Start(); err != nil {
-  		lf.Close()
-  		fmt.Fprintf(os.Stderr, "Failed to start backend: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:168` in `startFrontend`
-  ```go
-  	if _, err := os.Stat(viteBin); err != nil {
-  		fmt.Fprintf(os.Stderr, "Vite not found. Run 'npm install' in the frontend directory first.\n")
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:174` in `startFrontend`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "Failed to create log file: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:185` in `startFrontend`
-  ```go
-  	if err := cmd.Start(); err != nil {
-  		lf.Close()
-  		fmt.Fprintf(os.Stderr, "Failed to start frontend: %v\n", err)
-  		os.Exit(1)
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:258` in `findProjectRoot`
-  ```go
-  	if err != nil {
-  		return "", err
-  	}
-  ```
-- **[LOW] Proper handling** — `cmd/lastsaas/process.go:284` in `mustFindProjectRoot`
-  ```go
-  	if err != nil {
-  		fmt.Fprintf(os.Stderr, "%v\n", err)
-  		os.Exit(1)
-  	}
+          if err := enc.Encode(v); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to encode JSON output: %v\n", err)
+          }
   ```
 
-### `cmd/server/main.go`
+### `backend/cmd/lastsaas/process.go`
 
-- **[HIGH] Missing error check** — `cmd/server/main.go:79` in `ServeHTTP`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/process.go:331` in `readPID`
   ```go
-  		w.Write([]byte(html))
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to read PID file %s: %v\n", file, err)
+                  return 0
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/server/main.go:118` in `main`
-  - _statement-form call to known error-returning 'version.Load()'_
+- **[HIGH] Swallowed error** — `backend/cmd/lastsaas/process.go:336` in `readPID`
   ```go
-  	version.Load()
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to parse PID file %s: %v\n", file, err)
+                  return 0
+          }
   ```
-- **[HIGH] Swallowed error** — `cmd/server/main.go:383` in `main`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:148` in `startBackend`
   ```go
-  		if err := database.Client.Ping(ctx, nil); err != nil {
-  			w.WriteHeader(http.StatusServiceUnavailable)
-  			w.Write([]byte(`{"status":"unhealthy","error":"database unreachable"}`))
-  			return
-  		}
+          if err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to write backend PID file: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/server/main.go:389` in `main`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:152` in `startBackend`
   ```go
-  		w.Write([]byte(`{"status":"ok"}`))
+          if err := lf.Close(); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to close backend log file: %v\n", err)
+          }
   ```
-- **[HIGH] Missing error check** — `cmd/server/main.go:400` in `main`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:160` in `startBackend`
   ```go
-  		w.Write([]byte(fmt.Sprintf(`{"version":%q}`, version.Current)))
+                  if err := os.Remove(pidFile); err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to remove backend PID file: %v\n", err)
+                  }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/server/main.go:614` in `main`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:207` in `startFrontend`
   ```go
-  			user, _ := middleware.GetUserFromContext(r.Context())
+          if err := os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to write frontend PID file: %v\n", err)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `cmd/server/main.go:625` in `main`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:211` in `startFrontend`
   ```go
-  			user, _ := middleware.GetUserFromContext(r.Context())
+          if err := lf.Close(); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to close frontend log file: %v\n", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `cmd/server/main.go:67` in `ServeHTTP`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:219` in `startFrontend`
   ```go
-  		if readErr != nil {
-  			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-  			return
-  		}
+                  if err := os.Remove(pidFile); err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to remove frontend PID file: %v\n", err)
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `cmd/server/main.go:82` in `ServeHTTP`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:235` in `stopService`
   ```go
-  	if err != nil {
-  		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-  		return
-  	}
+                  if err := os.Remove(pidFile); err != nil {
+                          fmt.Fprintf(os.Stderr, "warning: failed to remove PID file: %v\n", err)
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `cmd/server/main.go:111` in `main`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:260` in `stopService`
   ```go
-  		if err := database.Close(ctx); err != nil {
-  			slog.Error("Failed to close database connection", "error", err)
-  		}
+          if err := os.Remove(pidFile); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to remove PID file: %v\n", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `cmd/server/main.go:157` in `main`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/lastsaas/process.go:318` in `ensurePIDDir`
   ```go
-  		if err := ddClient.Startup(context.Background(), version.Current); err != nil {
-  			slog.Warn("DataDog startup verification failed (integration will retry in background)", "error", err)
-  		}
+          if err := os.MkdirAll(pd, 0755); err != nil {
+                  fmt.Fprintf(os.Stderr, "warning: failed to create PID directory: %v\n", err)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:96` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:29` in `cmdStart`
   ```go
-  	if err != nil {
-  		slog.Error("Failed to load config", "error", err)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:104` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:52` in `cmdStop`
   ```go
-  	if err != nil {
-  		slog.Error("Failed to connect to MongoDB", "error", err)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:122` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:76` in `cmdRestart`
   ```go
-  	if err := configstore.Seed(context.Background(), database); err != nil {
-  		slog.Error("Failed to seed config variables", "error", err)
-  		os.Exit(1)
-  	}
+          if err := fs.Parse(os.Args[2:]); err != nil {
+                  fmt.Fprintf(os.Stderr, "error: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:127` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:121` in `startBackend`
   ```go
-  	if err := cfgStore.Load(context.Background()); err != nil {
-  		slog.Error("Failed to load config store", "error", err)
-  		os.Exit(1)
-  	}
+          if out, err := buildCmd.CombinedOutput(); err != nil {
+                  fmt.Printf("FAILED\n%s\n", string(out))
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:137` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:129` in `startBackend`
   ```go
-  	if err := planstore.Seed(context.Background(), database); err != nil {
-  		slog.Error("Failed to seed plans", "error", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to create log file: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:242` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:141` in `startBackend`
   ```go
-  	if err != nil {
-  		slog.Error("Invalid webhook encryption key", "error", err)
-  		os.Exit(1)
-  	}
+          if err := cmd.Start(); err != nil {
+                  lf.Close()
+                  fmt.Fprintf(os.Stderr, "Failed to start backend: %v\n", err)
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:822` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:183` in `startFrontend`
   ```go
-  		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-  			slog.Error("Server failed", "error", err)
-  			os.Exit(1)
-  		}
+          if _, err := os.Stat(viteBin); err != nil {
+                  fmt.Fprintf(os.Stderr, "Vite not found. Run 'npm install' in the frontend directory first.\n")
+                  os.Exit(1)
+          }
   ```
-- **[LOW] Proper handling** — `cmd/server/main.go:839` in `main`
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:189` in `startFrontend`
   ```go
-  	if err := srv.Shutdown(shutdownCtx); err != nil {
-  		slog.Error("Server forced shutdown", "error", err)
-  		os.Exit(1)
-  	}
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "Failed to create log file: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:200` in `startFrontend`
+  ```go
+          if err := cmd.Start(); err != nil {
+                  lf.Close()
+                  fmt.Fprintf(os.Stderr, "Failed to start frontend: %v\n", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:283` in `findProjectRoot`
+  ```go
+          if err != nil {
+                  return "", err
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/lastsaas/process.go:309` in `mustFindProjectRoot`
+  ```go
+          if err != nil {
+                  fmt.Fprintf(os.Stderr, "%v\n", err)
+                  os.Exit(1)
+          }
   ```
 
-### `internal/api/handlers/admin.go`
+### `backend/cmd/server/main.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:51` in `isRootTenantOwner`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/cmd/server/main.go:385` in `main`
   ```go
-  	count, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
+                  if err := database.Client.Ping(ctx, nil); err != nil {
+                          slog.Warn("server: health check DB ping failed", "error", err)
+                          w.WriteHeader(http.StatusServiceUnavailable)
+                          if _, err := w.Write([]byte(`{"status":"unhealthy","error":"database unreachable"}`)); err != nil {
+                                  slog.Warn("server: failed to write health response", "error", err)
+                          }
+  ... (2 more lines)
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:115` in `ListTenants`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:67` in `ServeHTTP`
   ```go
-  	page, _ := strconv.Atoi(q.Get("page"))
+                  if readErr != nil {
+                          http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+                          return
+                  }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:119` in `ListTenants`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:79` in `ServeHTTP`
   ```go
-  	limit, _ := strconv.Atoi(q.Get("limit"))
+                  if _, err := w.Write([]byte(html)); err != nil {
+                          slog.Warn("server: failed to write index.html", "error", err)
+                  }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:222` in `ListTenants`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:84` in `ServeHTTP`
   ```go
-  	planCursor, _ := h.db.Plans().Find(ctx, bson.M{}, options.Find().SetLimit(500))
+          if err != nil {
+                  http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+                  return
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:342` in `ExportTenantsCSV`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:113` in `main`
   ```go
-  	planCursor, _ := h.db.Plans().Find(ctx, bson.M{}, options.Find().SetLimit(500))
+                  if err := database.Close(ctx); err != nil {
+                          slog.Error("Failed to close database connection", "error", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:348` in `ExportTenantsCSV`
-  - _statement-form call to known error-returning 'planCursor.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:159` in `main`
   ```go
-  		planCursor.Close(ctx)
+                  if err := ddClient.Startup(context.Background(), version.Current); err != nil {
+                          slog.Warn("DataDog startup verification failed (integration will retry in background)", "error", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:364` in `ExportTenantsCSV`
-  - _statement-form call to known error-returning 'writer.Write()'_
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:388` in `main`
   ```go
-  	writer.Write([]string{"ID", "Name", "Slug", "IsRoot", "IsActive", "MemberCount", "PlanName", "BillingStatus", "Credits", "CreatedAt"})
+                          if _, err := w.Write([]byte(`{"status":"unhealthy","error":"database unreachable"}`)); err != nil {
+                                  slog.Warn("server: failed to write health response", "error", err)
+                          }
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:387` in `ExportTenantsCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:394` in `main`
+  ```go
+                  if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+                          slog.Warn("server: failed to write health response", "error", err)
+                  }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/cmd/server/main.go:407` in `main`
+  ```go
+                  if _, err := w.Write([]byte(fmt.Sprintf(`{"version":%q}`, version.Current))); err != nil {
+                          slog.Warn("server: failed to write version response", "error", err)
+                  }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:98` in `main`
+  ```go
+          if err != nil {
+                  slog.Error("Failed to load config", "error", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:106` in `main`
+  ```go
+          if err != nil {
+                  slog.Error("Failed to connect to MongoDB", "error", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:124` in `main`
+  ```go
+          if err := configstore.Seed(context.Background(), database); err != nil {
+                  slog.Error("Failed to seed config variables", "error", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:129` in `main`
+  ```go
+          if err := cfgStore.Load(context.Background()); err != nil {
+                  slog.Error("Failed to load config store", "error", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:139` in `main`
+  ```go
+          if err := planstore.Seed(context.Background(), database); err != nil {
+                  slog.Error("Failed to seed plans", "error", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:244` in `main`
+  ```go
+          if err != nil {
+                  slog.Error("Invalid webhook encryption key", "error", err)
+                  os.Exit(1)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:837` in `main`
+  ```go
+                  if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+                          slog.Error("Server failed", "error", err)
+                          os.Exit(1)
+                  }
+  ```
+- **[LOW] Proper handling** — `backend/cmd/server/main.go:854` in `main`
+  ```go
+          if err := srv.Shutdown(shutdownCtx); err != nil {
+                  slog.Error("Server forced shutdown", "error", err)
+                  os.Exit(1)
+          }
+  ```
+
+### `backend/internal/api/handlers/admin.go`
+
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:55` in `isRootTenantOwner`
+  ```go
+  	if err != nil {
+  		slog.Warn("isRootTenantOwner: failed to count owner memberships", "userId", userID.Hex(), "error", err)
+  		return false
+  	}
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:120` in `ListTenants`
+  ```go
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:124` in `ListTenants`
+  ```go
+  	if limitErr != nil || limit < 1 || limit > 100 {
+  		limit = 25
+  	}
+  ```
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/admin.go:403` in `ExportTenantsCSV`
   - _statement-form call to known error-returning 'writer.Flush()'_
   ```go
   	writer.Flush()
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:507` in `ListUsers`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:527` in `ListUsers`
   ```go
-  	page, _ := strconv.Atoi(q.Get("page"))
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:511` in `ListUsers`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:531` in `ListUsers`
   ```go
-  	limit, _ := strconv.Atoi(q.Get("limit"))
+  	if limitErr != nil || limit < 1 || limit > 100 {
+  		limit = 25
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:701` in `ExportUsersCSV`
-  - _statement-form call to known error-returning 'writer.Write()'_
-  ```go
-  	writer.Write([]string{"ID", "Email", "DisplayName", "EmailVerified", "IsActive", "TenantCount", "CreatedAt", "LastLoginAt"})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:719` in `ExportUsersCSV`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/admin.go:741` in `ExportUsersCSV`
   - _statement-form call to known error-returning 'writer.Flush()'_
   ```go
   	writer.Flush()
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:731` in `UpdateUserStatus`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:818` in `GetDashboard`
   ```go
-  	actingMembership, _ := middleware.GetMembershipFromContext(r.Context())
+  	if err != nil {
+  		slog.Warn("GetDashboard: failed to count users", "error", err)
+  		userCount = 0
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:754` in `UpdateUserStatus`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:823` in `GetDashboard`
   ```go
-  	actingUser, _ := middleware.GetUserFromContext(r.Context())
+  	if err != nil {
+  		slog.Warn("GetDashboard: failed to count tenants", "error", err)
+  		tenantCount = 0
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:784` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  	userCount, _ := h.db.Users().CountDocuments(ctx, bson.M{})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:785` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  	tenantCount, _ := h.db.Tenants().CountDocuments(ctx, bson.M{})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:794` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  			cpuWarn, _ := strconv.ParseFloat(h.getConfig("health.cpu.warning_threshold"), 64)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:795` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  			cpuCrit, _ := strconv.ParseFloat(h.getConfig("health.cpu.critical_threshold"), 64)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:796` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  			memWarn, _ := strconv.ParseFloat(h.getConfig("health.memory.warning_threshold"), 64)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:797` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  			memCrit, _ := strconv.ParseFloat(h.getConfig("health.memory.critical_threshold"), 64)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:798` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  			diskWarn, _ := strconv.ParseFloat(h.getConfig("health.disk.warning_threshold"), 64)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:799` in `GetDashboard`
-  - _error explicitly discarded with `_`_
-  ```go
-  			diskCrit, _ := strconv.ParseFloat(h.getConfig("health.disk.critical_threshold"), 64)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:900` in `GetUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  	planCursor, _ := h.db.Plans().Find(r.Context(), bson.M{}, options.Find().SetLimit(500))
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:995` in `UpdateUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingMembership, _ := middleware.GetMembershipFromContext(r.Context())
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1016` in `UpdateUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingUser, _ := middleware.GetUserFromContext(r.Context())
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1026` in `UpdateUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  			count, _ := h.db.Users().CountDocuments(r.Context(), bson.M{"email": newEmail, "_id": bson.M{"$ne": userID}})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1045` in `UpdateUser`
-  - _statement-form call to known error-returning 'h.db.Users().UpdateOne()'_
-  ```go
-  	h.db.Users().UpdateOne(r.Context(), bson.M{"_id": userID}, bson.M{"$set": updates})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1063` in `UpdateUserRole`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingMembership, _ := middleware.GetMembershipFromContext(r.Context())
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1119` in `UpdateUserRole`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingUser, _ := middleware.GetUserFromContext(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1142` in `PreflightDeleteUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingUser, _ := middleware.GetUserFromContext(ctx)
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1163` in `PreflightDeleteUser`
-  - _statement-form call to known error-returning 'cursor.Close()'_
-  ```go
-  	cursor.Close(ctx)
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1181` in `PreflightDeleteUser`
-  - _statement-form call to known error-returning 'tCursor.Close()'_
-  ```go
-  			tCursor.Close(ctx)
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/admin.go:1193` in `PreflightDeleteUser`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:1284` in `PreflightDeleteUser`
   ```go
   		if err != nil {
+  			slog.Warn("PreflightDeleteUser: failed to find tenant members", "tenantId", m.TenantID.Hex(), "error", err)
   			continue
   		}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1198` in `PreflightDeleteUser`
-  - _statement-form call to known error-returning 'memberCursor.Close()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/admin.go:1290` in `PreflightDeleteUser`
   ```go
-  		memberCursor.Close(ctx)
+  		if err := memberCursor.All(ctx, &otherMemberships); err != nil {
+  			slog.Warn("PreflightDeleteUser: failed to decode tenant members", "tenantId", m.TenantID.Hex(), "error", err)
+  		}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1215` in `PreflightDeleteUser`
-  - _statement-form call to known error-returning 'uCursor.Close()'_
-  ```go
-  				uCursor.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1253` in `DeleteUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingUser, _ := middleware.GetUserFromContext(r.Context())
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1291` in `DeleteUser`
-  - _statement-form call to known error-returning 'cursor.Close()'_
-  ```go
-  	cursor.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1316` in `DeleteUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  			result, _ := h.db.TenantMemberships().UpdateOne(ctx,
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1328` in `DeleteUser`
-  - _error explicitly discarded with `_`_
-  ```go
-  			otherCount, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1348` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.TenantMemberships().DeleteMany()'_
-  ```go
-  			h.db.TenantMemberships().DeleteMany(ctx, bson.M{"tenantId": m.TenantID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1349` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.Tenants().DeleteOne()'_
-  ```go
-  			h.db.Tenants().DeleteOne(ctx, bson.M{"_id": m.TenantID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1350` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.Invitations().DeleteMany()'_
-  ```go
-  			h.db.Invitations().DeleteMany(ctx, bson.M{"tenantId": m.TenantID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1367` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.TenantMemberships().DeleteMany()'_
-  ```go
-  	h.db.TenantMemberships().DeleteMany(ctx, bson.M{"userId": userID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1368` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.RefreshTokens().DeleteMany()'_
-  ```go
-  	h.db.RefreshTokens().DeleteMany(ctx, bson.M{"userId": userID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1369` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.Messages().DeleteMany()'_
-  ```go
-  	h.db.Messages().DeleteMany(ctx, bson.M{"userId": userID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1370` in `DeleteUser`
-  - _statement-form call to known error-returning 'h.db.Users().DeleteOne()'_
-  ```go
-  	h.db.Users().DeleteOne(ctx, bson.M{"_id": userID})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1412` in `UpdateTenant`
-  - _error explicitly discarded with `_`_
-  ```go
-  	actingUser, _ := middleware.GetUserFromContext(r.Context())
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/admin.go:1461` in `UpdateTenant`
-  - _statement-form call to known error-returning 'h.db.Tenants().UpdateOne()'_
-  ```go
-  	h.db.Tenants().UpdateOne(r.Context(), bson.M{"_id": tenantID}, bson.M{"$set": updates})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1709` in `InviteRootMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  		count, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/admin.go:1720` in `InviteRootMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  	count, _ := h.db.Invitations().CountDocuments(ctx, bson.M{
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:173` in `ListTenants`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:177` in `ListTenants`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to count tenants")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:184` in `ListTenants`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:188` in `ListTenants`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch tenants")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:191` in `ListTenants`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:195` in `ListTenants`
   ```go
   	if err := cursor.All(ctx, &tenants); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode tenants")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:304` in `ExportTenantsCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:229` in `ListTenants`
+  ```go
+  	if planErr != nil {
+  		slog.Warn("ListTenants: failed to load plans for name lookup", "error", planErr)
+  	} else {
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:234` in `ListTenants`
+  ```go
+  		if err := planCursor.All(ctx, &plans); err != nil {
+  			slog.Warn("ListTenants: failed to decode plans", "error", err)
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:313` in `ExportTenantsCSV`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query tenants")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:311` in `ExportTenantsCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:320` in `ExportTenantsCSV`
   ```go
   	if err := cursor.All(ctx, &tenants); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode tenants")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:393` in `GetTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:354` in `ExportTenantsCSV`
+  ```go
+  	if planErr != nil {
+  		slog.Warn("ExportTenantsCSV: failed to load plans for name lookup", "error", planErr)
+  	} else {
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:359` in `ExportTenantsCSV`
+  ```go
+  		if err := planCursor.All(ctx, &plans); err != nil {
+  			slog.Warn("ExportTenantsCSV: failed to decode plans", "error", err)
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:404` in `ExportTenantsCSV`
+  ```go
+  	if err := writer.Error(); err != nil {
+  		slog.Error("ExportTenantsCSV: CSV writer error", "error", err)
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:412` in `GetTenant`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:406` in `GetTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:425` in `GetTenant`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch members")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:458` in `UpdateTenantStatus`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:477` in `UpdateTenantStatus`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:478` in `UpdateTenantStatus`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:497` in `UpdateTenantStatus`
   ```go
   	if err := decodeJSON(r, &req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:563` in `ListUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:582` in `ListUsers`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to count users")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:574` in `ListUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:593` in `ListUsers`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch users")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:581` in `ListUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:600` in `ListUsers`
   ```go
   	if err := cursor.All(ctx, &users); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode users")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:660` in `ExportUsersCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:679` in `ExportUsersCSV`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query users")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:667` in `ExportUsersCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:686` in `ExportUsersCSV`
   ```go
   	if err := cursor.All(ctx, &users); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode users")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:725` in `UpdateUserStatus`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:742` in `ExportUsersCSV`
+  ```go
+  	if err := writer.Error(); err != nil {
+  		slog.Error("ExportUsersCSV: CSV writer error", "error", err)
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:750` in `UpdateUserStatus`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:740` in `UpdateUserStatus`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:769` in `UpdateUserStatus`
   ```go
   	if err := decodeJSON(r, &req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:749` in `UpdateUserStatus`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:778` in `UpdateUserStatus`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "User not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:878` in `GetUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:836` in `GetDashboard`
+  ```go
+  			if cpuWarnErr != nil {
+  				slog.Warn("GetDashboard: invalid health.cpu.warning_threshold", "error", cpuWarnErr)
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:840` in `GetDashboard`
+  ```go
+  			if cpuCritErr != nil {
+  				slog.Warn("GetDashboard: invalid health.cpu.critical_threshold", "error", cpuCritErr)
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:844` in `GetDashboard`
+  ```go
+  			if memWarnErr != nil {
+  				slog.Warn("GetDashboard: invalid health.memory.warning_threshold", "error", memWarnErr)
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:848` in `GetDashboard`
+  ```go
+  			if memCritErr != nil {
+  				slog.Warn("GetDashboard: invalid health.memory.critical_threshold", "error", memCritErr)
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:852` in `GetDashboard`
+  ```go
+  			if diskWarnErr != nil {
+  				slog.Warn("GetDashboard: invalid health.disk.warning_threshold", "error", diskWarnErr)
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:856` in `GetDashboard`
+  ```go
+  			if diskCritErr != nil {
+  				slog.Warn("GetDashboard: invalid health.disk.critical_threshold", "error", diskCritErr)
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:937` in `GetUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:890` in `GetUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:949` in `GetUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:989` in `UpdateUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:964` in `GetUser`
+  ```go
+  	if planErr != nil {
+  		slog.Warn("GetUser: failed to load plans for name lookup", "error", planErr)
+  	} else {
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:969` in `GetUser`
+  ```go
+  		if err := planCursor.All(r.Context(), &allPlans); err != nil {
+  			slog.Warn("GetUser: failed to decode plans", "error", err)
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1053` in `UpdateUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1005` in `UpdateUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1073` in `UpdateUser`
   ```go
   	if err := decodeJSON(r, &req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1052` in `UpdateUserRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1099` in `UpdateUser`
+  ```go
+  			if err != nil {
+  				respondWithError(w, http.StatusInternalServerError, "Failed to check email uniqueness")
+  				return
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1131` in `UpdateUserRole`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1057` in `UpdateUserRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1136` in `UpdateUserRole`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1072` in `UpdateUserRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1155` in `UpdateUserRole`
   ```go
   	if err := decodeJSON(r, &req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1114` in `UpdateUserRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1197` in `UpdateUserRole`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Membership not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1136` in `PreflightDeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1223` in `PreflightDeleteUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1153` in `PreflightDeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1244` in `PreflightDeleteUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1158` in `PreflightDeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1249` in `PreflightDeleteUser`
   ```go
   	if err := cursor.All(ctx, &ownerships); err != nil {
-  		cursor.Close(ctx)
+  		_ = cursor.Close(ctx)
   		respondWithError(w, http.StatusInternalServerError, "Failed to read memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1248` in `DeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1342` in `DeleteUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1269` in `DeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1367` in `DeleteUser`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1281` in `DeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1379` in `DeleteUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1286` in `DeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1384` in `DeleteUser`
   ```go
   	if err := cursor.All(ctx, &memberships); err != nil {
-  		cursor.Close(ctx)
+  		_ = cursor.Close(ctx)
   		respondWithError(w, http.StatusInternalServerError, "Failed to read memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1312` in `DeleteUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1410` in `DeleteUser`
   ```go
   			if err != nil {
   				respondWithError(w, http.StatusBadRequest, "Invalid replacement owner ID")
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1390` in `UpdateTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1418` in `DeleteUser`
+  ```go
+  			if err != nil {
+  				respondWithError(w, http.StatusInternalServerError, "Failed to transfer ownership to replacement owner")
+  				return
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1434` in `DeleteUser`
+  ```go
+  			if err != nil {
+  				respondWithError(w, http.StatusInternalServerError, "Failed to count tenant members")
+  				return
+  			}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1512` in `UpdateTenant`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1401` in `UpdateTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1523` in `UpdateTenant`
   ```go
   	if err := decodeJSON(r, &req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1478` in `ImpersonateUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1607` in `ImpersonateUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1516` in `ImpersonateUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1645` in `ImpersonateUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate impersonation token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1539` in `ImpersonateUser`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1668` in `ImpersonateUser`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1584` in `ListRootMembers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1713` in `ListRootMembers`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Root tenant not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1591` in `ListRootMembers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1720` in `ListRootMembers`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch members")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1598` in `ListRootMembers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1727` in `ListRootMembers`
   ```go
   	if err := cursor.All(ctx, &memberships); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode members")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1666` in `InviteRootMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1795` in `InviteRootMember`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Root tenant not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1683` in `InviteRootMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1812` in `InviteRootMember`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1748` in `InviteRootMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1842` in `InviteRootMember`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check existing root tenant membership")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1859` in `InviteRootMember`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check existing root tenant invitations")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1885` in `InviteRootMember`
   ```go
   	if _, err := h.db.Invitations().InsertOne(ctx, invitation); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1758` in `InviteRootMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1895` in `InviteRootMember`
   ```go
   			if err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, rootTenant.Name, token); err != nil {
   				slog.Error("Failed to send root member invitation email", "to", req.Email, "error", err)
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1786` in `RemoveRootMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1923` in `RemoveRootMember`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Root tenant not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1798` in `RemoveRootMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1935` in `RemoveRootMember`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1853` in `ChangeRootMemberRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:1990` in `ChangeRootMemberRole`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Root tenant not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1870` in `ChangeRootMemberRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:2007` in `ChangeRootMemberRole`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1881` in `ChangeRootMemberRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:2018` in `ChangeRootMemberRole`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1899` in `ChangeRootMemberRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:2036` in `ChangeRootMemberRole`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Member not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1926` in `CancelRootInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:2063` in `CancelRootInvitation`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Root tenant not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1932` in `CancelRootInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:2069` in `CancelRootInvitation`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid invitation ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/admin.go:1942` in `CancelRootInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/admin.go:2079` in `CancelRootInvitation`
   ```go
   	if err != nil || result.DeletedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Invitation not found")
@@ -1899,86 +1849,86 @@
   	}
   ```
 
-### `internal/api/handlers/announcements.go`
+### `backend/internal/api/handlers/announcements.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:34` in `ListPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:34` in `ListPublic`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list announcements")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:41` in `ListPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:41` in `ListPublic`
   ```go
   	if err := cursor.All(r.Context(), &announcements); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode announcements")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:55` in `ListAll`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:55` in `ListAll`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list announcements")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:62` in `ListAll`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:62` in `ListAll`
   ```go
   	if err := cursor.All(r.Context(), &announcements); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode announcements")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:79` in `Create`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:79` in `Create`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:100` in `Create`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:100` in `Create`
   ```go
   	if err := validation.Validate(&ann); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:106` in `Create`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:106` in `Create`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create announcement")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:122` in `Update`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:122` in `Update`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid announcement ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:132` in `Update`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:132` in `Update`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:153` in `Update`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:153` in `Update`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Announcement not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:163` in `Delete`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:163` in `Delete`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid announcement ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/announcements.go:169` in `Delete`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/announcements.go:169` in `Delete`
   ```go
   	if err != nil || result.DeletedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Announcement not found")
@@ -1986,56 +1936,58 @@
   	}
   ```
 
-### `internal/api/handlers/apikeys.go`
+### `backend/internal/api/handlers/apikeys.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/apikeys.go:60` in `ListAPIKeys`
-  - _error explicitly discarded with `_`_
-  ```go
-  	total, _ := h.db.APIKeys().CountDocuments(r.Context(), bson.M{"isActive": true})
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:46` in `ListAPIKeys`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:46` in `ListAPIKeys`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list API keys")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:53` in `ListAPIKeys`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:53` in `ListAPIKeys`
   ```go
   	if err := cursor.All(r.Context(), &keys); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode API keys")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:70` in `CreateAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:61` in `ListAPIKeys`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count API keys")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:74` in `CreateAPIKey`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:118` in `CreateAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:122` in `CreateAPIKey`
   ```go
   	if err := validation.Validate(&apiKey); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:124` in `CreateAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:128` in `CreateAPIKey`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create API key")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:157` in `DeleteAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:161` in `DeleteAPIKey`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid key ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/apikeys.go:165` in `DeleteAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/apikeys.go:169` in `DeleteAPIKey`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "API key not found")
@@ -2043,63 +1995,63 @@
   	}
   ```
 
-### `internal/api/handlers/auth.go`
+### `backend/internal/api/handlers/auth.go`
 
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:105` in `generateTokenPair`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:105` in `generateTokenPair`
   ```go
   	if err != nil {
   		return
   	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:667` in `ForgotPassword`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:667` in `ForgotPassword`
   - _error explicitly discarded with `_`_
   ```go
   		if allowed, _, _ := h.rateLimiter.Allow("email:pwreset:"+req.Email, middleware.EmailPasswordResetLimit); !allowed {
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:696` in `ForgotPassword`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:696` in `ForgotPassword`
   - _statement-form call to known error-returning 'h.db.VerificationTokens().InsertOne()'_
   ```go
   	h.db.VerificationTokens().InsertOne(r.Context(), verification)
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:1162` in `MagicLinkRequest`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:1162` in `MagicLinkRequest`
   - _error explicitly discarded with `_`_
   ```go
   		if allowed, _, _ := h.rateLimiter.Allow("email:magiclink:"+req.Email, middleware.EmailMagicLinkLimit); !allowed {
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:1186` in `MagicLinkRequest`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:1186` in `MagicLinkRequest`
   - _statement-form call to known error-returning 'h.db.VerificationTokens().InsertOne()'_
   ```go
   	h.db.VerificationTokens().InsertOne(r.Context(), verification)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1294` in `createAuthCodeRedirect`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1294` in `createAuthCodeRedirect`
   ```go
   	if _, err := h.db.AuthCodes().InsertOne(r.Context(), authCode); err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=code_generation_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1381` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1381` in `GoogleOAuthCallback`
   ```go
   	if result.Err() != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1387` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1387` in `GoogleOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1393` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1393` in `GoogleOAuthCallback`
   ```go
   	if err != nil || !googleUser.VerifiedEmail {
   		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1403` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1403` in `GoogleOAuthCallback`
   ```go
   	if err != nil {
   		err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(googleUser.Email)}).Decode(&user)
@@ -2109,7 +2061,7 @@
   				ID:            primitive.NewObjectID(),
   ... (24 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1405` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1405` in `GoogleOAuthCallback`
   ```go
   		if err != nil {
   			isNewUser = true
@@ -2119,7 +2071,7 @@
   				DisplayName:   googleUser.GivenName,
   ... (16 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1419` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1419` in `GoogleOAuthCallback`
   ```go
   			if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
   				slog.Error("OAuth: failed to create user", "error", err)
@@ -2127,21 +2079,21 @@
   				return
   			}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1441` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1441` in `GoogleOAuthCallback`
   ```go
   		if err != nil {
   			http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
   			return
   		}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1450` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1450` in `GoogleOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1454` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1454` in `GoogleOAuthCallback`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2149,28 +2101,28 @@
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1514` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1514` in `GitHubOAuthCallback`
   ```go
   	if result.Err() != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1520` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1520` in `GitHubOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1526` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1526` in `GitHubOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1537` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1537` in `GitHubOAuthCallback`
   ```go
   	if err != nil {
   		err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(ghUser.Email)}).Decode(&user)
@@ -2180,7 +2132,7 @@
   			if displayName == "" {
   ... (33 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1539` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1539` in `GitHubOAuthCallback`
   ```go
   		if err != nil {
   			isNewUser = true
@@ -2190,7 +2142,7 @@
   			}
   ... (20 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1557` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1557` in `GitHubOAuthCallback`
   ```go
   			if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
   				slog.Error("OAuth: failed to create user", "error", err)
@@ -2198,21 +2150,21 @@
   				return
   			}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1583` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1583` in `GitHubOAuthCallback`
   ```go
   		if err != nil {
   			http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
   			return
   		}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1592` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1592` in `GitHubOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1596` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1596` in `GitHubOAuthCallback`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2220,28 +2172,28 @@
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1656` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1656` in `MicrosoftOAuthCallback`
   ```go
   	if result.Err() != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1662` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1662` in `MicrosoftOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1668` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1668` in `MicrosoftOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1684` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1684` in `MicrosoftOAuthCallback`
   ```go
   	if err != nil {
   		err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(userEmail)}).Decode(&user)
@@ -2251,7 +2203,7 @@
   			if displayName == "" {
   ... (33 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1686` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1686` in `MicrosoftOAuthCallback`
   ```go
   		if err != nil {
   			isNewUser = true
@@ -2261,7 +2213,7 @@
   			}
   ... (20 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1704` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1704` in `MicrosoftOAuthCallback`
   ```go
   			if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
   				slog.Error("OAuth: failed to create user", "error", err)
@@ -2269,21 +2221,21 @@
   				return
   			}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1730` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1730` in `MicrosoftOAuthCallback`
   ```go
   		if err != nil {
   			http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
   			return
   		}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1739` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1739` in `MicrosoftOAuthCallback`
   ```go
   	if err != nil {
   		http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
   		return
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1743` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1743` in `MicrosoftOAuthCallback`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2291,147 +2243,147 @@
   		return
   	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:1901` in `UpdatePreferences`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:1901` in `UpdatePreferences`
   - _statement-form call to known error-returning 'h.db.Users().UpdateOne()'_
   ```go
   	h.db.Users().UpdateOne(r.Context(), bson.M{"_id": user.ID}, bson.M{"$set": update})
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:1967` in `createPersonalTenant`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1967` in `createPersonalTenant`
   ```go
   	if _, err := h.db.Tenants().InsertOne(ctx, tenant); err != nil {
   		slog.Error("Failed to create personal tenant", "userId", userID.Hex(), "error", err)
   		return
   	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:2002` in `sendVerificationEmail`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2002` in `sendVerificationEmail`
   - _statement-form call to known error-returning 'h.db.VerificationTokens().InsertOne()'_
   ```go
   	h.db.VerificationTokens().InsertOne(ctx, verification)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:2025` in `getUserMemberships`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2025` in `getUserMemberships`
   ```go
   	if err != nil {
   		return nil
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:2031` in `getUserMemberships`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2031` in `getUserMemberships`
   ```go
   	if err := cursor.All(ctx, &memberships); err != nil {
   		return nil
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:2063` in `acceptInvitationForUser`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2063` in `acceptInvitationForUser`
   ```go
   	if err != nil {
   		return fmt.Errorf("invalid or expired invitation")
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:2085` in `acceptInvitationForUser`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2085` in `acceptInvitationForUser`
   ```go
   	if res.Err() != nil {
   		return fmt.Errorf("invitation already accepted")
   	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:2089` in `acceptInvitationForUser`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2089` in `acceptInvitationForUser`
   - _error explicitly discarded with `_`_
   ```go
   	count, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/auth.go:2105` in `acceptInvitationForUser`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2105` in `acceptInvitationForUser`
   ```go
   	if _, err := h.db.TenantMemberships().InsertOne(ctx, membership); err != nil {
   		return fmt.Errorf("failed to create membership")
   	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:2142` in `storeRefreshToken`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2142` in `storeRefreshToken`
   - _error explicitly discarded with `_`_
   ```go
   	activeCount, _ := database.RefreshTokens().CountDocuments(r.Context(), bson.M{
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:2229` in `DeleteAccount`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2229` in `DeleteAccount`
   - _statement-form call to known error-returning 'cursor.Close()'_
   ```go
   	cursor.Close(ctx)
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:2246` in `DeleteAccount`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2246` in `DeleteAccount`
   - _error explicitly discarded with `_`_
   ```go
   		otherCount, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:2317` in `ExportData`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2317` in `ExportData`
   - _error explicitly discarded with `_`_
   ```go
   	cursor, _ := h.db.TenantMemberships().Find(ctx, bson.M{"userId": user.ID})
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:2321` in `ExportData`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2321` in `ExportData`
   - _statement-form call to known error-returning 'cursor.Close()'_
   ```go
   		cursor.Close(ctx)
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/auth.go:2339` in `ExportData`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2339` in `ExportData`
   - _error explicitly discarded with `_`_
   ```go
   	msgCursor, _ := h.db.Messages().Find(ctx, bson.M{"userId": user.ID})
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:2343` in `ExportData`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2343` in `ExportData`
   - _statement-form call to known error-returning 'msgCursor.Close()'_
   ```go
   		msgCursor.Close(ctx)
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/auth.go:2382` in `ExportData`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2382` in `ExportData`
   - _statement-form call to known error-returning 'json.NewEncoder(w).Encode()'_
   ```go
   	json.NewEncoder(w).Encode(export)
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:195` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:195` in `Register`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:213` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:213` in `Register`
   ```go
   	if err := h.passwordService.ValidatePasswordStrength(req.Password); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:226` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:226` in `Register`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to process password")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:244` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:244` in `Register`
   ```go
   	if err := validation.Validate(&user); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:249` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:249` in `Register`
   ```go
   	if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create user")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:259` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:259` in `Register`
   ```go
   		if err := h.acceptInvitationForUser(r.Context(), user.ID, req.InvitationToken); err != nil {
   			slog.Error("Failed to accept invitation during registration", "error", err)
   		} else {
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:275` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:275` in `Register`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:279` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:279` in `Register`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2439,14 +2391,14 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:311` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:311` in `Login`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:342` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:342` in `Login`
   ```go
   	if err := h.passwordService.ComparePassword(user.PasswordHash, req.Password); err != nil {
   		// Atomic increment of failed attempts + conditional lock
@@ -2456,21 +2408,21 @@
   			"$or": []bson.M{
   ... (25 more lines)
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:393` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:393` in `Login`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:405` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:405` in `Login`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:409` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:409` in `Login`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2478,42 +2430,42 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:480` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:480` in `Refresh`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
   		respondWithError(w, http.StatusBadRequest, "Refresh token is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:486` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:486` in `Refresh`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusUnauthorized, "Invalid refresh token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:497` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:497` in `Refresh`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusUnauthorized, "Refresh token not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:522` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:522` in `Refresh`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusUnauthorized, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:534` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:534` in `Refresh`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:538` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:538` in `Refresh`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL, storedToken.FamilyID); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2521,160 +2473,160 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:578` in `VerifyEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:578` in `VerifyEmail`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
   		respondWithError(w, http.StatusBadRequest, "Token is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:596` in `VerifyEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:596` in `VerifyEmail`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid or expired verification token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:628` in `ResendVerification`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:628` in `ResendVerification`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
   		respondWithError(w, http.StatusBadRequest, "Email is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:658` in `ForgotPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:658` in `ForgotPassword`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
   		respondWithError(w, http.StatusBadRequest, "Email is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:703` in `ForgotPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:703` in `ForgotPassword`
   ```go
   			if err := h.emailService.SendPasswordResetEmail(user.Email, user.DisplayName, resetToken); err != nil {
   				slog.Error("Failed to send password reset email", "error", err)
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:712` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:712` in `ResetPassword`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:722` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:722` in `ResetPassword`
   ```go
   	if err := h.passwordService.ValidatePasswordStrength(req.NewPassword); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:741` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:741` in `ResetPassword`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid or expired reset token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:747` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:747` in `ResetPassword`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to process password")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:780` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:780` in `ChangePassword`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:790` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:790` in `ChangePassword`
   ```go
   	if err := h.passwordService.ValidatePasswordStrength(req.NewPassword); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:800` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:800` in `ChangePassword`
   ```go
   		if err := h.passwordService.ComparePassword(user.PasswordHash, req.CurrentPassword); err != nil {
   			respondWithError(w, http.StatusUnauthorized, "Current password is incorrect")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:807` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:807` in `ChangePassword`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to process password")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:863` in `MFASetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:863` in `MFASetup`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate MFA secret")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:870` in `MFASetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:870` in `MFASetup`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to secure MFA secret")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:898` in `MFAVerifySetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:898` in `MFAVerifySetup`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
   		respondWithError(w, http.StatusBadRequest, "Code is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:923` in `MFAVerifySetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:923` in `MFAVerifySetup`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate recovery codes")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:960` in `MFADisable`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:960` in `MFADisable`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
   		respondWithError(w, http.StatusBadRequest, "Code is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1010` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1010` in `MFAChallenge`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1020` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1020` in `MFAChallenge`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusUnauthorized, "Invalid or expired MFA token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1030` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1030` in `MFAChallenge`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusUnauthorized, "Invalid user")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1063` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1063` in `MFAChallenge`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1067` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1067` in `MFAChallenge`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2682,62 +2634,62 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1103` in `MFARegenerateRecoveryCodes`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1103` in `MFARegenerateRecoveryCodes`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
   		respondWithError(w, http.StatusBadRequest, "Code is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1125` in `MFARegenerateRecoveryCodes`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1125` in `MFARegenerateRecoveryCodes`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate recovery codes")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1154` in `MagicLinkRequest`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1154` in `MagicLinkRequest`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
   		respondWithError(w, http.StatusBadRequest, "Email is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1193` in `MagicLinkRequest`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1193` in `MagicLinkRequest`
   ```go
   			if err := h.emailService.SendMagicLinkEmail(user.Email, user.DisplayName, magicToken); err != nil {
   				slog.Error("Failed to send magic link email", "error", err)
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1209` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1209` in `MagicLinkVerify`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
   		respondWithError(w, http.StatusBadRequest, "Token is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1228` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1228` in `MagicLinkVerify`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1248` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1248` in `MagicLinkVerify`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1260` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1260` in `MagicLinkVerify`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1264` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1264` in `MagicLinkVerify`
   ```go
   	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
   		slog.Error("Failed to store refresh token", "error", err)
@@ -2745,21 +2697,21 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1307` in `ExchangeCode`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1307` in `ExchangeCode`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
   		respondWithError(w, http.StatusBadRequest, "Code is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1319` in `ExchangeCode`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1319` in `ExchangeCode`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusUnauthorized, "Invalid or expired code")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1353` in `GoogleOAuth`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1353` in `GoogleOAuth`
   ```go
   	if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
   		slog.Error("Failed to store OAuth state", "error", err)
@@ -2767,7 +2719,7 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1486` in `GitHubOAuth`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1486` in `GitHubOAuth`
   ```go
   	if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
   		slog.Error("Failed to store OAuth state", "error", err)
@@ -2775,7 +2727,7 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1628` in `MicrosoftOAuth`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1628` in `MicrosoftOAuth`
   ```go
   	if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
   		slog.Error("Failed to store OAuth state", "error", err)
@@ -2783,89 +2735,89 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1774` in `ListSessions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1774` in `ListSessions`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch sessions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1781` in `ListSessions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1781` in `ListSessions`
   ```go
   	if err := cursor.All(r.Context(), &tokens); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch sessions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1835` in `RevokeSession`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1835` in `RevokeSession`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid session ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1844` in `RevokeSession`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1844` in `RevokeSession`
   ```go
   	if err != nil || result.ModifiedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Session not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1887` in `UpdatePreferences`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1887` in `UpdatePreferences`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1936` in `AcceptInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1936` in `AcceptInvitation`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
   		respondWithError(w, http.StatusBadRequest, "Invitation token is required")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1941` in `AcceptInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1941` in `AcceptInvitation`
   ```go
   	if err := h.acceptInvitationForUser(r.Context(), user.ID, req.Token); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:1980` in `createPersonalTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1980` in `createPersonalTenant`
   ```go
   	if _, err := h.db.TenantMemberships().InsertOne(ctx, membership); err != nil {
   		slog.Error("Failed to create membership for personal tenant", "error", err)
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:2014` in `sendVerificationEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2014` in `sendVerificationEmail`
   ```go
   			if err := h.emailService.SendVerificationEmail(userEmail, displayName, verificationToken); err != nil {
   				slog.Error("Failed to send verification email", "to", userEmail, "error", err)
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:2197` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2197` in `DeleteAccount`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:2208` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2208` in `DeleteAccount`
   ```go
   		if err := h.passwordService.ComparePassword(user.PasswordHash, req.Password); err != nil {
   			respondWithError(w, http.StatusUnauthorized, "Incorrect password")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:2218` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2218` in `DeleteAccount`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to check memberships")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/auth.go:2223` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2223` in `DeleteAccount`
   ```go
   	if err := cursor.All(ctx, &memberships); err != nil {
   		cursor.Close(ctx)
@@ -2874,107 +2826,96 @@
   		return
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/auth.go:2180` in `storeRefreshToken`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2180` in `storeRefreshToken`
   ```go
   	if _, err := database.RefreshTokens().InsertOne(r.Context(), rt); err != nil {
   		return fmt.Errorf("failed to store refresh token: %w", err)
   	}
   ```
 
-### `internal/api/handlers/billing.go`
+### `backend/internal/api/handlers/billing.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:138` in `Checkout`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:139` in `Checkout`
   ```go
-  				memberCount, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{"tenantId": tenant.ID})
+  				if memberErr != nil {
+  					slog.Warn("Billing: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", memberErr)
+  					memberCount = 0
+  				}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:158` in `Checkout`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:163` in `Checkout`
   ```go
-  			memberCount, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{"tenantId": tenant.ID})
+  			if memberErr != nil {
+  				slog.Warn("Billing: failed to count tenant members for per-seat checkout", "tenantId", tenant.ID.Hex(), "error", memberErr)
+  				memberCount = 0
+  			}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:384` in `ListTransactions`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:393` in `ListTransactions`
   ```go
-  	page, _ := strconv.Atoi(q.Get("page"))
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:388` in `ListTransactions`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:397` in `ListTransactions`
   ```go
-  	perPage, _ := strconv.Atoi(q.Get("perPage"))
+  	if perPageErr != nil || perPage < 1 || perPage > 100 {
+  		perPage = 20
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:395` in `ListTransactions`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:613` in `GetInvoicePDF`
   ```go
-  	total, _ := h.db.FinancialTransactions().CountDocuments(ctx, filter)
+  	if _, err := w.Write(buf.Bytes()); err != nil {
+  		slog.Error("failed to write invoice PDF response", "transactionId", tx.ID.Hex(), "error", err)
+  		return
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/billing.go:601` in `GetInvoicePDF`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:709` in `AdminListTransactions`
   ```go
-  	w.Write(buf.Bytes())
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/billing.go:639` in `CancelSubscription`
-  - _statement-form call to known error-returning 'h.db.Tenants().UpdateOne()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:713` in `AdminListTransactions`
   ```go
-  	h.db.Tenants().UpdateOne(ctx, bson.M{"_id": tenant.ID}, bson.M{"$set": updates})
+  	if perPageErr != nil || perPage < 1 || perPage > 100 {
+  		perPage = 50
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:654` in `CancelSubscription`
-  - _error explicitly discarded with `_`_
-  ```go
-  		user, _ := middleware.GetUserFromContext(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:689` in `AdminListTransactions`
-  - _error explicitly discarded with `_`_
-  ```go
-  	page, _ := strconv.Atoi(q.Get("page"))
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:693` in `AdminListTransactions`
-  - _error explicitly discarded with `_`_
-  ```go
-  	perPage, _ := strconv.Atoi(q.Get("perPage"))
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:714` in `AdminListTransactions`
-  - _error explicitly discarded with `_`_
-  ```go
-  	total, _ := h.db.FinancialTransactions().CountDocuments(ctx, filter)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/billing.go:853` in `computeLiveRevenue`
-  - _error explicitly discarded with `_`_
-  ```go
-  	dayStart, _ := time.Parse("2006-01-02", dateStr)
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/billing.go:867` in `computeLiveRevenue`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:877` in `computeLiveRevenue`
   ```go
   	if err != nil {
+  		slog.Warn("computeLiveRevenue: failed to parse date string", "dateStr", dateStr, "error", err)
   		return 0
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/billing.go:902` in `computeLiveARR`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:894` in `computeLiveRevenue`
   ```go
   	if err != nil {
+  		slog.Warn("computeLiveRevenue: failed to aggregate financial transactions", "dateStr", dateStr, "error", err)
   		return 0
   	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/billing.go:972` in `AdminCancelSubscription`
-  - _statement-form call to known error-returning 'h.db.Tenants().UpdateOne()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/billing.go:930` in `computeLiveARR`
   ```go
-  		h.db.Tenants().UpdateOne(ctx, bson.M{"_id": tenantID}, bson.M{"$set": updates})
+  	if err != nil {
+  		slog.Warn("computeLiveARR: failed to aggregate active tenant subscriptions", "error", err)
+  		return 0
+  	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:72` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:72` in `Checkout`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:88` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:88` in `Checkout`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:177` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:185` in `Checkout`
   ```go
   			if err != nil {
   				slog.Error("Billing: failed to get/create customer", "error", err)
@@ -2982,7 +2923,7 @@
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:210` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:218` in `Checkout`
   ```go
   				if err != nil {
   					slog.Error("Billing: failed to create base price", "error", err)
@@ -2990,7 +2931,7 @@
   					return
   				}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:223` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:231` in `Checkout`
   ```go
   					if err != nil {
   						slog.Error("Billing: failed to create seat price", "error", err)
@@ -2998,7 +2939,7 @@
   						return
   					}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:245` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:253` in `Checkout`
   ```go
   			if err != nil {
   				slog.Error("Billing: failed to create checkout session", "error", err)
@@ -3006,7 +2947,7 @@
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:269` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:277` in `Checkout`
   ```go
   		if err != nil {
   			slog.Error("Billing: failed to get/create customer", "error", err)
@@ -3014,7 +2955,7 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:287` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:295` in `Checkout`
   ```go
   		if err != nil {
   			slog.Error("Billing: failed to create checkout session", "error", err)
@@ -3022,14 +2963,14 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:299` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:307` in `Checkout`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:316` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:324` in `Checkout`
   ```go
   		if err != nil {
   			slog.Error("Billing: failed to get/create customer", "error", err)
@@ -3037,7 +2978,7 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:332` in `Checkout`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:340` in `Checkout`
   ```go
   		if err != nil {
   			slog.Error("Billing: failed to create checkout session", "error", err)
@@ -3045,7 +2986,7 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:365` in `Portal`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:373` in `Portal`
   ```go
   	if err != nil {
   		slog.Error("Billing: failed to create portal session", "error", err)
@@ -3053,42 +2994,49 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:403` in `ListTransactions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:404` in `ListTransactions`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count transactions")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:415` in `ListTransactions`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch transactions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:410` in `ListTransactions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:422` in `ListTransactions`
   ```go
   	if err := cursor.All(ctx, &transactions); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode transactions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:436` in `GetInvoice`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:448` in `GetInvoice`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid transaction ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:465` in `GetInvoicePDF`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:477` in `GetInvoicePDF`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid transaction ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:593` in `GetInvoicePDF`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:605` in `GetInvoicePDF`
   ```go
   	if err := pdf.Output(&buf); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to generate PDF")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:624` in `CancelSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:639` in `CancelSubscription`
   ```go
   	if err != nil {
   		slog.Error("Billing: failed to cancel subscription", "error", err)
@@ -3096,49 +3044,56 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:722` in `AdminListTransactions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:734` in `AdminListTransactions`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count transactions")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:745` in `AdminListTransactions`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch transactions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:729` in `AdminListTransactions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:752` in `AdminListTransactions`
   ```go
   	if err := cursor.All(ctx, &transactions); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode transactions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:779` in `AdminGetMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:802` in `AdminGetMetrics`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch metrics")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:786` in `AdminGetMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:809` in `AdminGetMetrics`
   ```go
   	if err := cursor.All(ctx, &metrics); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode metrics")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:920` in `AdminCancelSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:949` in `AdminCancelSubscription`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:939` in `AdminCancelSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:968` in `AdminCancelSubscription`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:951` in `AdminCancelSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:980` in `AdminCancelSubscription`
   ```go
   		if err := h.stripe.CancelSubscriptionImmediately(ctx, tenant.StripeSubscriptionID); err != nil {
   			slog.Error("Admin: failed to cancel subscription immediately", "error", err)
@@ -3146,7 +3101,7 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:959` in `AdminCancelSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:988` in `AdminCancelSubscription`
   ```go
   		if err != nil {
   			slog.Error("Admin: failed to cancel subscription", "error", err)
@@ -3154,21 +3109,21 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:983` in `AdminUpdateSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:1016` in `AdminUpdateSubscription`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:991` in `AdminUpdateSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:1024` in `AdminUpdateSubscription`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/billing.go:1002` in `AdminUpdateSubscription`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:1035` in `AdminUpdateSubscription`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Tenant not found")
@@ -3176,180 +3131,184 @@
   	}
   ```
 
-### `internal/api/handlers/branding.go`
+### `backend/internal/api/handlers/branding.go`
 
-- **[HIGH] Missing error check** — `internal/api/handlers/branding.go:129` in `ServeAsset`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/branding.go:130` in `ServeAsset`
   ```go
-  	w.Write(asset.Data)
+  	if _, err := w.Write(asset.Data); err != nil {
+  		slog.Error("failed to write branding asset", "key", key, "error", err)
+  		return
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/branding.go:148` in `ServeMedia`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/branding.go:152` in `ServeMedia`
   ```go
-  	w.Write(asset.Data)
+  	if _, err := w.Write(asset.Data); err != nil {
+  		slog.Error("failed to write media asset", "id", key, "error", err)
+  		return
+  	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:48` in `GetBranding`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:49` in `GetBranding`
   ```go
   	} else if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to load branding config")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:122` in `ServeAsset`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:123` in `ServeAsset`
   ```go
   	} else if err != nil {
   		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:141` in `ServeMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:145` in `ServeMedia`
   ```go
   	} else if err != nil {
   		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:160` in `GetPublicPage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:167` in `GetPublicPage`
   ```go
   	} else if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to load page")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:176` in `ListPublicPages`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:183` in `ListPublicPages`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list pages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:181` in `ListPublicPages`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:188` in `ListPublicPages`
   ```go
   	if err := cursor.All(r.Context(), &pages); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode pages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:196` in `UpdateBranding`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:203` in `UpdateBranding`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid JSON")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:256` in `UpdateBranding`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:263` in `UpdateBranding`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to update branding config")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:267` in `UploadAsset`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:274` in `UploadAsset`
   ```go
   	if err := r.ParseMultipartForm(maxAssetSize); err != nil {
   		respondWithError(w, http.StatusBadRequest, "File too large (max 5MB)")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:279` in `UploadAsset`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:286` in `UploadAsset`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Missing file upload")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:286` in `UploadAsset`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:293` in `UploadAsset`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to read file")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:318` in `UploadAsset`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:325` in `UploadAsset`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to save asset")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:342` in `DeleteAsset`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:349` in `DeleteAsset`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to delete asset")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:362` in `ListMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:369` in `ListMedia`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list media")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:367` in `ListMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:374` in `ListMedia`
   ```go
   	if err := cursor.All(r.Context(), &assets); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode media")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:402` in `UploadMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:409` in `UploadMedia`
   ```go
   	if err := r.ParseMultipartForm(maxMediaSize); err != nil {
   		respondWithError(w, http.StatusBadRequest, "File too large (max 10MB)")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:408` in `UploadMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:415` in `UploadMedia`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Missing file upload")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:415` in `UploadMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:422` in `UploadMedia`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to read file")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:454` in `UploadMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:461` in `UploadMedia`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to save media")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:481` in `DeleteMedia`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:488` in `DeleteMedia`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to delete media")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:499` in `AdminListPages`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:506` in `AdminListPages`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list pages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:504` in `AdminListPages`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:511` in `AdminListPages`
   ```go
   	if err := cursor.All(r.Context(), &pages); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode pages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:517` in `CreatePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:524` in `CreatePage`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&page); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid JSON")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:537` in `CreatePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:544` in `CreatePage`
   ```go
   	if err != nil {
   		if mongo.IsDuplicateKeyError(err) {
@@ -3359,21 +3318,21 @@
   		respondWithError(w, http.StatusInternalServerError, "Failed to create page")
   ... (2 more lines)
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:553` in `UpdatePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:560` in `UpdatePage`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid page ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:559` in `UpdatePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:566` in `UpdatePage`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid JSON")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:584` in `UpdatePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:591` in `UpdatePage`
   ```go
   	if err != nil {
   		if mongo.IsDuplicateKeyError(err) {
@@ -3383,14 +3342,14 @@
   		respondWithError(w, http.StatusInternalServerError, "Failed to update page")
   ... (2 more lines)
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:604` in `DeletePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:611` in `DeletePage`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid page ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/branding.go:610` in `DeletePage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/branding.go:617` in `DeletePage`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to delete page")
@@ -3398,106 +3357,107 @@
   	}
   ```
 
-### `internal/api/handlers/bundles.go`
+### `backend/internal/api/handlers/bundles.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/bundles.go:75` in `ListBundles`
-  - _error explicitly discarded with `_`_
-  ```go
-  	total, _ := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/bundles.go:92` in `CreateBundle`
-  - _error explicitly discarded with `_`_
-  ```go
-  	count, _ := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{"name": req.Name})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/bundles.go:158` in `UpdateBundle`
-  - _error explicitly discarded with `_`_
-  ```go
-  		count, _ := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{"name": req.Name, "_id": bson.M{"$ne": bundleID}})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/bundles.go:184` in `UpdateBundle`
-  - _statement-form call to known error-returning 'h.db.CreditBundles().FindOne(r.Context(), bson.M{"_id": bundleID}).Decode()'_
-  ```go
-  	h.db.CreditBundles().FindOne(r.Context(), bson.M{"_id": bundleID}).Decode(&updated)
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:61` in `ListBundles`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:61` in `ListBundles`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list credit bundles")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:68` in `ListBundles`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:68` in `ListBundles`
   ```go
   	if err := cursor.All(r.Context(), &bundles); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode credit bundles")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:82` in `CreateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:76` in `ListBundles`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count credit bundles")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:86` in `CreateBundle`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:86` in `CreateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:90` in `CreateBundle`
   ```go
   	if err := validateBundleRequest(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:110` in `CreateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:97` in `CreateBundle`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check credit bundle name uniqueness")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:118` in `CreateBundle`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create credit bundle")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:131` in `UpdateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:139` in `UpdateBundle`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:147` in `UpdateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:155` in `UpdateBundle`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:151` in `UpdateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:159` in `UpdateBundle`
   ```go
   	if err := validateBundleRequest(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:174` in `UpdateBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:167` in `UpdateBundle`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check credit bundle name uniqueness")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:186` in `UpdateBundle`
   ```go
   	if _, err := h.db.CreditBundles().UpdateByID(r.Context(), bundleID, update); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to update credit bundle")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:191` in `DeleteBundle`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:206` in `DeleteBundle`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:222` in `ListBundlesPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:237` in `ListBundlesPublic`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list credit bundles")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/bundles.go:229` in `ListBundlesPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/bundles.go:244` in `ListBundlesPublic`
   ```go
   	if err := cursor.All(r.Context(), &bundles); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode credit bundles")
@@ -3505,70 +3465,65 @@
   	}
   ```
 
-### `internal/api/handlers/config.go`
+### `backend/internal/api/handlers/config.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/config.go:107` in `UpdateConfig`
-  - _error explicitly discarded with `_`_
-  ```go
-  	updated, _ := h.store.GetVar(name)
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:66` in `UpdateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:66` in `UpdateConfig`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:77` in `UpdateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:77` in `UpdateConfig`
   ```go
   	if err := configstore.ValidateValue(v.Type, req.Value, effectiveOptions); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:95` in `UpdateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:95` in `UpdateConfig`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to update config variable")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:100` in `UpdateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:100` in `UpdateConfig`
   ```go
   	if err := h.store.Reload(r.Context(), name); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Updated but failed to reload cache")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:120` in `CreateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:124` in `CreateConfig`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:134` in `CreateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:138` in `CreateConfig`
   ```go
   	if err := configstore.ValidateValue(req.Type, req.Value, req.Options); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:158` in `CreateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:162` in `CreateConfig`
   ```go
   	if _, err := h.db.ConfigVars().InsertOne(r.Context(), v); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create config variable")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:163` in `CreateConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:167` in `CreateConfig`
   ```go
   	if err := h.store.Reload(r.Context(), req.Name); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Created but failed to reload cache")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/config.go:194` in `DeleteConfig`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/config.go:198` in `DeleteConfig`
   ```go
   	if err := h.store.Load(r.Context()); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Deleted but failed to reload cache")
@@ -3576,123 +3531,131 @@
   	}
   ```
 
-### `internal/api/handlers/docs.go`
+### `backend/internal/api/handlers/docs.go`
 
-- **[HIGH] Missing error check** — `internal/api/handlers/docs.go:1102` in `DocsHTML`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/docs.go:1103` in `DocsHTML`
   ```go
-  	w.Write([]byte(sb.String()))
+  	if _, err := w.Write([]byte(sb.String())); err != nil {
+  		slog.Error("failed to write HTML docs response", "error", err)
+  		return
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/docs.go:1177` in `DocsMarkdown`
-  - _statement-form call to known error-returning 'w.Write()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/docs.go:1181` in `DocsMarkdown`
   ```go
-  	w.Write([]byte(sb.String()))
+  	if _, err := w.Write([]byte(sb.String())); err != nil {
+  		slog.Error("failed to write markdown docs response", "error", err)
+  		return
+  	}
   ```
 
-### `internal/api/handlers/event_definitions.go`
+### `backend/internal/api/handlers/event_definitions.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/event_definitions.go:134` in `CreateEventDefinition`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/event_definitions.go:464` in `wouldCreateCycle`
   ```go
-  	count, _ := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"name": req.Name})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/event_definitions.go:156` in `CreateEventDefinition`
-  - _error explicitly discarded with `_`_
-  ```go
-  		count, _ := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"_id": parentID})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/event_definitions.go:210` in `UpdateEventDefinition`
-  - _error explicitly discarded with `_`_
-  ```go
-  		count, _ := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"name": req.Name, "_id": bson.M{"$ne": defID}})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/event_definitions.go:236` in `UpdateEventDefinition`
-  - _error explicitly discarded with `_`_
-  ```go
-  		count, _ := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"_id": parentID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/event_definitions.go:261` in `UpdateEventDefinition`
-  - _statement-form call to known error-returning 'h.db.EventDefinitions().FindOne(ctx, bson.M{"_id": defID}).Decode()'_
-  ```go
-  	h.db.EventDefinitions().FindOne(ctx, bson.M{"_id": defID}).Decode(&updated)
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/event_definitions.go:444` in `wouldCreateCycle`
-  ```go
-  		if err != nil || parent.ParentID == nil {
+  		if err != nil {
+  			slog.Warn("failed to look up parent during cycle check", "id", current, "error", err)
   			return false
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:50` in `ListEventDefinitions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:51` in `ListEventDefinitions`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list event definitions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:57` in `ListEventDefinitions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:58` in `ListEventDefinitions`
   ```go
   	if err := cursor.All(ctx, &defs); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode event definitions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:114` in `CreateEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:115` in `CreateEventDefinition`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:151` in `CreateEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:136` in `CreateEventDefinition`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check event definition name uniqueness")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:156` in `CreateEventDefinition`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusBadRequest, "Invalid parent ID")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:164` in `CreateEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:162` in `CreateEventDefinition`
+  ```go
+  		if pErr != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to verify parent event definition")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:173` in `CreateEventDefinition`
   ```go
   	if _, err := h.db.EventDefinitions().InsertOne(ctx, def); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create event definition")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:176` in `UpdateEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:185` in `UpdateEventDefinition`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid definition ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:182` in `UpdateEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:191` in `UpdateEventDefinition`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:227` in `UpdateEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:220` in `UpdateEventDefinition`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check event definition name uniqueness")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:240` in `UpdateEventDefinition`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusBadRequest, "Invalid parent ID")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:268` in `DeleteEventDefinition`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:250` in `UpdateEventDefinition`
+  ```go
+  		if pErr != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to verify parent event definition")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:288` in `DeleteEventDefinition`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid definition ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:302` in `GetSankeyData`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:322` in `GetSankeyData`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to load event definitions")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/event_definitions.go:309` in `GetSankeyData`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/event_definitions.go:329` in `GetSankeyData`
   ```go
   	if err := cursor.All(ctx, &allDefs); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode event definitions")
@@ -3700,40 +3663,40 @@
   	}
   ```
 
-### `internal/api/handlers/health.go`
+### `backend/internal/api/handlers/health.go`
 
-- **[HIGH] Swallowed error** — `internal/api/handlers/health.go:135` in `SendTestEmail`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/health.go:136` in `SendTestEmail`
   ```go
   	if err := h.emailService.SendEmail(req.To, subject, body); err != nil {
+  		slog.Error("failed to send test email", "to", req.To, "error", err)
   		respondWithJSON(w, http.StatusOK, map[string]interface{}{
   			"success": false,
   			"error":   err.Error(),
   		})
-  		return
-  ... (1 more lines)
+  ... (2 more lines)
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/health.go:30` in `ListNodes`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/health.go:31` in `ListNodes`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list nodes")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/health.go:58` in `GetMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/health.go:59` in `GetMetrics`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query metrics")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/health.go:75` in `GetCurrent`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/health.go:76` in `GetCurrent`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to get current metrics")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/health.go:116` in `SendTestEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/health.go:117` in `SendTestEmail`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
@@ -3741,122 +3704,127 @@
   	}
   ```
 
-### `internal/api/handlers/helpers.go`
+### `backend/internal/api/handlers/helpers.go`
 
-- **[HIGH] Missing error check** — `internal/api/handlers/helpers.go:25` in `respondWithJSON`
-  - _statement-form call to known error-returning 'json.NewEncoder(w).Encode()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/helpers.go:26` in `respondWithJSON`
   ```go
-  	json.NewEncoder(w).Encode(payload)
+  	if err := json.NewEncoder(w).Encode(payload); err != nil {
+  		slog.Error("failed to encode JSON response", "error", err)
+  	}
   ```
-- **[MEDIUM] Panic on error** — `internal/api/handlers/helpers.go:34` in `generateRandomToken`
+- **[MEDIUM] Panic on error** — `backend/internal/api/handlers/helpers.go:37` in `generateRandomToken`
   ```go
   	if _, err := rand.Read(b); err != nil {
   		panic("crypto/rand failed: " + err.Error())
   	}
   ```
 
-### `internal/api/handlers/logs.go`
+### `backend/internal/api/handlers/logs.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/logs.go:93` in `ListLogs`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/logs.go:95` in `ListLogs`
   ```go
-  	page, _ := strconv.Atoi(q.Get("page"))
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/logs.go:97` in `ListLogs`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/logs.go:99` in `ListLogs`
   ```go
-  	perPage, _ := strconv.Atoi(q.Get("perPage"))
+  	if perPageErr != nil || perPage < 1 || perPage > 100 {
+  		perPage = 50
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/logs.go:206` in `ExportCSV`
-  - _statement-form call to known error-returning 'writer.Write()'_
-  ```go
-  	writer.Write([]string{"Timestamp", "Severity", "Category", "Message", "UserID", "TenantID", "Action"})
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/logs.go:210` in `ExportCSV`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/logs.go:214` in `ExportCSV`
   ```go
   		if err := cursor.Decode(&log); err != nil {
+  			slog.Warn("failed to decode log row during CSV export", "error", err)
   			continue
   		}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/logs.go:231` in `ExportCSV`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/logs.go:236` in `ExportCSV`
   - _statement-form call to known error-returning 'writer.Flush()'_
   ```go
   	writer.Flush()
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/logs.go:114` in `ListLogs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:115` in `ListLogs`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to count logs")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/logs.go:125` in `ListLogs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:126` in `ListLogs`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query logs")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/logs.go:132` in `ListLogs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:133` in `ListLogs`
   ```go
   	if err := cursor.All(ctx, &logs); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to read logs")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/logs.go:156` in `SeverityCounts`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:157` in `SeverityCounts`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to aggregate severity counts")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/logs.go:167` in `SeverityCounts`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:168` in `SeverityCounts`
   ```go
   	if err := cursor.All(r.Context(), &results); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to read severity counts")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/logs.go:196` in `ExportCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:197` in `ExportCSV`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to query logs")
   		return
   	}
   ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:237` in `ExportCSV`
+  ```go
+  	if err := writer.Error(); err != nil {
+  		slog.Error("CSV writer error during log export", "error", err)
+  	}
+  ```
 
-### `internal/api/handlers/messages.go`
+### `backend/internal/api/handlers/messages.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/messages.go:38` in `ListMessages`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/messages.go:38` in `ListMessages`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch messages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/messages.go:45` in `ListMessages`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/messages.go:45` in `ListMessages`
   ```go
   	if err := cursor.All(r.Context(), &messages); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode messages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/messages.go:66` in `UnreadCount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/messages.go:66` in `UnreadCount`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to count messages")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/messages.go:83` in `MarkRead`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/messages.go:83` in `MarkRead`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid message ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/messages.go:91` in `MarkRead`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/messages.go:91` in `MarkRead`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Message not found")
@@ -3864,204 +3832,199 @@
   	}
   ```
 
-### `internal/api/handlers/openapi.go`
+### `backend/internal/api/handlers/openapi.go`
 
-- **[HIGH] Missing error check** — `internal/api/handlers/openapi.go:166` in `DocsOpenAPI`
-  - _statement-form call to known error-returning 'json.Unmarshal()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/openapi.go:216` in `DocsOpenAPI`
   ```go
-  				json.Unmarshal([]byte(ep.Body), &bodyExample)
+  	if err := enc.Encode(spec); err != nil {
+  		slog.Error("failed to encode OpenAPI spec response", "error", err)
+  		return
+  	}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/openapi.go:180` in `DocsOpenAPI`
-  - _statement-form call to known error-returning 'json.Unmarshal()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/openapi.go:167` in `DocsOpenAPI`
   ```go
-  				json.Unmarshal([]byte(ep.Response), &respExample)
+  				if err := json.Unmarshal([]byte(ep.Body), &bodyExample); err != nil {
+  					slog.Warn("OpenAPI: failed to parse body example", "path", path, "method", method, "error", err)
+  				}
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/openapi.go:211` in `DocsOpenAPI`
-  - _statement-form call to known error-returning 'enc.Encode()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/openapi.go:183` in `DocsOpenAPI`
   ```go
-  	enc.Encode(spec)
+  				if err := json.Unmarshal([]byte(ep.Response), &respExample); err != nil {
+  					slog.Warn("OpenAPI: failed to parse response example", "path", path, "method", method, "error", err)
+  				}
   ```
 
-### `internal/api/handlers/plans.go`
+### `backend/internal/api/handlers/plans.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/plans.go:93` in `ListPlans`
-  - _error explicitly discarded with `_`_
-  ```go
-  	total, _ := h.db.Plans().CountDocuments(ctx, bson.M{})
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/plans.go:139` in `ListEntitlementKeys`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/plans.go:143` in `ListEntitlementKeys`
   ```go
   		if err := cursor.Decode(&plan); err != nil {
+  			slog.Warn("failed to decode plan during entitlement key scan", "error", err)
   			continue
   		}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/plans.go:248` in `CreatePlan`
-  - _error explicitly discarded with `_`_
-  ```go
-  	count, _ := h.db.Plans().CountDocuments(r.Context(), bson.M{"name": req.Name})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/plans.go:341` in `UpdatePlan`
-  - _error explicitly discarded with `_`_
-  ```go
-  		count, _ := h.db.Plans().CountDocuments(r.Context(), bson.M{"name": req.Name, "_id": bson.M{"$ne": planID}})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/plans.go:391` in `UpdatePlan`
-  - _statement-form call to known error-returning 'h.db.Plans().FindOne(r.Context(), bson.M{"_id": planID}).Decode()'_
-  ```go
-  	h.db.Plans().FindOne(r.Context(), bson.M{"_id": planID}).Decode(&updated)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/plans.go:392` in `UpdatePlan`
-  - _error explicitly discarded with `_`_
-  ```go
-  	subCount, _ := h.db.Tenants().CountDocuments(r.Context(), bson.M{"planId": planID})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/plans.go:440` in `DeletePlan`
-  - _error explicitly discarded with `_`_
-  ```go
-  	tenantCount, _ := h.db.Tenants().CountDocuments(r.Context(), bson.M{"planId": planID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/plans.go:481` in `ArchivePlan`
-  - _statement-form call to known error-returning 'h.db.Plans().UpdateByID()'_
-  ```go
-  	h.db.Plans().UpdateByID(r.Context(), planID, bson.M{"$set": bson.M{"isArchived": true, "updatedAt": time.Now()}})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/plans.go:513` in `UnarchivePlan`
-  - _statement-form call to known error-returning 'h.db.Plans().UpdateByID()'_
-  ```go
-  	h.db.Plans().UpdateByID(r.Context(), planID, bson.M{"$set": bson.M{"isArchived": false, "updatedAt": time.Now()}})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/plans.go:684` in `ListPlansPublic`
-  - _error explicitly discarded with `_`_
-  ```go
-  	memberCount, _ := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:49` in `ListPlans`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:49` in `ListPlans`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list plans")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:56` in `ListPlans`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:56` in `ListPlans`
   ```go
   	if err := cursor.All(ctx, &plans); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode plans")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:100` in `GetPlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:94` in `ListPlans`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count plans")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:104` in `GetPlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:120` in `ListEntitlementKeys`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:124` in `ListEntitlementKeys`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list plans")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:238` in `CreatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:243` in `CreatePlan`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:242` in `CreatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:247` in `CreatePlan`
   ```go
   	if err := validatePlanRequest(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:281` in `CreatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:254` in `CreatePlan`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check plan name uniqueness")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:290` in `CreatePlan`
   ```go
   	if err := validation.Validate(&plan); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:287` in `CreatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:296` in `CreatePlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create plan")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:308` in `UpdatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:317` in `UpdatePlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:324` in `UpdatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:333` in `UpdatePlan`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:328` in `UpdatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:337` in `UpdatePlan`
   ```go
   	if err := validatePlanRequest(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:380` in `UpdatePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:351` in `UpdatePlan`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check plan name uniqueness")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:393` in `UpdatePlan`
   ```go
   	if _, err := h.db.Plans().UpdateByID(r.Context(), planID, update); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to update plan")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:420` in `DeletePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:409` in `UpdatePlan`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count plan subscribers")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:440` in `DeletePlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:461` in `ArchivePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:461` in `DeletePlan`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count tenants using plan")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:485` in `ArchivePlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:493` in `UnarchivePlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:520` in `UnarchivePlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:530` in `AssignPlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:560` in `AssignPlan`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:539` in `AssignPlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:569` in `AssignPlan`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:563` in `AssignPlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:593` in `AssignPlan`
   ```go
   			if err != nil {
   				respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:622` in `AssignPlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:652` in `AssignPlan`
   ```go
   				if err := h.stripe.CancelSubscriptionImmediately(ctx, tenant.StripeSubscriptionID); err != nil {
   					slog.Error("AssignPlan: failed to cancel subscription", "tenant", tenant.Name, "error", err)
@@ -4069,28 +4032,35 @@
   					return
   				}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:641` in `AssignPlan`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:671` in `AssignPlan`
   ```go
   	if _, err := h.db.Tenants().UpdateByID(ctx, tenantID, update); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to assign plan")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:667` in `ListPlansPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:697` in `ListPlansPublic`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:704` in `ListPlansPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:718` in `ListPlansPublic`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to verify tenant membership")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:738` in `ListPlansPublic`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list plans")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/plans.go:711` in `ListPlansPublic`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/plans.go:745` in `ListPlansPublic`
   ```go
   	if err := cursor.All(r.Context(), &plans); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode plans")
@@ -4098,44 +4068,44 @@
   	}
   ```
 
-### `internal/api/handlers/pm.go`
+### `backend/internal/api/handlers/pm.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/pm.go:50` in `GetFunnel`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/pm.go:50` in `GetFunnel`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to compute funnel metrics")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/pm.go:70` in `GetRetention`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/pm.go:70` in `GetRetention`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to compute retention data")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/pm.go:85` in `GetEngagement`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/pm.go:85` in `GetEngagement`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to compute engagement metrics")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/pm.go:95` in `GetKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/pm.go:95` in `GetKPIs`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to compute KPIs")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/pm.go:107` in `GetCustomEvents`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/pm.go:107` in `GetCustomEvents`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to compute custom event data")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/pm.go:117` in `ListEventTypes`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/pm.go:117` in `ListEventTypes`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list event types")
@@ -4143,41 +4113,23 @@
   	}
   ```
 
-### `internal/api/handlers/promotions.go`
+### `backend/internal/api/handlers/promotions.go`
 
-- **[HIGH] Swallowed error** — `internal/api/handlers/promotions.go:116` in `buildProductNameMap`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/promotions.go:116` in `buildProductNameMap`
   ```go
   	if err != nil {
+  		slog.Warn("failed to find stripe mappings for product name map", "error", err)
   		return nameMap
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/promotions.go:122` in `buildProductNameMap`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/promotions.go:123` in `buildProductNameMap`
   ```go
   	if err := cursor.All(ctx, &mappings); err != nil {
+  		slog.Warn("failed to decode stripe mappings for product name map", "error", err)
   		return nameMap
   	}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/promotions.go:144` in `buildProductNameMap`
-  - _error explicitly discarded with `_`_
-  ```go
-  		cur, _ := h.db.Plans().Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/promotions.go:151` in `buildProductNameMap`
-  - _statement-form call to known error-returning 'cur.Close()'_
-  ```go
-  			cur.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/promotions.go:162` in `buildProductNameMap`
-  - _error explicitly discarded with `_`_
-  ```go
-  		cur, _ := h.db.CreditBundles().Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/promotions.go:169` in `buildProductNameMap`
-  - _statement-form call to known error-returning 'cur.Close()'_
-  ```go
-  			cur.Close(ctx)
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:91` in `ListPromotions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:91` in `ListPromotions`
   ```go
   	if err := iter.Err(); err != nil {
   		slog.Error("Promotions: list error", "error", err)
@@ -4185,49 +4137,61 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:195` in `ListEligibleProducts`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:147` in `buildProductNameMap`
+  ```go
+  		if err != nil {
+  			slog.Warn("failed to find plans for product name map", "error", err)
+  		} else {
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:167` in `buildProductNameMap`
+  ```go
+  		if err != nil {
+  			slog.Warn("failed to find bundles for product name map", "error", err)
+  		} else {
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:201` in `ListEligibleProducts`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list plans")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:209` in `ListEligibleProducts`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:215` in `ListEligibleProducts`
   ```go
   	if err := planCursor.All(ctx, &plans); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to read plans")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:221` in `ListEligibleProducts`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:227` in `ListEligibleProducts`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list bundles")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:228` in `ListEligibleProducts`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:234` in `ListEligibleProducts`
   ```go
   	if err := bundleCursor.All(ctx, &bundles); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to read bundles")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:258` in `CreatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:264` in `CreatePromotion`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:283` in `CreatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:289` in `CreatePromotion`
   ```go
   			if err != nil {
   				respondWithError(w, http.StatusBadRequest, "Invalid product ID: "+item.ID)
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:289` in `CreatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:295` in `CreatePromotion`
   ```go
   			if err != nil {
   				slog.Warn("Failed to resolve Stripe product", "type", item.Type, "id", item.ID, "error", err)
@@ -4235,7 +4199,7 @@
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:325` in `CreatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:331` in `CreatePromotion`
   ```go
   	if err != nil {
   		slog.Error("Promotions: coupon create error", "error", err)
@@ -4243,14 +4207,14 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:343` in `CreatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:349` in `CreatePromotion`
   ```go
   		if err != nil {
   			respondWithError(w, http.StatusBadRequest, "Invalid expiration date format (use YYYY-MM-DD)")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:354` in `CreatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:360` in `CreatePromotion`
   ```go
   	if err != nil {
   		slog.Error("Promotions: promo code create error", "error", err)
@@ -4258,14 +4222,14 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:453` in `UpdatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:459` in `UpdatePromotion`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:468` in `UpdatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:474` in `UpdatePromotion`
   ```go
   		if err != nil {
   			slog.Error("Promotions: coupon update error", "error", err)
@@ -4273,7 +4237,7 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:481` in `UpdatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:487` in `UpdatePromotion`
   ```go
   		if err != nil {
   			slog.Error("Promotions: promo code update error", "error", err)
@@ -4281,14 +4245,14 @@
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:496` in `DeactivatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:502` in `DeactivatePromotion`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/promotions.go:509` in `DeactivatePromotion`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/promotions.go:515` in `DeactivatePromotion`
   ```go
   	if err != nil {
   		slog.Error("Promotions: deactivate error", "error", err)
@@ -4296,67 +4260,57 @@
   		return
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/promotions.go:406` in `resolveStripeProducts`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/promotions.go:412` in `resolveStripeProducts`
   ```go
   			if err != nil {
   				return nil, err
   			}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/promotions.go:427` in `resolveStripeProducts`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/promotions.go:433` in `resolveStripeProducts`
   ```go
   		if err != nil {
   			return nil, err
   		}
   ```
 
-### `internal/api/handlers/telemetry.go`
+### `backend/internal/api/handlers/telemetry.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/telemetry.go:113` in `TrackAuthenticated`
-  - _error explicitly discarded with `_`_
-  ```go
-  	tenant, _ := middleware.GetTenantFromContext(r.Context())
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/telemetry.go:167` in `TrackBatch`
-  - _error explicitly discarded with `_`_
-  ```go
-  	tenant, _ := middleware.GetTenantFromContext(r.Context())
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/telemetry.go:68` in `TrackAnonymous`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/telemetry.go:68` in `TrackAnonymous`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/telemetry.go:97` in `TrackAnonymous`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/telemetry.go:97` in `TrackAnonymous`
   ```go
   	if err := h.telemetry.Track(r.Context(), event); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to track event")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/telemetry.go:119` in `TrackAuthenticated`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/telemetry.go:119` in `TrackAuthenticated`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/telemetry.go:151` in `TrackAuthenticated`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/telemetry.go:151` in `TrackAuthenticated`
   ```go
   	if err := h.telemetry.Track(r.Context(), event); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to track event")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/telemetry.go:175` in `TrackBatch`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/telemetry.go:175` in `TrackBatch`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/telemetry.go:220` in `TrackBatch`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/telemetry.go:220` in `TrackBatch`
   ```go
   	if err := h.telemetry.TrackBatch(r.Context(), events); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to track events")
@@ -4364,181 +4318,167 @@
   	}
   ```
 
-### `internal/api/handlers/tenant.go`
+### `backend/internal/api/handlers/tenant.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:172` in `InviteMember`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/tenant.go:272` in `InviteMember`
   ```go
-  		count, _ := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{
+  		if err != nil {
+  			slog.Warn("InviteMember: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", err)
+  			memberCount = 0
+  		}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:183` in `InviteMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  	count, _ := h.db.Invitations().CountDocuments(r.Context(), bson.M{
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/tenant.go:197` in `InviteMember`
-  - _statement-form call to known error-returning 'h.db.Plans().FindOne(r.Context(), bson.M{"_id": *tenant.PlanID}).Decode()'_
-  ```go
-  		h.db.Plans().FindOne(r.Context(), bson.M{"_id": *tenant.PlanID}).Decode(&tenantPlan)
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/tenant.go:199` in `InviteMember`
-  - _statement-form call to known error-returning 'h.db.Plans().FindOne(r.Context(), bson.M{"isSystem": true}).Decode()'_
-  ```go
-  		h.db.Plans().FindOne(r.Context(), bson.M{"isSystem": true}).Decode(&tenantPlan)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:224` in `InviteMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  		memberCount, _ := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{"tenantId": tenant.ID})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:225` in `InviteMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  		pendingCount, _ := h.db.Invitations().CountDocuments(r.Context(), bson.M{
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/tenant.go:232` in `InviteMember`
-  - _statement-form call to known error-returning 'h.db.Invitations().DeleteOne()'_
-  ```go
-  			h.db.Invitations().DeleteOne(r.Context(), bson.M{"_id": invitation.ID})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:249` in `InviteMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  		memberCount, _ := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{"tenantId": tenant.ID})
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/tenant.go:254` in `InviteMember`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/tenant.go:280` in `InviteMember`
   ```go
   		if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {
   			slog.Error("Failed to update seat quantity", "tenantId", tenant.ID.Hex(), "error", err)
   		} else {
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/tenant.go:257` in `InviteMember`
-  - _statement-form call to known error-returning 'h.db.Tenants().UpdateOne()'_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/tenant.go:374` in `RemoveMember`
   ```go
-  			h.db.Tenants().UpdateOne(r.Context(), bson.M{"_id": tenant.ID}, bson.M{"$set": bson.M{"seatQuantity": newSeats, "updatedAt": time.Now()}})
+  			if err != nil {
+  				slog.Warn("RemoveMember: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", err)
+  				memberCount = 0
+  			}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:345` in `RemoveMember`
-  - _error explicitly discarded with `_`_
-  ```go
-  			memberCount, _ := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{"tenantId": tenant.ID})
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/tenant.go:353` in `RemoveMember`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/tenant.go:385` in `RemoveMember`
   ```go
   			if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {
   				slog.Error("Failed to update seat quantity", "tenant", tenant.ID.Hex(), "error", err)
   			} else {
   ```
-- **[HIGH] Missing error check** — `internal/api/handlers/tenant.go:356` in `RemoveMember`
-  - _statement-form call to known error-returning 'h.db.Tenants().UpdateOne()'_
-  ```go
-  				h.db.Tenants().UpdateOne(r.Context(), bson.M{"_id": tenant.ID}, bson.M{"$set": bson.M{"seatQuantity": newSeats, "updatedAt": time.Now()}})
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:474` in `TransferOwnership`
-  - _error explicitly discarded with `_`_
-  ```go
-  	count, _ := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/tenant.go:568` in `GetActivity`
-  - _error explicitly discarded with `_`_
-  ```go
-  	total, _ := h.db.SystemLogs().CountDocuments(r.Context(), filter)
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/tenant.go:600` in `UpdateTenantSettings`
-  - _statement-form call to known error-returning 'h.db.Tenants().UpdateOne()'_
-  ```go
-  	h.db.Tenants().UpdateOne(r.Context(), bson.M{"_id": tenant.ID}, bson.M{"$set": updates})
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:75` in `ListMembers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:75` in `ListMembers`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch members")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:82` in `ListMembers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:82` in `ListMembers`
   ```go
   	if err := cursor.All(r.Context(), &memberships); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode members")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:142` in `InviteMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:142` in `InviteMember`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:219` in `InviteMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:176` in `InviteMember`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check existing membership")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:193` in `InviteMember`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check existing invitations")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:231` in `InviteMember`
   ```go
   		if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {
   			respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:241` in `InviteMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:237` in `InviteMember`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to count tenant members")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:246` in `InviteMember`
+  ```go
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to count pending invitations")
+  			return
+  		}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:263` in `InviteMember`
   ```go
   		if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {
   			respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:267` in `InviteMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:295` in `InviteMember`
   ```go
   			if err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, tenant.Name, token); err != nil {
   				slog.Error("Failed to send invitation email", "to", req.Email, "error", err)
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:303` in `RemoveMember`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:331` in `RemoveMember`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:396` in `ChangeRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:430` in `ChangeRole`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:408` in `ChangeRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:442` in `ChangeRole`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:426` in `ChangeRole`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:460` in `ChangeRole`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Member not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:463` in `TransferOwnership`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:497` in `TransferOwnership`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:556` in `GetActivity`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:512` in `TransferOwnership`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to verify target membership")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:594` in `GetActivity`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to fetch activity")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:563` in `GetActivity`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:601` in `GetActivity`
   ```go
   	if err := cursor.All(r.Context(), &logs); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode activity")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/tenant.go:590` in `UpdateTenantSettings`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:607` in `GetActivity`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count activity logs")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:632` in `UpdateTenantSettings`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
@@ -4546,102 +4486,84 @@
   	}
   ```
 
-### `internal/api/handlers/usage.go`
+### `backend/internal/api/handlers/usage.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/usage.go:46` in `RecordUsage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/usage.go:46` in `RecordUsage`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		http.Error(w, `{"error":"Invalid request body"}`, http.StatusBadRequest)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/usage.go:75` in `RecordUsage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/usage.go:75` in `RecordUsage`
   ```go
   	if err := validation.Validate(&event); err != nil {
   		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/usage.go:81` in `RecordUsage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/usage.go:81` in `RecordUsage`
   ```go
   	if err != nil {
   		http.Error(w, `{"error":"Failed to start session"}`, http.StatusInternalServerError)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/usage.go:124` in `RecordUsage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/usage.go:124` in `RecordUsage`
   ```go
   	if txErr != nil {
   		http.Error(w, `{"error":"Failed to deduct credits"}`, http.StatusInternalServerError)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/usage.go:170` in `GetSummary`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/usage.go:170` in `GetSummary`
   ```go
   	if err != nil {
   		http.Error(w, `{"error":"Failed to aggregate usage"}`, http.StatusInternalServerError)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/usage.go:183` in `GetSummary`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/usage.go:183` in `GetSummary`
   ```go
   	if err := cursor.All(ctx, &items); err != nil {
   		http.Error(w, `{"error":"Failed to read usage data"}`, http.StatusInternalServerError)
   		return
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/usage.go:94` in `RecordUsage`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/usage.go:94` in `RecordUsage`
   ```go
   		if err != nil {
   			return nil, err
   		}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/usage.go:104` in `RecordUsage`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/usage.go:104` in `RecordUsage`
   ```go
   			if err != nil {
   				return nil, err
   			}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/usage.go:114` in `RecordUsage`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/usage.go:114` in `RecordUsage`
   ```go
   		if _, err := h.db.UsageEvents().InsertOne(sc, event); err != nil {
   			return nil, err
   		}
   ```
 
-### `internal/api/handlers/webhook.go`
+### `backend/internal/api/handlers/webhook.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhook.go:152` in `handleCheckoutCompleted`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/webhook.go:498` in `handleInvoicePaymentFailed`
   ```go
-  	tenantID, _ := primitive.ObjectIDFromHex(session.Metadata["tenantId"])
+  	if cursorErr != nil {
+  		slog.Warn("Webhook: failed to find tenant memberships for failed-payment notification", "tenantId", tenant.ID.Hex(), "error", cursorErr)
+  	} else {
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhook.go:153` in `handleCheckoutCompleted`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/webhook.go:502` in `handleInvoicePaymentFailed`
   ```go
-  	userID, _ := primitive.ObjectIDFromHex(session.Metadata["userId"])
+  		if err := cursor.All(ctx, &memberships); err != nil {
+  			slog.Warn("Webhook: failed to decode tenant memberships for failed-payment notification", "tenantId", tenant.ID.Hex(), "error", err)
+  		}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhook.go:191` in `handleCheckoutCompleted`
-  - _error explicitly discarded with `_`_
-  ```go
-  		planID, _ := primitive.ObjectIDFromHex(planIDStr)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhook.go:304` in `handleCheckoutCompleted`
-  - _error explicitly discarded with `_`_
-  ```go
-  		bundleID, _ := primitive.ObjectIDFromHex(bundleIDStr)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhook.go:480` in `handleInvoicePaymentFailed`
-  - _error explicitly discarded with `_`_
-  ```go
-  	cursor, _ := h.db.TenantMemberships().Find(ctx, bson.M{"tenantId": tenant.ID})
-  ```
-- **[HIGH] Missing error check** — `internal/api/handlers/webhook.go:484` in `handleInvoicePaymentFailed`
-  - _statement-form call to known error-returning 'cursor.Close()'_
-  ```go
-  		cursor.Close(ctx)
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/webhook.go:785` in `recordTransaction`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/webhook.go:805` in `recordTransaction`
   ```go
   	if err != nil {
   		slog.Error("Failed to generate invoice number", "error", err)
@@ -4650,22 +4572,14 @@
   		invoiceNum = fmt.Sprintf("INV-ERR-%d-%s", time.Now().UnixNano(), hex.EncodeToString(randBytes))
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/webhook.go:860` in `extractInstanceFromEvent`
-  ```go
-  	if err := json.Unmarshal(event.Data.Raw, &obj); err == nil && obj.Metadata != nil {
-  		if inst, ok := obj.Metadata["instance"]; ok {
-  			return inst, true
-  		}
-  	}
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhook.go:53` in `HandleWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhook.go:53` in `HandleWebhook`
   ```go
   	if err != nil {
   		http.Error(w, "read error", http.StatusBadRequest)
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhook.go:59` in `HandleWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhook.go:59` in `HandleWebhook`
   ```go
   	if err != nil {
   		slog.Error("Webhook signature verification failed", "error", err)
@@ -4673,7 +4587,7 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhook.go:130` in `HandleWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhook.go:130` in `HandleWebhook`
   ```go
   	if processingErr != nil {
   		slog.Error("Webhook: processing failed, removing idempotency record for retry", "eventId", event.ID, "error", processingErr)
@@ -4682,62 +4596,96 @@
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhook.go:821` in `recordTransaction`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhook.go:841` in `recordTransaction`
   ```go
   	if _, err := h.db.FinancialTransactions().InsertOne(ctx, tx); err != nil {
   		slog.Error("Failed to record transaction", "error", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:147` in `handleCheckoutCompleted`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhook.go:880` in `extractInstanceFromEvent`
+  ```go
+  	if err := json.Unmarshal(event.Data.Raw, &obj); err != nil {
+  		slog.Warn("Webhook: failed to unmarshal event data for instance extraction", "error", err)
+  	} else if obj.Metadata != nil {
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:147` in `handleCheckoutCompleted`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
   		slog.Error("Webhook: failed to unmarshal checkout session", "error", err)
   		return fmt.Errorf("unmarshal checkout session: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:352` in `handleInvoicePaid`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:153` in `handleCheckoutCompleted`
+  ```go
+  	if err != nil {
+  		slog.Error("Webhook: invalid tenantId in session metadata", "raw", session.Metadata["tenantId"], "error", err)
+  		return fmt.Errorf("invalid tenantId in session metadata: %w", err)
+  	}
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:158` in `handleCheckoutCompleted`
+  ```go
+  	if err != nil {
+  		slog.Error("Webhook: invalid userId in session metadata", "raw", session.Metadata["userId"], "error", err)
+  		return fmt.Errorf("invalid userId in session metadata: %w", err)
+  	}
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:200` in `handleCheckoutCompleted`
+  ```go
+  		if err != nil {
+  			slog.Error("Webhook: invalid planId in session metadata", "raw", planIDStr, "error", err)
+  			return fmt.Errorf("invalid planId in session metadata: %w", err)
+  		}
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:317` in `handleCheckoutCompleted`
+  ```go
+  		if err != nil {
+  			slog.Error("Webhook: invalid bundleId in session metadata", "raw", bundleIDStr, "error", err)
+  			return fmt.Errorf("invalid bundleId in session metadata: %w", err)
+  		}
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:368` in `handleInvoicePaid`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
   		slog.Error("Webhook: failed to unmarshal invoice", "error", err)
   		return fmt.Errorf("unmarshal invoice: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:452` in `handleInvoicePaymentFailed`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:468` in `handleInvoicePaymentFailed`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
   		slog.Error("Webhook: failed to unmarshal invoice", "error", err)
   		return fmt.Errorf("unmarshal invoice: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:525` in `handleSubscriptionUpdated`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:545` in `handleSubscriptionUpdated`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
   		slog.Error("Webhook: failed to unmarshal subscription", "error", err)
   		return fmt.Errorf("unmarshal subscription: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:587` in `handleSubscriptionDeleted`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:607` in `handleSubscriptionDeleted`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
   		slog.Error("Webhook: failed to unmarshal subscription", "error", err)
   		return fmt.Errorf("unmarshal subscription: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:645` in `handleChargeRefunded`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:665` in `handleChargeRefunded`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &charge); err != nil {
   		slog.Error("Webhook: failed to unmarshal charge", "error", err)
   		return fmt.Errorf("unmarshal charge: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:691` in `handleDisputeCreated`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:711` in `handleDisputeCreated`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &dispute); err != nil {
   		slog.Error("Webhook: failed to unmarshal dispute", "error", err)
   		return fmt.Errorf("unmarshal dispute: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhook.go:737` in `handleDisputeClosed`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhook.go:757` in `handleDisputeClosed`
   ```go
   	if err := json.Unmarshal(event.Data.Raw, &dispute); err != nil {
   		slog.Error("Webhook: failed to unmarshal dispute", "error", err)
@@ -4745,700 +4693,690 @@
   	}
   ```
 
-### `internal/api/handlers/webhooks.go`
+### `backend/internal/api/handlers/webhooks.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhooks.go:70` in `ListWebhooks`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/webhooks.go:75` in `ListWebhooks`
   ```go
-  		count, _ := h.db.WebhookDeliveries().CountDocuments(ctx, bson.M{
+  		if err != nil {
+  			slog.Warn("failed to count webhook deliveries", "webhookId", hook.ID, "error", err)
+  			count = 0
+  		}
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/api/handlers/webhooks.go:83` in `ListWebhooks`
-  - _error explicitly discarded with `_`_
-  ```go
-  	total, _ := h.db.Webhooks().CountDocuments(ctx, bson.M{"isActive": true})
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/webhooks.go:106` in `GetWebhook`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/webhooks.go:115` in `GetWebhook`
   ```go
   	if err != nil {
+  		slog.Error("failed to query webhook deliveries", "webhookId", whID, "error", err)
   		respondWithJSON(w, http.StatusOK, map[string]interface{}{
   			"webhook":    hook,
   			"deliveries": []models.WebhookDelivery{},
   		})
-  		return
-  ... (1 more lines)
+  ... (2 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/webhooks.go:116` in `GetWebhook`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/webhooks.go:126` in `GetWebhook`
   ```go
   	if err := cursor.All(r.Context(), &deliveries); err != nil {
+  		slog.Warn("failed to decode webhook deliveries", "webhookId", whID, "error", err)
   		deliveries = []models.WebhookDelivery{}
   	}
   ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/webhooks.go:138` in `validateWebhookURL`
-  ```go
-  	if err != nil {
-  		return fmt.Errorf("invalid URL format")
-  	}
-  ```
-- **[HIGH] Swallowed error** — `internal/api/handlers/webhooks.go:154` in `validateWebhookURL`
-  ```go
-  	if err != nil {
-  		// If DNS fails, check if host is already an IP
-  		ip := net.ParseIP(host)
-  		if ip == nil {
-  			return fmt.Errorf("cannot resolve hostname")
-  		}
-  ... (2 more lines)
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:45` in `ListWebhooks`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:46` in `ListWebhooks`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to list webhooks")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:52` in `ListWebhooks`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:53` in `ListWebhooks`
   ```go
   	if err := cursor.All(ctx, &hooks); err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to decode webhooks")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:90` in `GetWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:89` in `ListWebhooks`
+  ```go
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count webhooks")
+  		return
+  	}
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:99` in `GetWebhook`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid webhook ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:214` in `CreateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:225` in `CreateWebhook`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:219` in `CreateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:230` in `CreateWebhook`
   ```go
   	if err := validateWebhookRequest(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:241` in `CreateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:252` in `CreateWebhook`
   ```go
   			if err != nil {
   				respondWithError(w, http.StatusInternalServerError, "Failed to secure webhook secret")
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:263` in `CreateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:274` in `CreateWebhook`
   ```go
   	if err := validation.Validate(&hook); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:269` in `CreateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:280` in `CreateWebhook`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusInternalServerError, "Failed to create webhook")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:288` in `UpdateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:299` in `UpdateWebhook`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid webhook ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:294` in `UpdateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:305` in `UpdateWebhook`
   ```go
   	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid request body")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:299` in `UpdateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:310` in `UpdateWebhook`
   ```go
   	if err := validateWebhookRequest(&req); err != nil {
   		respondWithError(w, http.StatusBadRequest, err.Error())
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:318` in `UpdateWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:329` in `UpdateWebhook`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Webhook not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:340` in `DeleteWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:351` in `DeleteWebhook`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid webhook ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:348` in `DeleteWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:359` in `DeleteWebhook`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Webhook not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:363` in `RegenerateSecret`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:374` in `RegenerateSecret`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid webhook ID")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:374` in `RegenerateSecret`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:385` in `RegenerateSecret`
   ```go
   			if err != nil {
   				respondWithError(w, http.StatusInternalServerError, "Failed to secure webhook secret")
   				return
   			}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:389` in `RegenerateSecret`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:400` in `RegenerateSecret`
   ```go
   	if err != nil || result.MatchedCount == 0 {
   		respondWithError(w, http.StatusNotFound, "Webhook not found")
   		return
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/api/handlers/webhooks.go:404` in `TestWebhook`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/webhooks.go:415` in `TestWebhook`
   ```go
   	if err != nil {
   		respondWithError(w, http.StatusBadRequest, "Invalid webhook ID")
   		return
   	}
   ```
-- **[LOW] Proper handling** — `internal/api/handlers/webhooks.go:197` in `validateWebhookRequest`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhooks.go:149` in `validateWebhookURL`
+  ```go
+  	if err != nil {
+  		return fmt.Errorf("invalid URL format: %w", err)
+  	}
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhooks.go:165` in `validateWebhookURL`
+  ```go
+  	if err != nil {
+  		// If DNS fails, check if host is already an IP
+  		ip := net.ParseIP(host)
+  		if ip == nil {
+  			return fmt.Errorf("cannot resolve hostname: %w", err)
+  		}
+  ... (2 more lines)
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/webhooks.go:208` in `validateWebhookRequest`
   ```go
   	if err := validateWebhookURL(req.URL); err != nil {
   		return err
   	}
   ```
 
-### `internal/apierror/apierror.go`
+### `backend/internal/apierror/apierror.go`
 
-- **[HIGH] Missing error check** — `internal/apierror/apierror.go:58` in `Write`
-  - _statement-form call to known error-returning 'json.NewEncoder(w).Encode()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/apierror/apierror.go:59` in `Write`
   ```go
-  	json.NewEncoder(w).Encode(resp)
-  ```
-
-### `internal/auth/github_oauth.go`
-
-- **[HIGH] Swallowed error** — `internal/auth/github_oauth.go:48` in `ExchangeCode`
-  ```go
-  	if err != nil {
-  		return nil, ErrOAuthCodeExchange
-  	}
-  ```
-- **[HIGH] Swallowed error** — `internal/auth/github_oauth.go:58` in `GetUserInfo`
-  ```go
-  	if err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
-  ```
-- **[HIGH] Swallowed error** — `internal/auth/github_oauth.go:64` in `GetUserInfo`
-  ```go
-  	if err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
-  ```
-- **[HIGH] Swallowed error** — `internal/auth/github_oauth.go:69` in `GetUserInfo`
-  ```go
-  	if err := json.Unmarshal(data, &userInfo); err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/auth/github_oauth.go:90` in `getPrimaryEmail`
-  ```go
-  	if err != nil {
-  		return "", err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/auth/github_oauth.go:96` in `getPrimaryEmail`
-  ```go
-  	if err != nil {
-  		return "", err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/auth/github_oauth.go:101` in `getPrimaryEmail`
-  ```go
-  	if err := json.Unmarshal(data, &emails); err != nil {
-  		return "", err
-  	}
+          if err := json.NewEncoder(w).Encode(resp); err != nil {
+                  slog.Warn("apierror: failed to encode error response", "code", code, "error", err)
+          }
   ```
 
-### `internal/auth/google_oauth.go`
+### `backend/internal/auth/github_oauth.go`
 
-- **[HIGH] Swallowed error** — `internal/auth/google_oauth.go:53` in `ExchangeCode`
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:48` in `ExchangeCode`
   ```go
-  	if err != nil {
-  		return nil, ErrOAuthCodeExchange
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthCodeExchange, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/google_oauth.go:62` in `GetUserInfo`
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:58` in `GetUserInfo`
   ```go
-  	if err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/google_oauth.go:68` in `GetUserInfo`
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:64` in `GetUserInfo`
   ```go
-  	if err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/google_oauth.go:73` in `GetUserInfo`
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:69` in `GetUserInfo`
   ```go
-  	if err := json.Unmarshal(data, &userInfo); err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
+          if err := json.Unmarshal(data, &userInfo); err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-
-### `internal/auth/jwt.go`
-
-- **[HIGH] Swallowed error** — `internal/auth/jwt.go:137` in `ValidateAccessToken`
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:90` in `getPrimaryEmail`
   ```go
-  	if err != nil {
-  		if errors.Is(err, jwt.ErrTokenExpired) {
-  			return nil, ErrExpiredToken
-  		}
-  		return nil, ErrInvalidToken
-  	}
+          if err != nil {
+                  return "", err
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/jwt.go:157` in `ValidateRefreshToken`
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:96` in `getPrimaryEmail`
   ```go
-  	if err != nil {
-  		if errors.Is(err, jwt.ErrTokenExpired) {
-  			return nil, ErrExpiredToken
-  		}
-  		return nil, ErrInvalidToken
-  	}
+          if err != nil {
+                  return "", err
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/auth/github_oauth.go:101` in `getPrimaryEmail`
+  ```go
+          if err := json.Unmarshal(data, &emails); err != nil {
+                  return "", err
+          }
   ```
 
-### `internal/auth/microsoft_oauth.go`
+### `backend/internal/auth/google_oauth.go`
 
-- **[HIGH] Swallowed error** — `internal/auth/microsoft_oauth.go:48` in `ExchangeCode`
+- **[LOW] Proper handling** — `backend/internal/auth/google_oauth.go:54` in `ExchangeCode`
   ```go
-  	if err != nil {
-  		return nil, ErrOAuthCodeExchange
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthCodeExchange, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/microsoft_oauth.go:57` in `GetUserInfo`
+- **[LOW] Proper handling** — `backend/internal/auth/google_oauth.go:63` in `GetUserInfo`
   ```go
-  	if err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/microsoft_oauth.go:63` in `GetUserInfo`
+- **[LOW] Proper handling** — `backend/internal/auth/google_oauth.go:69` in `GetUserInfo`
   ```go
-  	if err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/microsoft_oauth.go:68` in `GetUserInfo`
+- **[LOW] Proper handling** — `backend/internal/auth/google_oauth.go:74` in `GetUserInfo`
   ```go
-  	if err := json.Unmarshal(data, &userInfo); err != nil {
-  		return nil, ErrOAuthUserInfo
-  	}
-  ```
-
-### `internal/auth/password.go`
-
-- **[HIGH] Ignored error (`_`)** — `internal/auth/password.go:44` in `init`
-  - _error explicitly discarded with `_`_
-  ```go
-  	h, _ := bcrypt.GenerateFromPassword([]byte("dummy-timing-safe"), bcryptCost)
-  ```
-- **[LOW] Proper handling** — `internal/auth/password.go:63` in `HashPassword`
-  ```go
-  	if err != nil {
-  		return "", err
-  	}
+          if err := json.Unmarshal(data, &userInfo); err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
 
-### `internal/auth/totp.go`
+### `backend/internal/auth/jwt.go`
 
-- **[HIGH] Swallowed error** — `internal/auth/totp.go:67` in `DecryptSecret`
+- **[LOW] Proper handling** — `backend/internal/auth/jwt.go:138` in `ValidateAccessToken`
   ```go
-  	if err != nil {
-  		return stored
-  	}
+          if err != nil {
+                  if errors.Is(err, jwt.ErrTokenExpired) {
+                          return nil, fmt.Errorf("%w: %v", ErrExpiredToken, err)
+                  }
+                  return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/auth/totp.go:71` in `DecryptSecret`
+- **[LOW] Proper handling** — `backend/internal/auth/jwt.go:158` in `ValidateRefreshToken`
   ```go
-  	if err != nil {
-  		return stored
-  	}
-  ```
-- **[HIGH] Swallowed error** — `internal/auth/totp.go:75` in `DecryptSecret`
-  ```go
-  	if err != nil {
-  		return stored
-  	}
-  ```
-- **[HIGH] Swallowed error** — `internal/auth/totp.go:84` in `DecryptSecret`
-  ```go
-  	if err != nil {
-  		return stored // decryption failed — may be corrupted
-  	}
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/auth/totp.go:134` in `ValidateCodeWithWindow`
-  - _error explicitly discarded with `_`_
-  ```go
-  	valid, _ := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
-  ```
-- **[LOW] Proper handling** — `internal/auth/totp.go:42` in `EncryptSecret`
-  ```go
-  	if err != nil {
-  		return "", fmt.Errorf("create cipher: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/auth/totp.go:46` in `EncryptSecret`
-  ```go
-  	if err != nil {
-  		return "", fmt.Errorf("create GCM: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/auth/totp.go:50` in `EncryptSecret`
-  ```go
-  	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-  		return "", fmt.Errorf("generate nonce: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/auth/totp.go:110` in `GenerateRecoveryCodes`
-  ```go
-  		if _, err := rand.Read(b); err != nil {
-  			return nil, nil, fmt.Errorf("failed to generate recovery code: %w", err)
-  		}
+          if err != nil {
+                  if errors.Is(err, jwt.ErrTokenExpired) {
+                          return nil, fmt.Errorf("%w: %v", ErrExpiredToken, err)
+                  }
+                  return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+          }
   ```
 
-### `internal/config/config.go`
+### `backend/internal/auth/microsoft_oauth.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/config/config.go:97` in `LoadEnvFile`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/internal/auth/microsoft_oauth.go:49` in `ExchangeCode`
   ```go
-  	dir, _ := os.Getwd()
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthCodeExchange, err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/config/config.go:136` in `Load`
+- **[LOW] Proper handling** — `backend/internal/auth/microsoft_oauth.go:58` in `GetUserInfo`
   ```go
-  	if err != nil {
-  		return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/config/config.go:143` in `Load`
+- **[LOW] Proper handling** — `backend/internal/auth/microsoft_oauth.go:64` in `GetUserInfo`
   ```go
-  	if err := yaml.Unmarshal([]byte(configStr), &cfg); err != nil {
-  		return nil, fmt.Errorf("failed to parse config file: %w", err)
-  	}
+          if err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/config/config.go:149` in `Load`
+- **[LOW] Proper handling** — `backend/internal/auth/microsoft_oauth.go:69` in `GetUserInfo`
   ```go
-  	if err := cfg.validate(); err != nil {
-  		return nil, fmt.Errorf("config validation failed: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/config/config.go:183` in `validate`
-  ```go
-  	if _, err := url.Parse(c.Frontend.URL); err != nil {
-  		return fmt.Errorf("frontend.url is not a valid URL: %w", err)
-  	}
+          if err := json.Unmarshal(data, &userInfo); err != nil {
+                  return nil, fmt.Errorf("%w: %v", ErrOAuthUserInfo, err)
+          }
   ```
 
-### `internal/configstore/seed.go`
+### `backend/internal/auth/password.go`
 
-- **[HIGH] Swallowed error** — `internal/configstore/seed.go:384` in `Seed`
+- **[LOW] Proper handling** — `backend/internal/auth/password.go:46` in `init`
   ```go
-  			if _, insertErr := col.InsertOne(ctx, def); insertErr != nil {
-  				return insertErr
-  			}
+          if err != nil {
+                  log.Fatalf("failed to generate dummy bcrypt hash: %v", err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/configstore/seed.go:388` in `Seed`
+- **[LOW] Proper handling** — `backend/internal/auth/password.go:67` in `HashPassword`
   ```go
-  		} else if err != nil {
-  			return err
-  		}
+          if err != nil {
+                  return "", err
+          }
   ```
 
-### `internal/configstore/store.go`
+### `backend/internal/auth/totp.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/configstore/store.go:128` in `StartAutoReload`
+- **[HIGH] Swallowed error** — `backend/internal/auth/totp.go:68` in `DecryptSecret`
+  ```go
+          if err != nil {
+                  slog.Warn("totp: failed to base64-decode secret", "error", err)
+                  return stored
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/auth/totp.go:73` in `DecryptSecret`
+  ```go
+          if err != nil {
+                  slog.Warn("totp: failed to create AES cipher", "error", err)
+                  return stored
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/auth/totp.go:78` in `DecryptSecret`
+  ```go
+          if err != nil {
+                  slog.Warn("totp: failed to create GCM", "error", err)
+                  return stored
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/auth/totp.go:88` in `DecryptSecret`
+  ```go
+          if err != nil {
+                  slog.Warn("totp: failed to decrypt secret (may be corrupted)", "error", err)
+                  return stored // decryption failed — may be corrupted
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/auth/totp.go:145` in `ValidateCodeWithWindow`
+  ```go
+          if err != nil {
+                  slog.Warn("totp: ValidateCustom failed", "error", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/auth/totp.go:43` in `EncryptSecret`
+  ```go
+          if err != nil {
+                  return "", fmt.Errorf("create cipher: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/auth/totp.go:47` in `EncryptSecret`
+  ```go
+          if err != nil {
+                  return "", fmt.Errorf("create GCM: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/auth/totp.go:51` in `EncryptSecret`
+  ```go
+          if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+                  return "", fmt.Errorf("generate nonce: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/auth/totp.go:115` in `GenerateRecoveryCodes`
+  ```go
+                  if _, err := rand.Read(b); err != nil {
+                          return nil, nil, fmt.Errorf("failed to generate recovery code: %w", err)
+                  }
+  ```
+
+### `backend/internal/config/config.go`
+
+- **[MEDIUM] Logged only (no return)** — `backend/internal/config/config.go:99` in `LoadEnvFile`
+  ```go
+          if err != nil {
+                  slog.Warn("config: failed to get cwd, will not search for .env file", "error", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/config/config.go:140` in `Load`
+  ```go
+          if err != nil {
+                  return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/config/config.go:147` in `Load`
+  ```go
+          if err := yaml.Unmarshal([]byte(configStr), &cfg); err != nil {
+                  return nil, fmt.Errorf("failed to parse config file: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/config/config.go:153` in `Load`
+  ```go
+          if err := cfg.validate(); err != nil {
+                  return nil, fmt.Errorf("config validation failed: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/config/config.go:187` in `validate`
+  ```go
+          if _, err := url.Parse(c.Frontend.URL); err != nil {
+                  return fmt.Errorf("frontend.url is not a valid URL: %w", err)
+          }
+  ```
+
+### `backend/internal/configstore/seed.go`
+
+- **[LOW] Proper handling** — `backend/internal/configstore/seed.go:384` in `Seed`
+  ```go
+                          if _, err := col.InsertOne(ctx, def); err != nil {
+                                  return err
+                          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/configstore/seed.go:388` in `Seed`
+  ```go
+                  } else if err != nil {
+                          return err
+                  }
+  ```
+
+### `backend/internal/configstore/store.go`
+
+- **[MEDIUM] Logged only (no return)** — `backend/internal/configstore/store.go:128` in `StartAutoReload`
   ```go
   				if err := s.Load(ctx); err != nil {
   					slog.Warn("configstore: auto-reload failed", "error", err)
   				}
   ```
-- **[LOW] Proper handling** — `internal/configstore/store.go:35` in `Load`
+- **[LOW] Proper handling** — `backend/internal/configstore/store.go:35` in `Load`
   ```go
   	if err != nil {
   		return err
   	}
   ```
-- **[LOW] Proper handling** — `internal/configstore/store.go:41` in `Load`
+- **[LOW] Proper handling** — `backend/internal/configstore/store.go:41` in `Load`
   ```go
   	if err := cursor.All(ctx, &vars); err != nil {
   		return err
   	}
   ```
-- **[LOW] Proper handling** — `internal/configstore/store.go:94` in `Set`
+- **[LOW] Proper handling** — `backend/internal/configstore/store.go:94` in `Set`
   ```go
   	if err != nil {
   		return err
   	}
   ```
-- **[LOW] Proper handling** — `internal/configstore/store.go:107` in `Reload`
+- **[LOW] Proper handling** — `backend/internal/configstore/store.go:107` in `Reload`
   ```go
   	if err != nil {
   		return err
   	}
   ```
 
-### `internal/configstore/validate.go`
+### `backend/internal/configstore/validate.go`
 
-- **[LOW] Proper handling** — `internal/configstore/validate.go:30` in `ValidateValue`
+- **[LOW] Proper handling** — `backend/internal/configstore/validate.go:30` in `ValidateValue`
   ```go
   		if _, err := strconv.ParseFloat(value, 64); err != nil {
   			return fmt.Errorf("invalid numeric value: %w", err)
   		}
   ```
-- **[LOW] Proper handling** — `internal/configstore/validate.go:73` in `ValidateEnumValue`
+- **[LOW] Proper handling** — `backend/internal/configstore/validate.go:73` in `ValidateEnumValue`
   ```go
   	if err := json.Unmarshal([]byte(optionsJSON), &strOpts); err != nil {
   		return fmt.Errorf("invalid options JSON: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/configstore/validate.go:86` in `validateTemplate`
+- **[LOW] Proper handling** — `backend/internal/configstore/validate.go:86` in `validateTemplate`
   ```go
   	if _, err := template.New("check").Parse(value); err != nil {
   		return fmt.Errorf("invalid template syntax: %w", err)
   	}
   ```
 
-### `internal/datadog/client.go`
+### `backend/internal/datadog/client.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/datadog/client.go:98` in `New`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/datadog/client.go:140` in `resolveHostname`
   ```go
-  		machineID, _ = os.Hostname()
+          if err != nil {
+                  slog.Warn("datadog: failed to get hostname", "error", err)
+                  return "unknown"
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/datadog/client.go:135` in `resolveHostname`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/datadog/client.go:434` in `metricsFlushLoop`
   ```go
-  	h, _ := os.Hostname()
+                  if err := c.submitMetrics(buf); err != nil {
+                          slog.Warn("datadog: metrics flush failed, will retry", "count", len(buf), "error", err)
+                          return false
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/datadog/client.go:400` in `Validate`
-  - _statement-form call to known error-returning 'io.Copy()'_
+- **[HIGH] Swallowed error** — `backend/internal/datadog/client.go:515` in `logsFlushLoop`
   ```go
-  	io.Copy(io.Discard, resp.Body)
+                  if err := c.submitLogs(buf); err != nil {
+                          slog.Warn("datadog: logs flush failed, will retry", "count", len(buf), "error", err)
+                          return false
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/datadog/client.go:401` in `Validate`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/datadog/client.go:409` in `Validate`
   ```go
-  	resp.Body.Close()
+          if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+                  slog.Warn("datadog: failed to drain validate response body", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/datadog/client.go:424` in `metricsFlushLoop`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/datadog/client.go:486` in `eventsFlushLoop`
   ```go
-  		if err := c.submitMetrics(buf); err != nil {
-  			slog.Warn("datadog: metrics flush failed, will retry", "count", len(buf), "error", err)
-  			return false
-  		}
+                          if err := c.submitEvent(evt); err != nil {
+                                  slog.Warn("datadog: event submission failed", "title", evt.Title, "error", err)
+                          }
   ```
-- **[HIGH] Swallowed error** — `internal/datadog/client.go:505` in `logsFlushLoop`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/datadog/client.go:493` in `eventsFlushLoop`
   ```go
-  		if err := c.submitLogs(buf); err != nil {
-  			slog.Warn("datadog: logs flush failed, will retry", "count", len(buf), "error", err)
-  			return false
-  		}
+                                          if err := c.submitEvent(evt); err != nil {
+                                                  slog.Warn("datadog: event submission failed during shutdown", "error", err)
+                                          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/datadog/client.go:652` in `submitMetrics`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/datadog/client.go:567` in `checksFlushLoop`
   ```go
-  	respBody, _ := io.ReadAll(resp.Body)
+                          if err := c.submitServiceCheck(check); err != nil {
+                                  slog.Warn("datadog: service check submission failed", "check", check.Check, "error", err)
+                          }
   ```
-- **[HIGH] Missing error check** — `internal/datadog/client.go:653` in `submitMetrics`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/datadog/client.go:574` in `checksFlushLoop`
   ```go
-  	resp.Body.Close()
+                                          if err := c.submitServiceCheck(check); err != nil {
+                                                  slog.Warn("datadog: service check submission failed during shutdown", "error", err)
+                                          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/datadog/client.go:686` in `submitEvent`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:161` in `Startup`
   ```go
-  	respBody, _ := io.ReadAll(resp.Body)
+          if err := c.Validate(ctx); err != nil {
+                  return fmt.Errorf("API key validation failed: %w", err)
+          }
   ```
-- **[HIGH] Missing error check** — `internal/datadog/client.go:687` in `submitEvent`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:174` in `Startup`
   ```go
-  	resp.Body.Close()
+          if err := c.submitEvent(evt); err != nil {
+                  return fmt.Errorf("startup event submission failed: %w", err)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/datadog/client.go:719` in `submitLogs`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:186` in `Startup`
   ```go
-  	respBody, _ := io.ReadAll(resp.Body)
+          if err := c.submitMetrics(heartbeat); err != nil {
+                  return fmt.Errorf("startup metric submission failed: %w", err)
+          }
   ```
-- **[HIGH] Missing error check** — `internal/datadog/client.go:720` in `submitLogs`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:399` in `Validate`
   ```go
-  	resp.Body.Close()
+          if err != nil {
+                  return err
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/datadog/client.go:752` in `submitServiceCheck`
-  - _error explicitly discarded with `_`_
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:405` in `Validate`
   ```go
-  	respBody, _ := io.ReadAll(resp.Body)
+          if err != nil {
+                  return fmt.Errorf("datadog validate request failed: %w", err)
+          }
   ```
-- **[HIGH] Missing error check** — `internal/datadog/client.go:753` in `submitServiceCheck`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:642` in `submitMetrics`
   ```go
-  	resp.Body.Close()
+          if err != nil {
+                  return err
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/datadog/client.go:476` in `eventsFlushLoop`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:648` in `submitMetrics`
   ```go
-  			if err := c.submitEvent(evt); err != nil {
-  				slog.Warn("datadog: event submission failed", "title", evt.Title, "error", err)
-  			}
+          if err != nil {
+                  return err
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/datadog/client.go:483` in `eventsFlushLoop`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:659` in `submitMetrics`
   ```go
-  					if err := c.submitEvent(evt); err != nil {
-  						slog.Warn("datadog: event submission failed during shutdown", "error", err)
-  					}
+          if err != nil {
+                  return err
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/datadog/client.go:557` in `checksFlushLoop`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:664` in `submitMetrics`
   ```go
-  			if err := c.submitServiceCheck(check); err != nil {
-  				slog.Warn("datadog: service check submission failed", "check", check.Check, "error", err)
-  			}
+          if err != nil {
+                  return fmt.Errorf("datadog: read metrics response body: %w", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/datadog/client.go:564` in `checksFlushLoop`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:679` in `submitEvent`
   ```go
-  					if err := c.submitServiceCheck(check); err != nil {
-  						slog.Warn("datadog: service check submission failed during shutdown", "error", err)
-  					}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:153` in `Startup`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:685` in `submitEvent`
   ```go
-  	if err := c.Validate(ctx); err != nil {
-  		return fmt.Errorf("API key validation failed: %w", err)
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:166` in `Startup`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:696` in `submitEvent`
   ```go
-  	if err := c.submitEvent(evt); err != nil {
-  		return fmt.Errorf("startup event submission failed: %w", err)
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:178` in `Startup`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:701` in `submitEvent`
   ```go
-  	if err := c.submitMetrics(heartbeat); err != nil {
-  		return fmt.Errorf("startup metric submission failed: %w", err)
-  	}
+          if err != nil {
+                  return fmt.Errorf("datadog: read events response body: %w", err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:391` in `Validate`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:715` in `submitLogs`
   ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:397` in `Validate`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:721` in `submitLogs`
   ```go
-  	if err != nil {
-  		return fmt.Errorf("datadog validate request failed: %w", err)
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:632` in `submitMetrics`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:732` in `submitLogs`
   ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:638` in `submitMetrics`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:737` in `submitLogs`
   ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return fmt.Errorf("datadog: read logs response body: %w", err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:649` in `submitMetrics`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:751` in `submitServiceCheck`
   ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:666` in `submitEvent`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:757` in `submitServiceCheck`
   ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:672` in `submitEvent`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:768` in `submitServiceCheck`
   ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return err
+          }
   ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:683` in `submitEvent`
+- **[LOW] Proper handling** — `backend/internal/datadog/client.go:773` in `submitServiceCheck`
   ```go
-  	if err != nil {
-  		return err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:699` in `submitLogs`
-  ```go
-  	if err != nil {
-  		return err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:705` in `submitLogs`
-  ```go
-  	if err != nil {
-  		return err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:716` in `submitLogs`
-  ```go
-  	if err != nil {
-  		return err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:732` in `submitServiceCheck`
-  ```go
-  	if err != nil {
-  		return err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:738` in `submitServiceCheck`
-  ```go
-  	if err != nil {
-  		return err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/datadog/client.go:749` in `submitServiceCheck`
-  ```go
-  	if err != nil {
-  		return err
-  	}
+          if err != nil {
+                  return fmt.Errorf("datadog: read service check response body: %w", err)
+          }
   ```
 
-### `internal/db/mongodb.go`
+### `backend/internal/db/mongodb.go`
 
-- **[LOW] Proper handling** — `internal/db/mongodb.go:31` in `NewMongoDB`
+- **[LOW] Proper handling** — `backend/internal/db/mongodb.go:31` in `NewMongoDB`
   ```go
   	if err != nil {
   		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/db/mongodb.go:35` in `NewMongoDB`
+- **[LOW] Proper handling** — `backend/internal/db/mongodb.go:35` in `NewMongoDB`
   ```go
   	if err := client.Ping(ctx, nil); err != nil {
   		return nil, fmt.Errorf("failed to ping MongoDB: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/db/mongodb.go:319` in `ensureIndexes`
+- **[LOW] Proper handling** — `backend/internal/db/mongodb.go:319` in `ensureIndexes`
   ```go
   		if err != nil {
   			if criticalCollections[idx.collection] {
@@ -5449,466 +5387,410 @@
   ... (1 more lines)
   ```
 
-### `internal/db/schema.go`
+### `backend/internal/db/schema.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/db/schema.go:56` in `EnsureSchemaValidation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/db/schema.go:56` in `EnsureSchemaValidation`
   ```go
   		if err := m.Database.RunCommand(ctx, cmd).Err(); err != nil {
   			slog.Warn("failed to apply schema validation", "collection", cs.Collection, "error", err)
   		}
   ```
 
-### `internal/email/resend.go`
+### `backend/internal/email/resend.go`
 
-- **[HIGH] Missing error check** — `internal/email/resend.go:94` in `SendEmail`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[HIGH] Swallowed error** — `backend/internal/email/resend.go:139` in `executeTemplate`
   ```go
-  			resp.Body.Close()
+          if err != nil {
+                  slog.Error("email: failed to parse template, using fallback", "template", configKey, "error", err)
+                  return fallback
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/email/resend.go:100` in `SendEmail`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/email/resend.go:145` in `executeTemplate`
   ```go
-  		body, _ := io.ReadAll(resp.Body)
+          if err := t.Execute(&buf, data); err != nil {
+                  slog.Error("email: failed to execute template, using fallback", "template", configKey, "error", err)
+                  return fallback
+          }
   ```
-- **[HIGH] Missing error check** — `internal/email/resend.go:101` in `SendEmail`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/email/resend.go:101` in `SendEmail`
   ```go
-  		resp.Body.Close()
+                  if err != nil {
+                          slog.Warn("email: failed to read error response body", "status", resp.StatusCode, "error", err)
+                  }
   ```
-- **[HIGH] Swallowed error** — `internal/email/resend.go:137` in `executeTemplate`
+- **[LOW] Proper handling** — `backend/internal/email/resend.go:64` in `SendEmail`
   ```go
-  	if err != nil {
-  		slog.Error("email: failed to parse template, using fallback", "template", configKey, "error", err)
-  		return fallback
-  	}
+          if err != nil {
+                  return fmt.Errorf("failed to marshal email request: %w", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/email/resend.go:143` in `executeTemplate`
+- **[LOW] Proper handling** — `backend/internal/email/resend.go:77` in `SendEmail`
   ```go
-  	if err := t.Execute(&buf, data); err != nil {
-  		slog.Error("email: failed to execute template, using fallback", "template", configKey, "error", err)
-  		return fallback
-  	}
+                  if err != nil {
+                          return fmt.Errorf("failed to create request: %w", err)
+                  }
   ```
-- **[LOW] Proper handling** — `internal/email/resend.go:64` in `SendEmail`
+- **[LOW] Proper handling** — `backend/internal/email/resend.go:85` in `SendEmail`
   ```go
-  	if err != nil {
-  		return fmt.Errorf("failed to marshal email request: %w", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/email/resend.go:77` in `SendEmail`
-  ```go
-  		if err != nil {
-  			return fmt.Errorf("failed to create request: %w", err)
-  		}
-  ```
-- **[LOW] Proper handling** — `internal/email/resend.go:85` in `SendEmail`
-  ```go
-  		if err != nil {
-  			if attempt < maxRetries-1 {
-  				slog.Warn("email network error, will retry", "error", err)
-  				continue
-  			}
-  			return fmt.Errorf("failed to send email after %d attempts: %w", maxRetries, err)
+                  if err != nil {
+                          if attempt < maxRetries-1 {
+                                  slog.Warn("email network error, will retry", "error", err)
+                                  continue
+                          }
+                          return fmt.Errorf("failed to send email after %d attempts: %w", maxRetries, err)
   ... (1 more lines)
   ```
 
-### `internal/health/health.go`
+### `backend/internal/health/health.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/health/health.go:50` in `New`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/health/health.go:372` in `hostname`
   ```go
-  		h, _ := os.Hostname()
+          if err != nil {
+                  slog.Warn("health: failed to get hostname", "error", err)
+                  return ""
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/health/health.go:368` in `hostname`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/health.go:156` in `registerNode`
   ```go
-  	h, _ := os.Hostname()
+          if err != nil {
+                  slog.Error("health: failed to register node", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/health/health.go:153` in `registerNode`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/health.go:169` in `heartbeat`
   ```go
-  	if err != nil {
-  		slog.Error("health: failed to register node", "error", err)
-  	}
+          if err != nil {
+                  slog.Warn("health: heartbeat failed", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/health/health.go:166` in `heartbeat`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/health.go:213` in `collectAndStore`
   ```go
-  	if err != nil {
-  		slog.Warn("health: heartbeat failed", "error", err)
-  	}
+          } else if err != nil {
+                  slog.Warn("health: cpu collect error", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/health/health.go:210` in `collectAndStore`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/health.go:245` in `collectAndStore`
   ```go
-  	} else if err != nil {
-  		slog.Warn("health: cpu collect error", "error", err)
-  	}
+          } else if err != nil {
+                  slog.Warn("health: network collect error", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/health/health.go:242` in `collectAndStore`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/health.go:300` in `collectAndStore`
   ```go
-  	} else if err != nil {
-  		slog.Warn("health: network collect error", "error", err)
-  	}
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/health/health.go:297` in `collectAndStore`
-  ```go
-  	if _, err := s.db.SystemMetrics().InsertOne(ctx, metric); err != nil {
-  		slog.Error("health: failed to store metrics", "error", err)
-  	}
+          if _, err := s.db.SystemMetrics().InsertOne(ctx, metric); err != nil {
+                  slog.Error("health: failed to store metrics", "error", err)
+          }
   ```
 
-### `internal/health/integrations.go`
+### `backend/internal/health/integrations.go`
 
-- **[HIGH] Swallowed error** — `internal/health/integrations.go:124` in `runIntegrationChecks`
+- **[HIGH] Swallowed error** — `backend/internal/health/integrations.go:124` in `runIntegrationChecks`
   ```go
-  		if err != nil {
-  			result.Status = models.IntegrationUnhealthy
-  			result.Message = err.Error()
-  			slog.Warn("health: integration unhealthy", "integration", entry.name, "error", err)
-  		} else {
+                  if err != nil {
+                          result.Status = models.IntegrationUnhealthy
+                          result.Message = err.Error()
+                          slog.Warn("health: integration unhealthy", "integration", entry.name, "error", err)
+                  } else {
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:179` in `NewResendChecker`
-  - _statement-form call to known error-returning 'io.Copy()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/integrations.go:180` in `NewResendChecker`
   ```go
-  		io.Copy(io.Discard, resp.Body)
+                  if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+                          slog.Warn("health: failed to drain resend response body", "error", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:180` in `NewResendChecker`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/integrations.go:203` in `NewGoogleOAuthChecker`
   ```go
-  		resp.Body.Close()
+                  if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+                          slog.Warn("health: failed to drain google oauth response body", "error", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:200` in `NewGoogleOAuthChecker`
-  - _statement-form call to known error-returning 'io.Copy()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/integrations.go:225` in `NewGitHubOAuthChecker`
   ```go
-  		io.Copy(io.Discard, resp.Body)
+                  if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+                          slog.Warn("health: failed to drain github oauth response body", "error", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:201` in `NewGoogleOAuthChecker`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/integrations.go:247` in `NewMicrosoftOAuthChecker`
   ```go
-  		resp.Body.Close()
+                  if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+                          slog.Warn("health: failed to drain microsoft oauth response body", "error", err)
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:220` in `NewGitHubOAuthChecker`
-  - _statement-form call to known error-returning 'io.Copy()'_
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:171` in `NewResendChecker`
   ```go
-  		io.Copy(io.Discard, resp.Body)
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:221` in `NewGitHubOAuthChecker`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:176` in `NewResendChecker`
   ```go
-  		resp.Body.Close()
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:240` in `NewMicrosoftOAuthChecker`
-  - _statement-form call to known error-returning 'io.Copy()'_
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:195` in `NewGoogleOAuthChecker`
   ```go
-  		io.Copy(io.Discard, resp.Body)
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[HIGH] Missing error check** — `internal/health/integrations.go:241` in `NewMicrosoftOAuthChecker`
-  - _statement-form call to known error-returning 'resp.Body.Close()'_
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:199` in `NewGoogleOAuthChecker`
   ```go
-  		resp.Body.Close()
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:171` in `NewResendChecker`
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:217` in `NewGitHubOAuthChecker`
   ```go
-  		if err != nil {
-  			return err
-  		}
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:176` in `NewResendChecker`
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:221` in `NewGitHubOAuthChecker`
   ```go
-  		if err != nil {
-  			return err
-  		}
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:193` in `NewGoogleOAuthChecker`
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:239` in `NewMicrosoftOAuthChecker`
   ```go
-  		if err != nil {
-  			return err
-  		}
+                  if err != nil {
+                          return err
+                  }
   ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:197` in `NewGoogleOAuthChecker`
+- **[LOW] Proper handling** — `backend/internal/health/integrations.go:243` in `NewMicrosoftOAuthChecker`
   ```go
-  		if err != nil {
-  			return err
-  		}
-  ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:213` in `NewGitHubOAuthChecker`
-  ```go
-  		if err != nil {
-  			return err
-  		}
-  ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:217` in `NewGitHubOAuthChecker`
-  ```go
-  		if err != nil {
-  			return err
-  		}
-  ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:233` in `NewMicrosoftOAuthChecker`
-  ```go
-  		if err != nil {
-  			return err
-  		}
-  ```
-- **[LOW] Proper handling** — `internal/health/integrations.go:237` in `NewMicrosoftOAuthChecker`
-  ```go
-  		if err != nil {
-  			return err
-  		}
+                  if err != nil {
+                          return err
+                  }
   ```
 
-### `internal/health/query.go`
+### `backend/internal/health/query.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/health/query.go:17` in `ListNodes`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/health/query.go:121` in `GetIntegrationCounts24h`
   ```go
-  	staleSeconds, _ := strconv.Atoi(s.getConfig("health.node.stale_timeout_seconds"))
+          if err != nil {
+                  slog.Warn("health: GetIntegrationCounts24h aggregation failed", "error", err)
+                  return 0, 0
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/health/query.go:24` in `ListNodes`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/health/query.go:19` in `ListNodes`
   ```go
-  	_, _ = s.db.SystemNodes().UpdateMany(ctx,
+          if err != nil {
+                  slog.Warn("health: invalid stale_timeout_seconds config, using default", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/health/query.go:115` in `GetIntegrationCounts24h`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:37` in `ListNodes`
   ```go
-  	if err != nil {
-  		return 0, 0
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/health/query.go:31` in `ListNodes`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:43` in `ListNodes`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
+          if err := cursor.All(ctx, &nodes); err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/health/query.go:37` in `ListNodes`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:57` in `GetMetrics`
   ```go
-  	if err := cursor.All(ctx, &nodes); err != nil {
-  		return nil, err
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/health/query.go:51` in `GetMetrics`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:63` in `GetMetrics`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
+          if err := cursor.All(ctx, &metrics); err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/health/query.go:57` in `GetMetrics`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:76` in `GetAggregateMetrics`
   ```go
-  	if err := cursor.All(ctx, &metrics); err != nil {
-  		return nil, err
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/health/query.go:70` in `GetAggregateMetrics`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:82` in `GetAggregateMetrics`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
+          if err := cursor.All(ctx, &metrics); err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/health/query.go:76` in `GetAggregateMetrics`
+- **[LOW] Proper handling** — `backend/internal/health/query.go:91` in `GetCurrentMetrics`
   ```go
-  	if err := cursor.All(ctx, &metrics); err != nil {
-  		return nil, err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/health/query.go:85` in `GetCurrentMetrics`
-  ```go
-  	if err != nil {
-  		return nil, err
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
 
-### `internal/metrics/metrics.go`
+### `backend/internal/metrics/metrics.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/metrics/metrics.go:32` in `New`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/metrics/metrics.go:116` in `tryAcquireOrRenew`
   ```go
-  	hostname, _ := os.Hostname()
-  ```
-- **[HIGH] Swallowed error** — `internal/metrics/metrics.go:113` in `tryAcquireOrRenew`
-  ```go
-  	if result.Err() != nil {
-  		if result.Err() == mongo.ErrNoDocuments {
-  			// Another holder has the lock and it hasn't expired
-  			return false
-  		}
-  		// On upsert conflict (duplicate key during race), the other machine won
+          if result.Err() != nil {
+                  if result.Err() == mongo.ErrNoDocuments {
+                          // Another holder has the lock and it hasn't expired
+                          return false
+                  }
+                  // On upsert conflict (duplicate key during race), the other machine won
   ... (6 more lines)
   ```
-- **[HIGH] Swallowed error** — `internal/metrics/metrics.go:129` in `tryAcquireOrRenew`
+- **[HIGH] Swallowed error** — `backend/internal/metrics/metrics.go:132` in `tryAcquireOrRenew`
   ```go
-  	if err := result.Decode(&doc); err != nil {
-  		return false
-  	}
+          if err := result.Decode(&doc); err != nil {
+                  slog.Warn("metrics: failed to decode leader lock document", "error", err)
+                  return false
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/metrics/metrics.go:145` in `isLeader`
+- **[HIGH] Swallowed error** — `backend/internal/metrics/metrics.go:149` in `isLeader`
   ```go
-  	if err != nil {
-  		return false
-  	}
+          if err != nil {
+                  slog.Warn("metrics: failed to read leader lock for isLeader check", "error", err)
+                  return false
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/metrics/metrics.go:153` in `releaseLock`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/metrics/metrics.go:193` in `collectDaily`
   ```go
-  	_, _ = s.db.LeaderLocks().DeleteOne(ctx, bson.M{
+                  if err != nil {
+                          slog.Error("Metrics DAU/WAU/MAU aggregation error", "error", err)
+                          return
+                  }
   ```
-- **[HIGH] Swallowed error** — `internal/metrics/metrics.go:186` in `collectDaily`
+- **[HIGH] Swallowed error** — `backend/internal/metrics/metrics.go:228` in `collectDaily`
   ```go
-  		if err != nil {
-  			slog.Error("Metrics DAU/WAU/MAU aggregation error", "error", err)
-  			return
-  		}
+                  if err != nil {
+                          slog.Error("Metrics revenue aggregation error", "error", err)
+                          return
+                  }
   ```
-- **[HIGH] Swallowed error** — `internal/metrics/metrics.go:221` in `collectDaily`
+- **[HIGH] Swallowed error** — `backend/internal/metrics/metrics.go:264` in `collectDaily`
   ```go
-  		if err != nil {
-  			slog.Error("Metrics revenue aggregation error", "error", err)
-  			return
-  		}
+                  if err != nil {
+                          slog.Error("Metrics ARR aggregation error", "error", err)
+                          return
+                  }
   ```
-- **[HIGH] Swallowed error** — `internal/metrics/metrics.go:257` in `collectDaily`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/metrics/metrics.go:33` in `New`
   ```go
-  		if err != nil {
-  			slog.Error("Metrics ARR aggregation error", "error", err)
-  			return
-  		}
+          if err != nil {
+                  slog.Warn("metrics: failed to get hostname", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/metrics/metrics.go:285` in `collectDaily`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/metrics/metrics.go:292` in `collectDaily`
   ```go
-  	if err != nil {
-  		slog.Error("Metrics upsert daily metric error", "error", err)
-  	}
+          if err != nil {
+                  slog.Error("Metrics upsert daily metric error", "error", err)
+          }
   ```
 
-### `internal/middleware/auth.go`
+### `backend/internal/middleware/auth.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/middleware/auth.go:155` in `authenticateAPIKey`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/middleware/auth.go:169` in `isTokenRevoked`
   ```go
-  		_, _ = m.db.APIKeys().UpdateByID(ctx, apiKey.ID,
+          if err != nil {
+                  slog.Warn("revoked-token lookup failed, denying access", "error", err)
+                  return true
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/middleware/auth.go:167` in `isTokenRevoked`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/auth.go:69` in `authenticateJWT`
   ```go
-  	if err != nil {
-  		slog.Warn("revoked-token lookup failed, denying access", "error", err)
-  		return true
-  	}
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/middleware/auth.go:185` in `GetImpersonatedBy`
-  - _error explicitly discarded with `_`_
-  ```go
-  	v, _ := ctx.Value(ImpersonatedByContextKey).(string)
-  ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/auth.go:69` in `authenticateJWT`
-  ```go
-  	if err != nil {
-  		if err == auth.ErrExpiredToken {
-  			http.Error(w, `{"error":"Token has expired"}`, http.StatusUnauthorized)
-  			return
-  		}
-  		http.Error(w, `{"error":"Invalid token"}`, http.StatusUnauthorized)
+          if err != nil {
+                  if err == auth.ErrExpiredToken {
+                          http.Error(w, `{"error":"Token has expired"}`, http.StatusUnauthorized)
+                          return
+                  }
+                  http.Error(w, `{"error":"Invalid token"}`, http.StatusUnauthorized)
   ... (2 more lines)
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/auth.go:84` in `authenticateJWT`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/auth.go:84` in `authenticateJWT`
   ```go
-  	if err != nil {
-  		http.Error(w, `{"error":"Invalid user ID"}`, http.StatusUnauthorized)
-  		return
-  	}
+          if err != nil {
+                  http.Error(w, `{"error":"Invalid user ID"}`, http.StatusUnauthorized)
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/auth.go:91` in `authenticateJWT`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/auth.go:91` in `authenticateJWT`
   ```go
-  	if err != nil {
-  		http.Error(w, `{"error":"User not found"}`, http.StatusUnauthorized)
-  		return
-  	}
+          if err != nil {
+                  http.Error(w, `{"error":"User not found"}`, http.StatusUnauthorized)
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/auth.go:117` in `authenticateAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/auth.go:117` in `authenticateAPIKey`
   ```go
-  	if err != nil {
-  		http.Error(w, `{"error":"Invalid API key"}`, http.StatusUnauthorized)
-  		return
-  	}
+          if err != nil {
+                  http.Error(w, `{"error":"Invalid API key"}`, http.StatusUnauthorized)
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/auth.go:125` in `authenticateAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/auth.go:125` in `authenticateAPIKey`
   ```go
-  	if err != nil || !user.IsActive {
-  		http.Error(w, `{"error":"API key owner account is inactive"}`, http.StatusUnauthorized)
-  		return
-  	}
+          if err != nil || !user.IsActive {
+                  http.Error(w, `{"error":"API key owner account is inactive"}`, http.StatusUnauthorized)
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/auth.go:136` in `authenticateAPIKey`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/auth.go:136` in `authenticateAPIKey`
   ```go
-  		if err != nil {
-  			http.Error(w, `{"error":"System configuration error"}`, http.StatusInternalServerError)
-  			return
-  		}
+                  if err != nil {
+                          http.Error(w, `{"error":"System configuration error"}`, http.StatusInternalServerError)
+                          return
+                  }
   ```
 
-### `internal/middleware/ratelimit.go`
+### `backend/internal/middleware/ratelimit.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/middleware/ratelimit.go:99` in `NewDistributedRateLimiter`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/middleware/ratelimit.go:238` in `GetClientIP`
   ```go
-  	_, _ = rl.collection.Indexes().CreateOne(ctx, mongo.IndexModel{
+          if err != nil {
+                  slog.Debug("middleware: failed to split host:port, using raw RemoteAddr", "remoteAddr", r.RemoteAddr, "error", err)
+                  return r.RemoteAddr
+          }
   ```
-- **[HIGH] Missing error check** — `internal/middleware/ratelimit.go:109` in `Stop`
-  - _statement-form call to known error-returning 'rl.stopOnce.Do()'_
+- **[LOW] Proper handling** — `backend/internal/middleware/ratelimit.go:162` in `allowDistributed`
   ```go
-  	rl.stopOnce.Do(func() { close(rl.done) })
-  ```
-- **[HIGH] Swallowed error** — `internal/middleware/ratelimit.go:236` in `GetClientIP`
-  ```go
-  	if err != nil {
-  		return r.RemoteAddr
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/middleware/ratelimit.go:160` in `allowDistributed`
-  ```go
-  	if err != nil {
-  		if err == mongo.ErrNoDocuments {
-  			// No valid window exists — reset/create with count=1.
-  			err = rl.collection.FindOneAndUpdate(ctx,
-  				bson.M{"_id": key},
-  				bson.M{"$set": bson.M{
+          if err != nil {
+                  if err == mongo.ErrNoDocuments {
+                          // No valid window exists — reset/create with count=1.
+                          err = rl.collection.FindOneAndUpdate(ctx,
+                                  bson.M{"_id": key},
+                                  bson.M{"$set": bson.M{
   ... (13 more lines)
   ```
-- **[LOW] Proper handling** — `internal/middleware/ratelimit.go:172` in `allowDistributed`
+- **[LOW] Proper handling** — `backend/internal/middleware/ratelimit.go:174` in `allowDistributed`
   ```go
-  			if err != nil {
-  				return false, 0, now, err
-  			}
+                          if err != nil {
+                                  return false, 0, now, err
+                          }
   ```
 
-### `internal/middleware/requestid.go`
+### `backend/internal/middleware/requestid.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/middleware/requestid.go:26` in `GetRequestID`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/middleware/requestid.go:36` in `generateRequestID`
   ```go
-  	id, _ := ctx.Value(RequestIDContextKey).(string)
-  ```
-- **[HIGH] Swallowed error** — `internal/middleware/requestid.go:32` in `generateRequestID`
-  ```go
-  	if _, err := rand.Read(b); err != nil {
-  		// Fallback to timestamp-based ID on catastrophic rand failure
-  		return fmt.Sprintf("%x", time.Now().UnixNano())
-  	}
+          if _, err := rand.Read(b); err != nil {
+                  // Fallback to timestamp-based ID on catastrophic rand failure
+                  slog.Warn("middleware: crypto/rand failed, using timestamp-based request ID", "error", err)
+                  return fmt.Sprintf("%x", time.Now().UnixNano())
+          }
   ```
 
-### `internal/middleware/tenant.go`
+### `backend/internal/middleware/tenant.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/tenant.go:45` in `RequireTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/tenant.go:45` in `RequireTenant`
   ```go
   		if err != nil {
   			http.Error(w, `{"error":"Invalid tenant ID"}`, http.StatusBadRequest)
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/tenant.go:52` in `RequireTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/tenant.go:52` in `RequireTenant`
   ```go
   		if err != nil {
   			http.Error(w, `{"error":"Tenant not found"}`, http.StatusNotFound)
   			return
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/middleware/tenant.go:68` in `RequireTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/middleware/tenant.go:68` in `RequireTenant`
   ```go
   		if err != nil {
   			http.Error(w, `{"error":"Not a member of this tenant"}`, http.StatusForbidden)
@@ -5916,682 +5798,699 @@
   		}
   ```
 
-### `internal/planstore/seed.go`
+### `backend/internal/planstore/seed.go`
 
-- **[HIGH] Swallowed error** — `internal/planstore/seed.go:36` in `Seed`
+- **[LOW] Proper handling** — `backend/internal/planstore/seed.go:36` in `Seed`
   ```go
-  		if _, insertErr := col.InsertOne(ctx, plan); insertErr != nil {
-  			return insertErr
-  		}
+                  if _, err := col.InsertOne(ctx, plan); err != nil {
+                          return err
+                  }
   ```
-- **[LOW] Proper handling** — `internal/planstore/seed.go:40` in `Seed`
+- **[LOW] Proper handling** — `backend/internal/planstore/seed.go:40` in `Seed`
   ```go
-  	} else if err != nil {
-  		return err
-  	}
+          } else if err != nil {
+                  return err
+          }
   ```
 
-### `internal/stripe/stripe.go`
+### `backend/internal/stripe/stripe.go`
 
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:78` in `GetOrCreateCustomer`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:78` in `GetOrCreateCustomer`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("stripe customer create: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:86` in `GetOrCreateCustomer`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:86` in `GetOrCreateCustomer`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("save stripe customer id: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:121` in `GetOrCreatePrice`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:121` in `GetOrCreatePrice`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("stripe product create: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:138` in `GetOrCreatePrice`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:138` in `GetOrCreatePrice`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("stripe price create: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:228` in `CreateCheckoutSession`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:228` in `CreateCheckoutSession`
   ```go
   		if err != nil {
   			return "", err
   		}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:284` in `CreateCheckoutSession`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:284` in `CreateCheckoutSession`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("stripe checkout create: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:299` in `CreateBillingPortalSession`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:299` in `CreateBillingPortalSession`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("stripe portal create: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:313` in `CancelSubscriptionAtPeriodEnd`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:313` in `CancelSubscriptionAtPeriodEnd`
   ```go
   	if err != nil {
   		return nil, fmt.Errorf("stripe cancel subscription: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:333` in `CancelSubscriptionImmediately`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:333` in `CancelSubscriptionImmediately`
   ```go
   	if err != nil {
   		return fmt.Errorf("stripe cancel subscription: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:357` in `NextInvoiceNumber`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:357` in `NextInvoiceNumber`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("generate invoice number: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:379` in `UpdateSubscriptionQuantity`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:379` in `UpdateSubscriptionQuantity`
   ```go
   	if err != nil {
   		return fmt.Errorf("stripe get subscription: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/stripe/stripe.go:399` in `UpdateSubscriptionQuantity`
+- **[LOW] Proper handling** — `backend/internal/stripe/stripe.go:399` in `UpdateSubscriptionQuantity`
   ```go
   	if err != nil {
   		return fmt.Errorf("stripe update subscription quantity: %w", err)
   	}
   ```
 
-### `internal/syslog/syslog.go`
+### `backend/internal/syslog/syslog.go`
 
-- **[MEDIUM] Logged only (no return)** — `internal/syslog/syslog.go:97` in `log`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/syslog/syslog.go:97` in `log`
   ```go
   	if _, err := l.db.SystemLogs().InsertOne(ctx, entry); err != nil {
   		slog.Error("syslog: failed to write log", "error", err)
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/syslog/syslog.go:114` in `log`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/syslog/syslog.go:114` in `log`
   ```go
   		if _, err := l.db.SystemLogs().InsertOne(ctx, alert); err != nil {
   			slog.Error("syslog: failed to write injection alert", "error", err)
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/syslog/syslog.go:137` in `logCategorized`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/syslog/syslog.go:137` in `logCategorized`
   ```go
   	if _, err := l.db.SystemLogs().InsertOne(ctx, entry); err != nil {
   		slog.Error("syslog: failed to write log", "error", err)
   	}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/syslog/syslog.go:154` in `logCategorized`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/syslog/syslog.go:154` in `logCategorized`
   ```go
   		if _, err := l.db.SystemLogs().InsertOne(ctx, alert); err != nil {
   			slog.Error("syslog: failed to write injection alert", "error", err)
   		}
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/syslog/syslog.go:234` in `LogTenantActivity`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/syslog/syslog.go:234` in `LogTenantActivity`
   ```go
   	if _, err := l.db.SystemLogs().InsertOne(ctx, entry); err != nil {
   		slog.Error("syslog: failed to write tenant activity log", "error", err)
   	}
   ```
 
-### `internal/telemetry/service.go`
+### `backend/internal/telemetry/service.go`
 
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:84` in `flushLoop`
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:84` in `flushLoop`
   ```go
-  		if err != nil {
-  			slog.Warn("telemetry: flush failed, will retry", "count", len(buf), "error", err)
-  			return false // retain buffer for next attempt
-  		}
+                  if err != nil {
+                          slog.Warn("telemetry: flush failed, will retry", "count", len(buf), "error", err)
+                          return false // retain buffer for next attempt
+                  }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:189` in `TrackBatch`
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:189` in `TrackBatch`
   ```go
-  	if err != nil {
-  		slog.Warn("telemetry: failed to track batch", "count", len(events), "error", err)
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to track batch", "count", len(events), "error", err)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:311` in `FunnelMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:504` in `EngagementMetrics`
   ```go
-  	visitors, _ := s.countDistinct(ctx, "sessionId", bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: failed to get active tenant IDs", "error", err)
+                  return &EngagementData{}, nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:317` in `FunnelMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:511` in `EngagementMetrics`
   ```go
-  	registrations, _ := s.db.Users().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: failed to get user IDs for tenants", "error", err)
+                  return &EngagementData{}, nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:322` in `FunnelMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:720` in `CustomEventSummary`
   ```go
-  	planViews, _ := s.countDistinct(ctx, "sessionId", bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: failed to query custom event trend", "event", eventName, "error", err)
+                  return &CustomEventData{EventName: eventName, TotalCount: totalCount}, nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:329` in `FunnelMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:906` in `weeklyActiveUsers`
   ```go
-  	checkouts, _ := s.db.TelemetryEvents().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: weeklyActiveUsers aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:335` in `FunnelMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:954` in `monthlyActiveUsers`
   ```go
-  	conversions, _ := s.db.FinancialTransactions().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: monthlyActiveUsers aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:341` in `FunnelMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:992` in `topCustomEvents`
   ```go
-  	upgrades, _ := s.db.TelemetryEvents().CountDocuments(ctx, mergeBson(dateFilter, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: topCustomEvents aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:486` in `EngagementMetrics`
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1023` in `creditConsumptionTrend`
   ```go
-  	if err != nil {
-  		return &EngagementData{}, nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: creditConsumptionTrend aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:492` in `EngagementMetrics`
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1099` in `calculateMRR`
   ```go
-  	if err != nil {
-  		return &EngagementData{}, nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: calculateMRR aggregation failed", "error", err)
+                  return 0
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:511` in `EngagementMetrics`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1143` in `medianTimeToFirstPurchase`
   ```go
-  	totalLogins, _ := s.db.TelemetryEvents().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: medianTimeToFirstPurchase aggregation failed", "error", err)
+                  return 0
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:549` in `KPIs`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1193` in `planDistribution`
   ```go
-  	v, err, _ := s.kpiGroup.Do("kpis", func() (interface{}, error) {
+          if err != nil {
+                  slog.Warn("telemetry: planDistribution aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:572` in `computeKPIs`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1234` in `mrrTrend`
   ```go
-  	activeSubscribers, _ := s.db.Tenants().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: mrrTrend query failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:578` in `computeKPIs`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1265` in `subscriberTrend`
   ```go
-  	totalRegistrations, _ := s.db.Users().CountDocuments(ctx, bson.M{})
+          if err != nil {
+                  slog.Warn("telemetry: subscriberTrend aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:591` in `computeKPIs`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/telemetry/service.go:1286` in `aggregateDailyPoints`
   ```go
-  	canceledThisMonth, _ := s.db.Tenants().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: aggregateDailyPoints aggregation failed", "error", err)
+                  return nil
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:594` in `computeKPIs`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:315` in `FunnelMetrics`
   ```go
-  	activeAtMonthStart, _ := s.db.Tenants().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: failed to count unique visitors", "error", err)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:604` in `computeKPIs`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:323` in `FunnelMetrics`
   ```go
-  	totalTrials, _ := s.db.Tenants().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: failed to count registrations", "error", err)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:607` in `computeKPIs`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:333` in `FunnelMetrics`
   ```go
-  	convertedTrials, _ := s.db.Tenants().CountDocuments(ctx, bson.M{
+          if err != nil {
+                  slog.Warn("telemetry: failed to count plan page views", "error", err)
+          }
   ```
-- **[HIGH] Ignored error (`_`)** — `internal/telemetry/service.go:661` in `CustomEventSummary`
-  - _error explicitly discarded with `_`_
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:342` in `FunnelMetrics`
   ```go
-  	totalCount, _ := s.db.TelemetryEvents().CountDocuments(ctx, filter)
+          if err != nil {
+                  slog.Warn("telemetry: failed to count checkouts", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:675` in `CustomEventSummary`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:351` in `FunnelMetrics`
   ```go
-  	if err != nil {
-  		return &CustomEventData{EventName: eventName, TotalCount: totalCount}, nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count conversions", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:860` in `weeklyActiveUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:359` in `FunnelMetrics`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count upgrades", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:907` in `monthlyActiveUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:536` in `EngagementMetrics`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count total logins", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:944` in `topCustomEvents`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:600` in `computeKPIs`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count active subscribers", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:974` in `creditConsumptionTrend`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:606` in `computeKPIs`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count total registrations", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:1049` in `calculateMRR`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:624` in `computeKPIs`
   ```go
-  	if err != nil {
-  		return 0
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count cancellations this month", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:1092` in `medianTimeToFirstPurchase`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:631` in `computeKPIs`
   ```go
-  	if err != nil {
-  		return 0
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count active at month start", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:1141` in `planDistribution`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:643` in `computeKPIs`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count total trials", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:1181` in `mrrTrend`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:650` in `computeKPIs`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count converted trials", "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:1211` in `subscriberTrend`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:704` in `CustomEventSummary`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  slog.Warn("telemetry: failed to count custom events", "event", eventName, "error", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/telemetry/service.go:1231` in `aggregateDailyPoints`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:448` in `RetentionCohorts`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:430` in `RetentionCohorts`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:574` in `KPIs`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
+                  if err != nil {
+                          return nil, err
+                  }
   ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:551` in `KPIs`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:584` in `KPIs`
   ```go
-  		if err != nil {
-  			return nil, err
-  		}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:560` in `KPIs`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:757` in `ListEventTypes`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:711` in `ListEventTypes`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:796` in `countDistinct`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
+          if err != nil {
+                  return 0, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:750` in `countDistinct`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:817` in `getActiveTenantIDs`
   ```go
-  	if err != nil {
-  		return 0, err
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:771` in `getActiveTenantIDs`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:841` in `getUserIDsForTenants`
   ```go
-  	if err != nil {
-  		return nil, err
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/telemetry/service.go:795` in `getUserIDsForTenants`
-  ```go
-  	if err != nil {
-  		return nil, err
-  	}
-  ```
-
-### `internal/testutil/testutil.go`
-
-- **[HIGH] Ignored error (`_`)** — `internal/testutil/testutil.go:27` in `loadEnvTest`
-  - _error explicitly discarded with `_`_
-  ```go
-  	dir, _ := os.Getwd()
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/testutil/testutil.go:90` in `MustConnectTestDB`
-  - _error explicitly discarded with `_`_
-  ```go
-  		colls, _ := database.Database.ListCollectionNames(ctx, bson.M{})
-  ```
-- **[HIGH] Missing error check** — `internal/testutil/testutil.go:92` in `MustConnectTestDB`
-  - _statement-form call to known error-returning 'database.Database.Collection(name).DeleteMany()'_
-  ```go
-  			database.Database.Collection(name).DeleteMany(ctx, bson.M{})
-  ```
-- **[HIGH] Missing error check** — `internal/testutil/testutil.go:94` in `MustConnectTestDB`
-  - _statement-form call to known error-returning 'database.Close()'_
-  ```go
-  		database.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/testutil/testutil.go:129` in `ConnectTestDB`
-  - _error explicitly discarded with `_`_
-  ```go
-  		colls, _ := database.Database.ListCollectionNames(ctx, bson.M{})
-  ```
-- **[HIGH] Missing error check** — `internal/testutil/testutil.go:131` in `ConnectTestDB`
-  - _statement-form call to known error-returning 'database.Database.Collection(name).DeleteMany()'_
-  ```go
-  			database.Database.Collection(name).DeleteMany(ctx, bson.M{})
-  ```
-- **[HIGH] Missing error check** — `internal/testutil/testutil.go:133` in `ConnectTestDB`
-  - _statement-form call to known error-returning 'database.Close()'_
-  ```go
-  		database.Close(ctx)
-  ```
-- **[HIGH] Ignored error (`_`)** — `internal/testutil/testutil.go:144` in `findAndSetConfigDir`
-  - _error explicitly discarded with `_`_
-  ```go
-  	dir, _ := os.Getwd()
-  ```
-- **[HIGH] Swallowed error** — `internal/testutil/testutil.go:175` in `hasYAMLConfigs`
-  ```go
-  	if err != nil {
-  		return false
-  	}
-  ```
-- **[HIGH] Missing error check** — `internal/testutil/testutil.go:206` in `CleanupCollections`
-  - _statement-form call to known error-returning 'database.Database.Collection(name).DeleteMany()'_
-  ```go
-  		database.Database.Collection(name).DeleteMany(ctx, bson.M{})
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:70` in `MustConnectTestDB`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to load test config: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:80` in `MustConnectTestDB`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to connect to test database: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:113` in `ConnectTestDB`
-  ```go
-  	if err != nil {
-  		log.Fatalf("testutil: failed to load test config: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:122` in `ConnectTestDB`
-  ```go
-  	if err != nil {
-  		log.Fatalf("testutil: failed to connect to test database: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:218` in `TestConfig`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to load test config: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:231` in `CreateTestUser`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to hash password: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:248` in `CreateTestUser`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test user: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:270` in `CreateTestTenant`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test tenant: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:283` in `CreateTestTenant`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test membership: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:301` in `MarkSystemInitialized`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to mark system initialized: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:319` in `InsertTestLogs`
-  ```go
-  		if err != nil {
-  			t.Fatalf("testutil: failed to insert test log: %v", err)
-  		}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:330` in `CountDocuments`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to count documents: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:340` in `ParseJSON`
-  ```go
-  	if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
-  		t.Fatalf("testutil: failed to parse JSON response: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:370` in `CreateTestMembership`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test membership: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:394` in `CreateTestPlan`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test plan: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:416` in `CreateTestAPIKey`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test API key: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:440` in `CreateTestWebhook`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test webhook: %v", err)
-  	}
-  ```
-- **[LOW] Proper handling** — `internal/testutil/testutil.go:463` in `CreateTestInvitation`
-  ```go
-  	if err != nil {
-  		t.Fatalf("testutil: failed to create test invitation: %v", err)
-  	}
+          if err != nil {
+                  return nil, err
+          }
   ```
 
-### `internal/version/check.go`
+### `backend/internal/testutil/testutil.go`
 
-- **[HIGH] Swallowed error** — `internal/version/check.go:29` in `CheckAndMigrate`
+- **[HIGH] Swallowed error** — `backend/internal/testutil/testutil.go:195` in `hasYAMLConfigs`
   ```go
-  	if err != nil {
-  		// System not initialized yet — nothing to check
-  		return
-  	}
+          if err != nil {
+                  log.Printf("testutil: warning: failed to read config dir %s: %v", dir, err)
+                  return false
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/version/check.go:65` in `sendUpgradeMessage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/testutil/testutil.go:28` in `loadEnvTest`
   ```go
-  	if err != nil {
-  		slog.Warn("Could not find root tenant for upgrade message", "error", err)
-  		return
-  	}
+          if err != nil {
+                  log.Printf("testutil: warning: failed to get cwd: %v", err)
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/version/check.go:75` in `sendUpgradeMessage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/testutil/testutil.go:94` in `MustConnectTestDB`
   ```go
-  	if err != nil {
-  		slog.Warn("Could not find root tenant owner for upgrade message", "error", err)
-  		return
-  	}
+                  if err != nil {
+                          log.Printf("testutil: warning: failed to list collections: %v", err)
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/version/check.go:90` in `sendUpgradeMessage`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/testutil/testutil.go:102` in `MustConnectTestDB`
   ```go
-  	if _, err := database.Messages().InsertOne(ctx, msg); err != nil {
-  		slog.Warn("Failed to send upgrade message", "error", err)
-  	}
+                  if err := database.Close(ctx); err != nil {
+                          log.Printf("testutil: warning: failed to close database: %v", err)
+                  }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/testutil/testutil.go:140` in `ConnectTestDB`
+  ```go
+                  if err != nil {
+                          log.Printf("testutil: warning: failed to list collections: %v", err)
+                  }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/testutil/testutil.go:148` in `ConnectTestDB`
+  ```go
+                  if err := database.Close(ctx); err != nil {
+                          log.Printf("testutil: warning: failed to close database: %v", err)
+                  }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/testutil/testutil.go:162` in `findAndSetConfigDir`
+  ```go
+          if err != nil {
+                  log.Printf("testutil: warning: failed to get cwd: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:73` in `MustConnectTestDB`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to load test config: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:83` in `MustConnectTestDB`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to connect to test database: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:123` in `ConnectTestDB`
+  ```go
+          if err != nil {
+                  log.Fatalf("testutil: failed to load test config: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:132` in `ConnectTestDB`
+  ```go
+          if err != nil {
+                  log.Fatalf("testutil: failed to connect to test database: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:241` in `TestConfig`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to load test config: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:254` in `CreateTestUser`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to hash password: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:271` in `CreateTestUser`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test user: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:293` in `CreateTestTenant`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test tenant: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:306` in `CreateTestTenant`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test membership: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:324` in `MarkSystemInitialized`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to mark system initialized: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:342` in `InsertTestLogs`
+  ```go
+                  if err != nil {
+                          t.Fatalf("testutil: failed to insert test log: %v", err)
+                  }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:353` in `CountDocuments`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to count documents: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:363` in `ParseJSON`
+  ```go
+          if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
+                  t.Fatalf("testutil: failed to parse JSON response: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:393` in `CreateTestMembership`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test membership: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:417` in `CreateTestPlan`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test plan: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:439` in `CreateTestAPIKey`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test API key: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:463` in `CreateTestWebhook`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test webhook: %v", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/testutil/testutil.go:486` in `CreateTestInvitation`
+  ```go
+          if err != nil {
+                  t.Fatalf("testutil: failed to create test invitation: %v", err)
+          }
   ```
 
-### `internal/version/version.go`
+### `backend/internal/version/check.go`
 
-- **[HIGH] Ignored error (`_`)** — `internal/version/version.go:30` in `Load`
-  - _error explicitly discarded with `_`_
+- **[HIGH] Swallowed error** — `backend/internal/version/check.go:29` in `CheckAndMigrate`
   ```go
-  	dir, _ := os.Getwd()
+          if err != nil {
+                  // System not initialized yet — nothing to check
+                  slog.Debug("version: system config not available, skipping migration check", "error", err)
+                  return
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/version/check.go:66` in `sendUpgradeMessage`
+  ```go
+          if err != nil {
+                  slog.Warn("Could not find root tenant for upgrade message", "error", err)
+                  return
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/version/check.go:76` in `sendUpgradeMessage`
+  ```go
+          if err != nil {
+                  slog.Warn("Could not find root tenant owner for upgrade message", "error", err)
+                  return
+          }
+  ```
+- **[MEDIUM] Logged only (no return)** — `backend/internal/version/check.go:91` in `sendUpgradeMessage`
+  ```go
+          if _, err := database.Messages().InsertOne(ctx, msg); err != nil {
+                  slog.Warn("Failed to send upgrade message", "error", err)
+          }
   ```
 
-### `internal/webhooks/crypto.go`
+### `backend/internal/version/version.go`
 
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:21` in `EncryptSecret`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/version/version.go:32` in `Load`
+  ```go
+          if err != nil {
+                  slog.Warn("version: failed to get cwd, will not search for VERSION file", "error", err)
+          }
+  ```
+
+### `backend/internal/webhooks/crypto.go`
+
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:21` in `EncryptSecret`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("create cipher: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:26` in `EncryptSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:26` in `EncryptSecret`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("create GCM: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:31` in `EncryptSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:31` in `EncryptSecret`
   ```go
   	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
   		return "", fmt.Errorf("generate nonce: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:46` in `DecryptSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:46` in `DecryptSecret`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("decode base64: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:51` in `DecryptSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:51` in `DecryptSecret`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("create cipher: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:56` in `DecryptSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:56` in `DecryptSecret`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("create GCM: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:67` in `DecryptSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:67` in `DecryptSecret`
   ```go
   	if err != nil {
   		return "", fmt.Errorf("decrypt: %w", err)
   	}
   ```
-- **[LOW] Proper handling** — `internal/webhooks/crypto.go:81` in `ParseEncryptionKey`
+- **[LOW] Proper handling** — `backend/internal/webhooks/crypto.go:81` in `ParseEncryptionKey`
   ```go
   	if err != nil {
   		return nil, fmt.Errorf("invalid hex key: %w", err)
   	}
   ```
 
-### `internal/webhooks/dispatcher.go`
+### `backend/internal/webhooks/dispatcher.go`
 
-- **[HIGH] Swallowed error** — `internal/webhooks/dispatcher.go:198` in `dispatch`
+- **[HIGH] Swallowed error** — `backend/internal/webhooks/dispatcher.go:198` in `dispatch`
   ```go
-  	if err != nil {
-  		slog.Error("webhooks: failed to query webhooks", "event_type", eventType, "error", err)
-  		return
-  	}
+          if err != nil {
+                  slog.Error("webhooks: failed to query webhooks", "event_type", eventType, "error", err)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/webhooks/dispatcher.go:205` in `dispatch`
+- **[HIGH] Swallowed error** — `backend/internal/webhooks/dispatcher.go:205` in `dispatch`
   ```go
-  	if err := cursor.All(ctx, &hooks); err != nil {
-  		slog.Error("webhooks: failed to decode webhooks", "error", err)
-  		return
-  	}
+          if err := cursor.All(ctx, &hooks); err != nil {
+                  slog.Error("webhooks: failed to decode webhooks", "error", err)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/webhooks/dispatcher.go:232` in `deliverWithRetry`
+- **[HIGH] Swallowed error** — `backend/internal/webhooks/dispatcher.go:232` in `deliverWithRetry`
   ```go
-  	if err != nil {
-  		slog.Error("webhooks: failed to marshal payload", "error", err)
-  		return
-  	}
+          if err != nil {
+                  slog.Error("webhooks: failed to marshal payload", "error", err)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/webhooks/dispatcher.go:241` in `deliverWithRetry`
+- **[HIGH] Swallowed error** — `backend/internal/webhooks/dispatcher.go:241` in `deliverWithRetry`
   ```go
-  	if err != nil {
-  		slog.Error("webhooks: failed to create request", "webhook", hook.Name, "error", err)
-  		return
-  	}
+          if err != nil {
+                  slog.Error("webhooks: failed to create request", "webhook", hook.Name, "error", err)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `internal/webhooks/dispatcher.go:273` in `deliverWithRetry`
+- **[HIGH] Swallowed error** — `backend/internal/webhooks/dispatcher.go:273` in `deliverWithRetry`
   ```go
-  	if err != nil {
-  		delivery.Success = false
-  		delivery.ResponseCode = 0
-  		delivery.ResponseBody = err.Error()
-  	} else {
+          if err != nil {
+                  delivery.Success = false
+                  delivery.ResponseCode = 0
+                  delivery.ResponseBody = err.Error()
+          } else {
   ```
-- **[HIGH] Missing error check** — `internal/webhooks/dispatcher.go:331` in `computeSignature`
-  - _statement-form call to known error-returning 'mac.Write()'_
+- **[HIGH] Swallowed error** — `backend/internal/webhooks/dispatcher.go:408` in `DeliverTest`
   ```go
-  	mac.Write(payload)
+          if err != nil {
+                  delivery.Success = false
+                  delivery.ResponseCode = 0
+                  delivery.ResponseBody = err.Error()
+          } else {
   ```
-- **[HIGH] Swallowed error** — `internal/webhooks/dispatcher.go:406` in `DeliverTest`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/webhooks/dispatcher.go:287` in `deliverWithRetry`
   ```go
-  	if err != nil {
-  		delivery.Success = false
-  		delivery.ResponseCode = 0
-  		delivery.ResponseBody = err.Error()
-  	} else {
+          if _, err := d.db.WebhookDeliveries().InsertOne(deliverCtx, delivery); err != nil {
+                  slog.Error("webhooks: failed to record delivery", "webhook", hook.Name, "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/webhooks/dispatcher.go:287` in `deliverWithRetry`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/webhooks/dispatcher.go:331` in `computeSignature`
   ```go
-  	if _, err := d.db.WebhookDeliveries().InsertOne(deliverCtx, delivery); err != nil {
-  		slog.Error("webhooks: failed to record delivery", "webhook", hook.Name, "error", err)
-  	}
+          if _, err := mac.Write(payload); err != nil {
+                  slog.Warn("webhooks: failed to write payload to HMAC", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `internal/webhooks/dispatcher.go:419` in `DeliverTest`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/webhooks/dispatcher.go:421` in `DeliverTest`
   ```go
-  	if _, err := d.db.WebhookDeliveries().InsertOne(ctx, delivery); err != nil {
-  		slog.Error("webhooks: failed to record test delivery", "webhook", hook.Name, "error", err)
-  	}
+          if _, err := d.db.WebhookDeliveries().InsertOne(ctx, delivery); err != nil {
+                  slog.Error("webhooks: failed to record test delivery", "webhook", hook.Name, "error", err)
+          }
   ```
-- **[LOW] Proper handling** — `internal/webhooks/dispatcher.go:317` in `resolveSecret`
+- **[LOW] Proper handling** — `backend/internal/webhooks/dispatcher.go:317` in `resolveSecret`
   ```go
-  	if err != nil {
-  		// Fallback: may be a legacy plaintext secret not yet migrated
-  		if len(stored) > 0 && stored[0] != 0 {
-  			return stored
-  		}
-  		slog.Error("webhooks: failed to decrypt secret", "error", err)
+          if err != nil {
+                  // Fallback: may be a legacy plaintext secret not yet migrated
+                  if len(stored) > 0 && stored[0] != 0 {
+                          return stored
+                  }
+                  slog.Error("webhooks: failed to decrypt secret", "error", err)
   ... (2 more lines)
   ```
-- **[LOW] Proper handling** — `internal/webhooks/dispatcher.go:354` in `DeliverTest`
+- **[LOW] Proper handling** — `backend/internal/webhooks/dispatcher.go:356` in `DeliverTest`
   ```go
-  	if err != nil {
-  		slog.Error("webhooks: failed to marshal test payload", "error", err)
-  		return models.WebhookDelivery{
-  			ID:           primitive.NewObjectID(),
-  			WebhookID:    hook.ID,
-  			EventType:    models.WebhookEventTenantCreated,
+          if err != nil {
+                  slog.Error("webhooks: failed to marshal test payload", "error", err)
+                  return models.WebhookDelivery{
+                          ID:           primitive.NewObjectID(),
+                          WebhookID:    hook.ID,
+                          EventType:    models.WebhookEventTenantCreated,
   ... (6 more lines)
   ```
-- **[LOW] Proper handling** — `internal/webhooks/dispatcher.go:368` in `DeliverTest`
+- **[LOW] Proper handling** — `backend/internal/webhooks/dispatcher.go:370` in `DeliverTest`
   ```go
-  	if err != nil {
-  		return models.WebhookDelivery{
-  			ID:           primitive.NewObjectID(),
-  			WebhookID:    hook.ID,
-  			EventType:    models.WebhookEventTenantCreated,
-  			Payload:      string(body),
+          if err != nil {
+                  return models.WebhookDelivery{
+                          ID:           primitive.NewObjectID(),
+                          WebhookID:    hook.ID,
+                          EventType:    models.WebhookEventTenantCreated,
+                          Payload:      string(body),
   ... (6 more lines)
   ```
 
@@ -6600,7 +6499,7 @@
 | Metric | Value |
 | --- | --- |
 | Test files scanned | 33 |
-| Total lines | 8,982 |
+| Total lines | 8,984 |
 | Total error-handling sites | 349 |
 | Properly handled | 207 |
 | Logged only | 10 |

@@ -1,0 +1,897 @@
+     1→package main
+     2→
+     3→import (
+     4→        "bytes"
+     5→        "context"
+     6→        "encoding/json"
+     7→        "fmt"
+     8→        "io"
+     9→        "net/http"
+    10→        "net/url"
+    11→        "os"
+    12→        "time"
+    13→
+    14→        "lastsaas/internal/version"
+    15→
+    16→        "github.com/mark3labs/mcp-go/mcp"
+    17→        "github.com/mark3labs/mcp-go/server"
+    18→)
+    19→
+    20→// ---------------------------------------------------------------------------
+    21→// HTTP client for proxying read-only requests to the LastSaaS API
+    22→// ---------------------------------------------------------------------------
+    23→
+    24→type mcpClient struct {
+    25→        baseURL    string
+    26→        apiKey     string
+    27→        httpClient *http.Client
+    28→}
+    29→
+    30→func newMCPClient(baseURL, apiKey string) *mcpClient {
+    31→        return &mcpClient{
+    32→                baseURL: baseURL,
+    33→                apiKey:  apiKey,
+    34→                httpClient: &http.Client{
+    35→                        Timeout: 30 * time.Second,
+    36→                },
+    37→        }
+    38→}
+    39→
+    40→func (c *mcpClient) get(ctx context.Context, path string) ([]byte, error) {
+    41→        req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+    42→        if err != nil {
+    43→                return nil, fmt.Errorf("failed to create request: %w", err)
+    44→        }
+    45→        req.Header.Set("Authorization", "Bearer "+c.apiKey)
+    46→
+    47→        resp, err := c.httpClient.Do(req)
+    48→        if err != nil {
+    49→                return nil, fmt.Errorf("request failed: %w", err)
+    50→        }
+    51→        defer resp.Body.Close()
+    52→
+    53→        body, err := io.ReadAll(resp.Body)
+    54→        if err != nil {
+    55→                return nil, fmt.Errorf("failed to read response: %w", err)
+    56→        }
+    57→
+    58→        if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+    59→                return nil, fmt.Errorf("API error (HTTP %d): %s", resp.StatusCode, string(body))
+    60→        }
+    61→        return body, nil
+    62→}
+    63→
+    64→// ---------------------------------------------------------------------------
+    65→// Helpers
+    66→// ---------------------------------------------------------------------------
+    67→
+    68→func prettyJSON(data []byte) string {
+    69→        var buf bytes.Buffer
+    70→        if err := json.Indent(&buf, data, "", "  "); err != nil {
+    71→                return string(data)
+    72→        }
+    73→        return buf.String()
+    74→}
+    75→
+    76→func buildQuery(params map[string]string) string {
+    77→        v := url.Values{}
+    78→        for key, val := range params {
+    79→                if val != "" {
+    80→                        v.Set(key, val)
+    81→                }
+    82→        }
+    83→        if len(v) == 0 {
+    84→                return ""
+    85→        }
+    86→        return "?" + v.Encode()
+    87→}
+    88→
+    89→// ---------------------------------------------------------------------------
+    90→// Entry point
+    91→// ---------------------------------------------------------------------------
+    92→
+    93→func cmdMCP() {
+    94→        baseURL := os.Getenv("LASTSAAS_URL")
+    95→        apiKey := os.Getenv("LASTSAAS_API_KEY")
+    96→
+    97→        if baseURL == "" {
+    98→                fmt.Fprintln(os.Stderr, "LASTSAAS_URL environment variable is required (e.g. http://localhost:3000)")
+    99→                os.Exit(1)
+   100→        }
+   101→        if apiKey == "" {
+   102→                fmt.Fprintln(os.Stderr, "LASTSAAS_API_KEY environment variable is required (e.g. lsk_xxxxx)")
+   103→                os.Exit(1)
+   104→        }
+   105→
+   106→        client := newMCPClient(baseURL, apiKey)
+   107→
+   108→        s := server.NewMCPServer(
+   109→                "lastsaas-admin",
+   110→                version.Current,
+   111→                server.WithToolCapabilities(false),
+   112→                server.WithResourceCapabilities(false, false),
+   113→                server.WithRecovery(),
+   114→        )
+   115→
+   116→        registerAboutTools(s, client)
+   117→        registerDashboardTools(s, client)
+   118→        registerTenantTools(s, client)
+   119→        registerUserTools(s, client)
+   120→        registerFinancialTools(s, client)
+   121→        registerLogTools(s, client)
+   122→        registerHealthTools(s, client)
+   123→        registerConfigTools(s, client)
+   124→        registerPlanTools(s, client)
+   125→        registerAnnouncementTools(s, client)
+   126→        registerPromotionTools(s, client)
+   127→        registerSecurityTools(s, client)
+   128→        registerWebhookTools(s, client)
+   129→        registerPMTools(s, client)
+   130→        registerResources(s, client)
+   131→
+   132→        if err := server.ServeStdio(s); err != nil {
+   133→                fmt.Fprintf(os.Stderr, "MCP server error: %v\n", err)
+   134→                os.Exit(1)
+   135→        }
+   136→}
+   137→
+   138→// ---------------------------------------------------------------------------
+   139→// About tools (1)
+   140→// ---------------------------------------------------------------------------
+   141→
+   142→func registerAboutTools(s *server.MCPServer, client *mcpClient) {
+   143→        s.AddTool(
+   144→                mcp.NewTool("get_about",
+   145→                        mcp.WithDescription("Get system info: software version and environment details"),
+   146→                        mcp.WithReadOnlyHintAnnotation(true),
+   147→                ),
+   148→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   149→                        data, err := client.get(ctx, "/api/admin/about")
+   150→                        if err != nil {
+   151→                                return mcp.NewToolResultError(err.Error()), nil
+   152→                        }
+   153→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   154→                },
+   155→        )
+   156→}
+   157→
+   158→// ---------------------------------------------------------------------------
+   159→// Dashboard tools (1)
+   160→// ---------------------------------------------------------------------------
+   161→
+   162→func registerDashboardTools(s *server.MCPServer, client *mcpClient) {
+   163→        s.AddTool(
+   164→                mcp.NewTool("dashboard_stats",
+   165→                        mcp.WithDescription("Get admin dashboard summary: total user count, tenant count, and system health status with any active issues"),
+   166→                        mcp.WithReadOnlyHintAnnotation(true),
+   167→                ),
+   168→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   169→                        data, err := client.get(ctx, "/api/admin/dashboard")
+   170→                        if err != nil {
+   171→                                return mcp.NewToolResultError(err.Error()), nil
+   172→                        }
+   173→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   174→                },
+   175→        )
+   176→}
+   177→
+   178→// ---------------------------------------------------------------------------
+   179→// Tenant tools (2)
+   180→// ---------------------------------------------------------------------------
+   181→
+   182→func registerTenantTools(s *server.MCPServer, client *mcpClient) {
+   183→        // list_tenants
+   184→        s.AddTool(
+   185→                mcp.NewTool("list_tenants",
+   186→                        mcp.WithDescription("List tenants with pagination, search, and filtering. Returns tenant name, slug, plan, credits, member count, billing status, and creation date."),
+   187→                        mcp.WithReadOnlyHintAnnotation(true),
+   188→                        mcp.WithNumber("page", mcp.Description("Page number (default 1)")),
+   189→                        mcp.WithNumber("limit", mcp.Description("Items per page, 1-100 (default 25)")),
+   190→                        mcp.WithString("search", mcp.Description("Search by tenant name or slug")),
+   191→                        mcp.WithString("sort", mcp.Description("Sort: name, -name, createdAt, -createdAt (default -createdAt)")),
+   192→                        mcp.WithString("status", mcp.Description("Filter: active or disabled")),
+   193→                        mcp.WithString("billingStatus", mcp.Description("Filter: none, active, past_due, or canceled")),
+   194→                ),
+   195→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   196→                        q := map[string]string{
+   197→                                "search":        req.GetString("search", ""),
+   198→                                "sort":          req.GetString("sort", ""),
+   199→                                "status":        req.GetString("status", ""),
+   200→                                "billingStatus": req.GetString("billingStatus", ""),
+   201→                        }
+   202→                        if v := req.GetInt("page", 0); v > 0 {
+   203→                                q["page"] = fmt.Sprintf("%d", v)
+   204→                        }
+   205→                        if v := req.GetInt("limit", 0); v > 0 {
+   206→                                q["limit"] = fmt.Sprintf("%d", v)
+   207→                        }
+   208→                        data, err := client.get(ctx, "/api/admin/tenants"+buildQuery(q))
+   209→                        if err != nil {
+   210→                                return mcp.NewToolResultError(err.Error()), nil
+   211→                        }
+   212→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   213→                },
+   214→        )
+   215→
+   216→        // get_tenant
+   217→        s.AddTool(
+   218→                mcp.NewTool("get_tenant",
+   219→                        mcp.WithDescription("Get detailed tenant information including plan, billing, credits, and member list with roles"),
+   220→                        mcp.WithReadOnlyHintAnnotation(true),
+   221→                        mcp.WithString("id", mcp.Required(), mcp.Description("Tenant ID (MongoDB ObjectID hex)")),
+   222→                ),
+   223→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   224→                        id, err := req.RequireString("id")
+   225→                        if err != nil {
+   226→                                return mcp.NewToolResultError("id is required"), nil
+   227→                        }
+   228→                        data, err := client.get(ctx, "/api/admin/tenants/"+id)
+   229→                        if err != nil {
+   230→                                return mcp.NewToolResultError(err.Error()), nil
+   231→                        }
+   232→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   233→                },
+   234→        )
+   235→}
+   236→
+   237→// ---------------------------------------------------------------------------
+   238→// User tools (2)
+   239→// ---------------------------------------------------------------------------
+   240→
+   241→func registerUserTools(s *server.MCPServer, client *mcpClient) {
+   242→        // list_users
+   243→        s.AddTool(
+   244→                mcp.NewTool("list_users",
+   245→                        mcp.WithDescription("List users with pagination, search, and status filtering. Returns email, display name, verification status, tenant count, and last login."),
+   246→                        mcp.WithReadOnlyHintAnnotation(true),
+   247→                        mcp.WithNumber("page", mcp.Description("Page number (default 1)")),
+   248→                        mcp.WithNumber("limit", mcp.Description("Items per page, 1-100 (default 25)")),
+   249→                        mcp.WithString("search", mcp.Description("Search by email or display name")),
+   250→                        mcp.WithString("sort", mcp.Description("Sort: email, -email, displayName, -displayName, createdAt, -createdAt")),
+   251→                        mcp.WithString("status", mcp.Description("Filter: active or disabled")),
+   252→                ),
+   253→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   254→                        q := map[string]string{
+   255→                                "search": req.GetString("search", ""),
+   256→                                "sort":   req.GetString("sort", ""),
+   257→                                "status": req.GetString("status", ""),
+   258→                        }
+   259→                        if v := req.GetInt("page", 0); v > 0 {
+   260→                                q["page"] = fmt.Sprintf("%d", v)
+   261→                        }
+   262→                        if v := req.GetInt("limit", 0); v > 0 {
+   263→                                q["limit"] = fmt.Sprintf("%d", v)
+   264→                        }
+   265→                        data, err := client.get(ctx, "/api/admin/users"+buildQuery(q))
+   266→                        if err != nil {
+   267→                                return mcp.NewToolResultError(err.Error()), nil
+   268→                        }
+   269→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   270→                },
+   271→        )
+   272→
+   273→        // get_user
+   274→        s.AddTool(
+   275→                mcp.NewTool("get_user",
+   276→                        mcp.WithDescription("Get detailed user info including auth methods, MFA status, and all tenant memberships with roles"),
+   277→                        mcp.WithReadOnlyHintAnnotation(true),
+   278→                        mcp.WithString("id", mcp.Required(), mcp.Description("User ID (MongoDB ObjectID hex)")),
+   279→                ),
+   280→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   281→                        id, err := req.RequireString("id")
+   282→                        if err != nil {
+   283→                                return mcp.NewToolResultError("id is required"), nil
+   284→                        }
+   285→                        data, err := client.get(ctx, "/api/admin/users/"+id)
+   286→                        if err != nil {
+   287→                                return mcp.NewToolResultError(err.Error()), nil
+   288→                        }
+   289→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   290→                },
+   291→        )
+   292→}
+   293→
+   294→// ---------------------------------------------------------------------------
+   295→// Financial tools (2)
+   296→// ---------------------------------------------------------------------------
+   297→
+   298→func registerFinancialTools(s *server.MCPServer, client *mcpClient) {
+   299→        // list_transactions
+   300→        s.AddTool(
+   301→                mcp.NewTool("list_transactions",
+   302→                        mcp.WithDescription("List financial transactions (subscriptions, credit purchases, refunds) with pagination and filtering"),
+   303→                        mcp.WithReadOnlyHintAnnotation(true),
+   304→                        mcp.WithNumber("page", mcp.Description("Page number (default 1)")),
+   305→                        mcp.WithNumber("perPage", mcp.Description("Items per page, 1-100 (default 50)")),
+   306→                        mcp.WithString("tenantId", mcp.Description("Filter by tenant ID")),
+   307→                        mcp.WithString("search", mcp.Description("Search by description, invoice number, plan name, or bundle name")),
+   308→                ),
+   309→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   310→                        q := map[string]string{
+   311→                                "tenantId": req.GetString("tenantId", ""),
+   312→                                "search":   req.GetString("search", ""),
+   313→                        }
+   314→                        if v := req.GetInt("page", 0); v > 0 {
+   315→                                q["page"] = fmt.Sprintf("%d", v)
+   316→                        }
+   317→                        if v := req.GetInt("perPage", 0); v > 0 {
+   318→                                q["perPage"] = fmt.Sprintf("%d", v)
+   319→                        }
+   320→                        data, err := client.get(ctx, "/api/admin/financial/transactions"+buildQuery(q))
+   321→                        if err != nil {
+   322→                                return mcp.NewToolResultError(err.Error()), nil
+   323→                        }
+   324→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   325→                },
+   326→        )
+   327→
+   328→        // get_financial_metrics
+   329→        s.AddTool(
+   330→                mcp.NewTool("get_financial_metrics",
+   331→                        mcp.WithDescription("Get time-series financial/business metrics. Returns date/value data points for charts. Revenue and ARR are in cents."),
+   332→                        mcp.WithReadOnlyHintAnnotation(true),
+   333→                        mcp.WithString("range", mcp.Description("Time range: 7d, 30d, or 1y (default 30d)")),
+   334→                        mcp.WithString("metric", mcp.Description("Metric: revenue, arr, dau, or mau (default revenue)")),
+   335→                ),
+   336→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   337→                        q := map[string]string{
+   338→                                "range":  req.GetString("range", ""),
+   339→                                "metric": req.GetString("metric", ""),
+   340→                        }
+   341→                        data, err := client.get(ctx, "/api/admin/financial/metrics"+buildQuery(q))
+   342→                        if err != nil {
+   343→                                return mcp.NewToolResultError(err.Error()), nil
+   344→                        }
+   345→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   346→                },
+   347→        )
+   348→}
+   349→
+   350→// ---------------------------------------------------------------------------
+   351→// Log tools (2)
+   352→// ---------------------------------------------------------------------------
+   353→
+   354→func registerLogTools(s *server.MCPServer, client *mcpClient) {
+   355→        // search_logs
+   356→        s.AddTool(
+   357→                mcp.NewTool("search_logs",
+   358→                        mcp.WithDescription("Search and filter system logs. Returns log entries with severity, category, message, and metadata."),
+   359→                        mcp.WithReadOnlyHintAnnotation(true),
+   360→                        mcp.WithNumber("page", mcp.Description("Page number (default 1)")),
+   361→                        mcp.WithNumber("perPage", mcp.Description("Items per page, 1-100 (default 50)")),
+   362→                        mcp.WithString("severity", mcp.Description("Filter by severity: critical, high, medium, low, debug (comma-separated for multiple)")),
+   363→                        mcp.WithString("category", mcp.Description("Filter by category: auth, billing, admin, system, security, tenant")),
+   364→                        mcp.WithString("search", mcp.Description("Full-text search across log messages")),
+   365→                        mcp.WithString("fromDate", mcp.Description("Start date filter (RFC3339 format)")),
+   366→                        mcp.WithString("toDate", mcp.Description("End date filter (RFC3339 format)")),
+   367→                ),
+   368→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   369→                        q := map[string]string{
+   370→                                "severity": req.GetString("severity", ""),
+   371→                                "category": req.GetString("category", ""),
+   372→                                "search":   req.GetString("search", ""),
+   373→                                "fromDate": req.GetString("fromDate", ""),
+   374→                                "toDate":   req.GetString("toDate", ""),
+   375→                        }
+   376→                        if v := req.GetInt("page", 0); v > 0 {
+   377→                                q["page"] = fmt.Sprintf("%d", v)
+   378→                        }
+   379→                        if v := req.GetInt("perPage", 0); v > 0 {
+   380→                                q["perPage"] = fmt.Sprintf("%d", v)
+   381→                        }
+   382→                        data, err := client.get(ctx, "/api/admin/logs"+buildQuery(q))
+   383→                        if err != nil {
+   384→                                return mcp.NewToolResultError(err.Error()), nil
+   385→                        }
+   386→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   387→                },
+   388→        )
+   389→
+   390→        // get_log_severity_counts
+   391→        s.AddTool(
+   392→                mcp.NewTool("get_log_severity_counts",
+   393→                        mcp.WithDescription("Get counts of logs grouped by severity level (critical, high, medium, low, debug)"),
+   394→                        mcp.WithReadOnlyHintAnnotation(true),
+   395→                ),
+   396→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   397→                        data, err := client.get(ctx, "/api/admin/logs/severity-counts")
+   398→                        if err != nil {
+   399→                                return mcp.NewToolResultError(err.Error()), nil
+   400→                        }
+   401→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   402→                },
+   403→        )
+   404→}
+   405→
+   406→// ---------------------------------------------------------------------------
+   407→// Health tools (4)
+   408→// ---------------------------------------------------------------------------
+   409→
+   410→func registerHealthTools(s *server.MCPServer, client *mcpClient) {
+   411→        // get_system_health
+   412→        s.AddTool(
+   413→                mcp.NewTool("get_system_health",
+   414→                        mcp.WithDescription("Get current system health: CPU, memory, disk usage, HTTP request stats, MongoDB connections, and Go runtime info"),
+   415→                        mcp.WithReadOnlyHintAnnotation(true),
+   416→                ),
+   417→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   418→                        data, err := client.get(ctx, "/api/admin/health/current")
+   419→                        if err != nil {
+   420→                                return mcp.NewToolResultError(err.Error()), nil
+   421→                        }
+   422→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   423→                },
+   424→        )
+   425→
+   426→        // get_health_metrics
+   427→        s.AddTool(
+   428→                mcp.NewTool("get_health_metrics",
+   429→                        mcp.WithDescription("Get time-series health metrics (CPU, memory, disk) for a node or aggregated across all nodes. Returns data points for charting."),
+   430→                        mcp.WithReadOnlyHintAnnotation(true),
+   431→                        mcp.WithString("node", mcp.Description("Node ID to filter by (omit for aggregate across all nodes)")),
+   432→                        mcp.WithString("range", mcp.Description("Time range: 1h, 6h, 24h, 7d, or 30d (default 24h)")),
+   433→                ),
+   434→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   435→                        q := map[string]string{
+   436→                                "node":  req.GetString("node", ""),
+   437→                                "range": req.GetString("range", ""),
+   438→                        }
+   439→                        data, err := client.get(ctx, "/api/admin/health/metrics"+buildQuery(q))
+   440→                        if err != nil {
+   441→                                return mcp.NewToolResultError(err.Error()), nil
+   442→                        }
+   443→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   444→                },
+   445→        )
+   446→
+   447→        // list_nodes
+   448→        s.AddTool(
+   449→                mcp.NewTool("list_nodes",
+   450→                        mcp.WithDescription("List all registered server nodes with hostname, status (healthy/stale), version, and last seen time"),
+   451→                        mcp.WithReadOnlyHintAnnotation(true),
+   452→                ),
+   453→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   454→                        data, err := client.get(ctx, "/api/admin/health/nodes")
+   455→                        if err != nil {
+   456→                                return mcp.NewToolResultError(err.Error()), nil
+   457→                        }
+   458→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   459→                },
+   460→        )
+   461→
+   462→        // get_integrations
+   463→        s.AddTool(
+   464→                mcp.NewTool("get_integrations",
+   465→                        mcp.WithDescription("Get health status of third-party integrations (MongoDB, Stripe, Resend, OAuth providers) with response times and 24h call counts"),
+   466→                        mcp.WithReadOnlyHintAnnotation(true),
+   467→                ),
+   468→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   469→                        data, err := client.get(ctx, "/api/admin/health/integrations")
+   470→                        if err != nil {
+   471→                                return mcp.NewToolResultError(err.Error()), nil
+   472→                        }
+   473→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   474→                },
+   475→        )
+   476→}
+   477→
+   478→// ---------------------------------------------------------------------------
+   479→// Config tools (2)
+   480→// ---------------------------------------------------------------------------
+   481→
+   482→func registerConfigTools(s *server.MCPServer, client *mcpClient) {
+   483→        // list_config
+   484→        s.AddTool(
+   485→                mcp.NewTool("list_config",
+   486→                        mcp.WithDescription("List all configuration variables with names, types (string/numeric/enum/template), current values, and descriptions"),
+   487→                        mcp.WithReadOnlyHintAnnotation(true),
+   488→                ),
+   489→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   490→                        data, err := client.get(ctx, "/api/admin/config")
+   491→                        if err != nil {
+   492→                                return mcp.NewToolResultError(err.Error()), nil
+   493→                        }
+   494→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   495→                },
+   496→        )
+   497→
+   498→        // get_config
+   499→        s.AddTool(
+   500→                mcp.NewTool("get_config",
+   501→                        mcp.WithDescription("Get a single configuration variable by name with its type, value, description, and available options"),
+   502→                        mcp.WithReadOnlyHintAnnotation(true),
+   503→                        mcp.WithString("name", mcp.Required(), mcp.Description("Config variable name (e.g. log.min_level, app.name)")),
+   504→                ),
+   505→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   506→                        name, err := req.RequireString("name")
+   507→                        if err != nil {
+   508→                                return mcp.NewToolResultError("name is required"), nil
+   509→                        }
+   510→                        data, err := client.get(ctx, "/api/admin/config/"+url.PathEscape(name))
+   511→                        if err != nil {
+   512→                                return mcp.NewToolResultError(err.Error()), nil
+   513→                        }
+   514→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   515→                },
+   516→        )
+   517→}
+   518→
+   519→// ---------------------------------------------------------------------------
+   520→// Plan tools (4)
+   521→// ---------------------------------------------------------------------------
+   522→
+   523→func registerPlanTools(s *server.MCPServer, client *mcpClient) {
+   524→        // list_plans
+   525→        s.AddTool(
+   526→                mcp.NewTool("list_plans",
+   527→                        mcp.WithDescription("List all subscription plans with pricing, entitlements, credit allocations, and active subscriber counts"),
+   528→                        mcp.WithReadOnlyHintAnnotation(true),
+   529→                ),
+   530→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   531→                        data, err := client.get(ctx, "/api/admin/plans")
+   532→                        if err != nil {
+   533→                                return mcp.NewToolResultError(err.Error()), nil
+   534→                        }
+   535→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   536→                },
+   537→        )
+   538→
+   539→        // get_plan
+   540→        s.AddTool(
+   541→                mcp.NewTool("get_plan",
+   542→                        mcp.WithDescription("Get detailed plan info: pricing model, monthly/annual prices, seat limits, credits, trial days, and entitlements"),
+   543→                        mcp.WithReadOnlyHintAnnotation(true),
+   544→                        mcp.WithString("id", mcp.Required(), mcp.Description("Plan ID (MongoDB ObjectID hex)")),
+   545→                ),
+   546→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   547→                        id, err := req.RequireString("id")
+   548→                        if err != nil {
+   549→                                return mcp.NewToolResultError("id is required"), nil
+   550→                        }
+   551→                        data, err := client.get(ctx, "/api/admin/plans/"+id)
+   552→                        if err != nil {
+   553→                                return mcp.NewToolResultError(err.Error()), nil
+   554→                        }
+   555→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   556→                },
+   557→        )
+   558→
+   559→        // list_entitlement_keys
+   560→        s.AddTool(
+   561→                mcp.NewTool("list_entitlement_keys",
+   562→                        mcp.WithDescription("List all unique entitlement keys defined across plans, with their types (bool/numeric) and descriptions"),
+   563→                        mcp.WithReadOnlyHintAnnotation(true),
+   564→                ),
+   565→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   566→                        data, err := client.get(ctx, "/api/admin/entitlement-keys")
+   567→                        if err != nil {
+   568→                                return mcp.NewToolResultError(err.Error()), nil
+   569→                        }
+   570→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   571→                },
+   572→        )
+   573→
+   574→        // list_credit_bundles
+   575→        s.AddTool(
+   576→                mcp.NewTool("list_credit_bundles",
+   577→                        mcp.WithDescription("List all credit bundles with name, credit amount, price in cents, active status, and sort order"),
+   578→                        mcp.WithReadOnlyHintAnnotation(true),
+   579→                ),
+   580→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   581→                        data, err := client.get(ctx, "/api/admin/credit-bundles")
+   582→                        if err != nil {
+   583→                                return mcp.NewToolResultError(err.Error()), nil
+   584→                        }
+   585→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   586→                },
+   587→        )
+   588→}
+   589→
+   590→// ---------------------------------------------------------------------------
+   591→// Announcement tools (1)
+   592→// ---------------------------------------------------------------------------
+   593→
+   594→func registerAnnouncementTools(s *server.MCPServer, client *mcpClient) {
+   595→        // list_announcements
+   596→        s.AddTool(
+   597→                mcp.NewTool("list_announcements",
+   598→                        mcp.WithDescription("List all announcements including drafts and published items with their titles, bodies, and publish dates"),
+   599→                        mcp.WithReadOnlyHintAnnotation(true),
+   600→                ),
+   601→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   602→                        data, err := client.get(ctx, "/api/admin/announcements")
+   603→                        if err != nil {
+   604→                                return mcp.NewToolResultError(err.Error()), nil
+   605→                        }
+   606→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   607→                },
+   608→        )
+   609→}
+   610→
+   611→// ---------------------------------------------------------------------------
+   612→// Promotion tools (1)
+   613→// ---------------------------------------------------------------------------
+   614→
+   615→func registerPromotionTools(s *server.MCPServer, client *mcpClient) {
+   616→        // list_promotions
+   617→        s.AddTool(
+   618→                mcp.NewTool("list_promotions",
+   619→                        mcp.WithDescription("List all Stripe promotion codes with coupon details, discount amounts, redemption counts, and expiration dates"),
+   620→                        mcp.WithReadOnlyHintAnnotation(true),
+   621→                ),
+   622→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   623→                        data, err := client.get(ctx, "/api/admin/promotions")
+   624→                        if err != nil {
+   625→                                return mcp.NewToolResultError(err.Error()), nil
+   626→                        }
+   627→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   628→                },
+   629→        )
+   630→}
+   631→
+   632→// ---------------------------------------------------------------------------
+   633→// Security tools (2)
+   634→// ---------------------------------------------------------------------------
+   635→
+   636→func registerSecurityTools(s *server.MCPServer, client *mcpClient) {
+   637→        // list_api_keys
+   638→        s.AddTool(
+   639→                mcp.NewTool("list_api_keys",
+   640→                        mcp.WithDescription("List all API keys with name, authority level (admin/user), key preview, creation date, and last used time. Full keys are never exposed."),
+   641→                        mcp.WithReadOnlyHintAnnotation(true),
+   642→                ),
+   643→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   644→                        data, err := client.get(ctx, "/api/admin/api-keys")
+   645→                        if err != nil {
+   646→                                return mcp.NewToolResultError(err.Error()), nil
+   647→                        }
+   648→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   649→                },
+   650→        )
+   651→
+   652→        // list_root_members
+   653→        s.AddTool(
+   654→                mcp.NewTool("list_root_members",
+   655→                        mcp.WithDescription("List root tenant members (admin team) with roles and join dates, plus pending invitations"),
+   656→                        mcp.WithReadOnlyHintAnnotation(true),
+   657→                ),
+   658→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   659→                        data, err := client.get(ctx, "/api/admin/members")
+   660→                        if err != nil {
+   661→                                return mcp.NewToolResultError(err.Error()), nil
+   662→                        }
+   663→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   664→                },
+   665→        )
+   666→}
+   667→
+   668→// ---------------------------------------------------------------------------
+   669→// Webhook tools (3)
+   670→// ---------------------------------------------------------------------------
+   671→
+   672→func registerWebhookTools(s *server.MCPServer, client *mcpClient) {
+   673→        // list_webhooks
+   674→        s.AddTool(
+   675→                mcp.NewTool("list_webhooks",
+   676→                        mcp.WithDescription("List all outbound webhooks with URL, subscribed events, active status, and creation date"),
+   677→                        mcp.WithReadOnlyHintAnnotation(true),
+   678→                ),
+   679→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   680→                        data, err := client.get(ctx, "/api/admin/webhooks")
+   681→                        if err != nil {
+   682→                                return mcp.NewToolResultError(err.Error()), nil
+   683→                        }
+   684→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   685→                },
+   686→        )
+   687→
+   688→        // list_webhook_event_types
+   689→        s.AddTool(
+   690→                mcp.NewTool("list_webhook_event_types",
+   691→                        mcp.WithDescription("List all available webhook event types organized by category (Billing, Team, User, Credits, Audit) with descriptions"),
+   692→                        mcp.WithReadOnlyHintAnnotation(true),
+   693→                ),
+   694→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   695→                        data, err := client.get(ctx, "/api/admin/webhooks/event-types")
+   696→                        if err != nil {
+   697→                                return mcp.NewToolResultError(err.Error()), nil
+   698→                        }
+   699→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   700→                },
+   701→        )
+   702→
+   703→        // get_webhook
+   704→        s.AddTool(
+   705→                mcp.NewTool("get_webhook",
+   706→                        mcp.WithDescription("Get webhook details including URL, subscribed events, and recent delivery attempts with status codes"),
+   707→                        mcp.WithReadOnlyHintAnnotation(true),
+   708→                        mcp.WithString("id", mcp.Required(), mcp.Description("Webhook ID (MongoDB ObjectID hex)")),
+   709→                ),
+   710→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   711→                        id, err := req.RequireString("id")
+   712→                        if err != nil {
+   713→                                return mcp.NewToolResultError("id is required"), nil
+   714→                        }
+   715→                        data, err := client.get(ctx, "/api/admin/webhooks/"+id)
+   716→                        if err != nil {
+   717→                                return mcp.NewToolResultError(err.Error()), nil
+   718→                        }
+   719→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   720→                },
+   721→        )
+   722→}
+   723→
+   724→// ---------------------------------------------------------------------------
+   725→// PM / Telemetry tools (6)
+   726→// ---------------------------------------------------------------------------
+   727→
+   728→func registerPMTools(s *server.MCPServer, client *mcpClient) {
+   729→        // get_funnel
+   730→        s.AddTool(
+   731→                mcp.NewTool("get_funnel",
+   732→                        mcp.WithDescription("Get conversion funnel metrics: unique visitors, registrations, plan page views, checkouts started, paid conversions, and upgrades with step-by-step conversion rates"),
+   733→                        mcp.WithReadOnlyHintAnnotation(true),
+   734→                        mcp.WithString("range", mcp.Description("Time range: 7d, 30d, 90d, or 1y (default 30d)")),
+   735→                ),
+   736→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   737→                        q := map[string]string{
+   738→                                "range": req.GetString("range", ""),
+   739→                        }
+   740→                        data, err := client.get(ctx, "/api/admin/pm/funnel"+buildQuery(q))
+   741→                        if err != nil {
+   742→                                return mcp.NewToolResultError(err.Error()), nil
+   743→                        }
+   744→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   745→                },
+   746→        )
+   747→
+   748→        // get_kpis
+   749→        s.AddTool(
+   750→                mcp.NewTool("get_kpis",
+   751→                        mcp.WithDescription("Get SaaS KPI snapshot: MRR, ARR, ARPU, LTV (all in cents), churn rate, trial conversion rate, time to first purchase, active subscribers, plan distribution, and 30-day MRR/subscriber trends"),
+   752→                        mcp.WithReadOnlyHintAnnotation(true),
+   753→                ),
+   754→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   755→                        data, err := client.get(ctx, "/api/admin/pm/kpis")
+   756→                        if err != nil {
+   757→                                return mcp.NewToolResultError(err.Error()), nil
+   758→                        }
+   759→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   760→                },
+   761→        )
+   762→
+   763→        // get_retention
+   764→        s.AddTool(
+   765→                mcp.NewTool("get_retention",
+   766→                        mcp.WithDescription("Get cohort retention analysis showing what percentage of users return in subsequent periods after signup"),
+   767→                        mcp.WithReadOnlyHintAnnotation(true),
+   768→                        mcp.WithString("granularity", mcp.Description("Cohort granularity: weekly or monthly (default weekly)")),
+   769→                        mcp.WithNumber("periods", mcp.Description("Number of retention periods to compute, 1-52 (default 12)")),
+   770→                ),
+   771→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   772→                        q := map[string]string{
+   773→                                "granularity": req.GetString("granularity", ""),
+   774→                        }
+   775→                        if v := req.GetInt("periods", 0); v > 0 {
+   776→                                q["periods"] = fmt.Sprintf("%d", v)
+   777→                        }
+   778→                        data, err := client.get(ctx, "/api/admin/pm/retention"+buildQuery(q))
+   779→                        if err != nil {
+   780→                                return mcp.NewToolResultError(err.Error()), nil
+   781→                        }
+   782→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   783→                },
+   784→        )
+   785→
+   786→        // get_engagement
+   787→        s.AddTool(
+   788→                mcp.NewTool("get_engagement",
+   789→                        mcp.WithDescription("Get engagement metrics for paying subscribers: DAU/WAU/MAU time series, average sessions per user per week, top features by usage, and credit consumption trend"),
+   790→                        mcp.WithReadOnlyHintAnnotation(true),
+   791→                        mcp.WithString("range", mcp.Description("Time range: 7d, 30d, 90d, or 1y (default 30d)")),
+   792→                ),
+   793→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   794→                        q := map[string]string{
+   795→                                "range": req.GetString("range", ""),
+   796→                        }
+   797→                        data, err := client.get(ctx, "/api/admin/pm/engagement"+buildQuery(q))
+   798→                        if err != nil {
+   799→                                return mcp.NewToolResultError(err.Error()), nil
+   800→                        }
+   801→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   802→                },
+   803→        )
+   804→
+   805→        // get_custom_events
+   806→        s.AddTool(
+   807→                mcp.NewTool("get_custom_events",
+   808→                        mcp.WithDescription("Get trend data and total count for a specific telemetry event type over a time range. Use list_event_types to discover available event names."),
+   809→                        mcp.WithReadOnlyHintAnnotation(true),
+   810→                        mcp.WithString("name", mcp.Required(), mcp.Description("Event type name (e.g. page.view, user.login, checkout.started)")),
+   811→                        mcp.WithString("range", mcp.Description("Time range: 7d, 30d, 90d, or 1y (default 30d)")),
+   812→                ),
+   813→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   814→                        name, err := req.RequireString("name")
+   815→                        if err != nil {
+   816→                                return mcp.NewToolResultError("name is required"), nil
+   817→                        }
+   818→                        q := map[string]string{
+   819→                                "name":  name,
+   820→                                "range": req.GetString("range", ""),
+   821→                        }
+   822→                        data, err := client.get(ctx, "/api/admin/pm/events"+buildQuery(q))
+   823→                        if err != nil {
+   824→                                return mcp.NewToolResultError(err.Error()), nil
+   825→                        }
+   826→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   827→                },
+   828→        )
+   829→
+   830→        // list_event_types
+   831→        s.AddTool(
+   832→                mcp.NewTool("list_event_types",
+   833→                        mcp.WithDescription("List all distinct telemetry event types with category, total count, and last seen timestamp"),
+   834→                        mcp.WithReadOnlyHintAnnotation(true),
+   835→                ),
+   836→                func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+   837→                        data, err := client.get(ctx, "/api/admin/pm/events/types")
+   838→                        if err != nil {
+   839→                                return mcp.NewToolResultError(err.Error()), nil
+   840→                        }
+   841→                        return mcp.NewToolResultText(prettyJSON(data)), nil
+   842→                },
+   843→        )
+   844→}
+   845→
+   846→// ---------------------------------------------------------------------------
+   847→// Resources (2)
+   848→// ---------------------------------------------------------------------------
+   849→
+   850→func registerResources(s *server.MCPServer, client *mcpClient) {
+   851→        // lastsaas://dashboard
+   852→        s.AddResource(
+   853→                mcp.NewResource(
+   854→                        "lastsaas://dashboard",
+   855→                        "Dashboard Summary",
+   856→                        mcp.WithResourceDescription("LastSaaS admin dashboard: user count, tenant count, and system health status with issues"),
+   857→                        mcp.WithMIMEType("application/json"),
+   858→                ),
+   859→                func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+   860→                        data, err := client.get(ctx, "/api/admin/dashboard")
+   861→                        if err != nil {
+   862→                                return nil, fmt.Errorf("failed to fetch dashboard: %w", err)
+   863→                        }
+   864→                        return []mcp.ResourceContents{
+   865→                                mcp.TextResourceContents{
+   866→                                        URI:      "lastsaas://dashboard",
+   867→                                        MIMEType: "application/json",
+   868→                                        Text:     prettyJSON(data),
+   869→                                },
+   870→                        }, nil
+   871→                },
+   872→        )
+   873→
+   874→        // lastsaas://health
+   875→        s.AddResource(
+   876→                mcp.NewResource(
+   877→                        "lastsaas://health",
+   878→                        "System Health",
+   879→                        mcp.WithResourceDescription("Current system health: CPU, memory, disk, HTTP stats, MongoDB connections, and node status"),
+   880→                        mcp.WithMIMEType("application/json"),
+   881→                ),
+   882→                func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+   883→                        data, err := client.get(ctx, "/api/admin/health/current")
+   884→                        if err != nil {
+   885→                                return nil, fmt.Errorf("failed to fetch health: %w", err)
+   886→                        }
+   887→                        return []mcp.ResourceContents{
+   888→                                mcp.TextResourceContents{
+   889→                                        URI:      "lastsaas://health",
+   890→                                        MIMEType: "application/json",
+   891→                                        Text:     prettyJSON(data),
+   892→                                },
+   893→                        }, nil
+   894→                },
+   895→        )
+   896→}
+   897→

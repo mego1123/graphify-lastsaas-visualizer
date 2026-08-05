@@ -1,0 +1,788 @@
+     1→package datadog
+     2→
+     3→import (
+     4→        "bytes"
+     5→        "context"
+     6→        "encoding/json"
+     7→        "fmt"
+     8→        "io"
+     9→        "log/slog"
+    10→        "net/http"
+    11→        "os"
+    12→        "strings"
+    13→        "sync"
+    14→        "time"
+    15→
+    16→        "lastsaas/internal/apicounter"
+    17→        "lastsaas/internal/models"
+    18→)
+    19→
+    20→const (
+    21→        metricsBufferSize = 200
+    22→        eventsBufferSize  = 50
+    23→        logsBufferSize    = 200
+    24→        checksBufferSize  = 50
+    25→        flushInterval     = 10 * time.Second
+    26→        logsFlushInterval = 5 * time.Second
+    27→        maxBackoff        = 60 * time.Second
+    28→        httpTimeout       = 10 * time.Second
+    29→)
+    30→
+    31→// Client is an async-buffered DataDog REST API client.
+    32→// It submits metrics, events, logs, and service checks
+    33→// without requiring a DataDog Agent.
+    34→type Client struct {
+    35→        apiKey     string
+    36→        site       string // e.g. "us5.datadoghq.com"
+    37→        env        string // e.g. "dev", "prod"
+    38→        appName    string
+    39→        hostname   string // canonical: e.g. "lastsaas.fly.dev"
+    40→        machineID  string // Fly machine ID for tagging
+    41→        region     string // Fly region for tagging
+    42→        metricPfx  string // normalized app name for metric prefix
+    43→        httpClient *http.Client
+    44→
+    45→        metricsCh chan metricPoint
+    46→        eventsCh  chan ddEvent
+    47→        logsCh    chan ddLog
+    48→        checksCh  chan ddServiceCheck
+    49→        stopCh    chan struct{}
+    50→        wg        sync.WaitGroup
+    51→}
+    52→
+    53→// metricPoint is a single metric value to be batched.
+    54→type metricPoint struct {
+    55→        MetricName string
+    56→        Tags       []string
+    57→        Value      float64
+    58→        Timestamp  int64 // Unix seconds
+    59→        MetricType int   // 1=count, 3=gauge (DataDog v2 series API type codes)
+    60→        Interval   int64 // Required for count/rate metrics: aggregation interval in seconds
+    61→}
+    62→
+    63→// ddEvent is a DataDog event (from syslog).
+    64→type ddEvent struct {
+    65→        Title          string   `json:"title"`
+    66→        Text           string   `json:"text"`
+    67→        Priority       string   `json:"priority"`
+    68→        AlertType      string   `json:"alert_type"`
+    69→        Tags           []string `json:"tags"`
+    70→        Host           string   `json:"host,omitempty"`
+    71→        SourceTypeName string   `json:"source_type_name,omitempty"`
+    72→}
+    73→
+    74→// ddLog is a DataDog log entry for the HTTP logs intake API.
+    75→type ddLog struct {
+    76→        Message  string `json:"message"`
+    77→        Hostname string `json:"hostname"`
+    78→        Service  string `json:"service"`
+    79→        Status   string `json:"status"`   // "info", "warn", "error", "critical"
+    80→        DDTags   string `json:"ddtags"`   // comma-separated key:value pairs
+    81→        DDSource string `json:"ddsource"` // e.g. "go"
+    82→}
+    83→
+    84→// ddServiceCheck is a DataDog service check.
+    85→type ddServiceCheck struct {
+    86→        Check    string   `json:"check"`
+    87→        HostName string   `json:"host_name"`
+    88→        Status   int      `json:"status"` // 0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN
+    89→        Tags     []string `json:"tags"`
+    90→        Message  string   `json:"message,omitempty"`
+    91→}
+    92→
+    93→// New creates a DataDog client and starts background flush goroutines.
+    94→func New(apiKey, site, env, appName, configHostname string) *Client {
+    95→        hostname := resolveHostname(configHostname)
+    96→        machineID := os.Getenv("FLY_MACHINE_ID")
+    97→        if machineID == "" {
+    98→                machineID, _ = os.Hostname()
+    99→        }
+   100→        region := os.Getenv("FLY_REGION")
+   101→
+   102→        c := &Client{
+   103→                apiKey:     apiKey,
+   104→                site:       site,
+   105→                env:        env,
+   106→                appName:    appName,
+   107→                hostname:   hostname,
+   108→                machineID:  machineID,
+   109→                region:     region,
+   110→                metricPfx:  normalizeMetricPrefix(appName),
+   111→                httpClient: &http.Client{Timeout: httpTimeout},
+   112→                metricsCh:  make(chan metricPoint, metricsBufferSize),
+   113→                eventsCh:   make(chan ddEvent, eventsBufferSize),
+   114→                logsCh:     make(chan ddLog, logsBufferSize),
+   115→                checksCh:   make(chan ddServiceCheck, checksBufferSize),
+   116→                stopCh:     make(chan struct{}),
+   117→        }
+   118→        c.wg.Add(4)
+   119→        go c.metricsFlushLoop()
+   120→        go c.eventsFlushLoop()
+   121→        go c.logsFlushLoop()
+   122→        go c.checksFlushLoop()
+   123→        return c
+   124→}
+   125→
+   126→// resolveHostname determines the canonical hostname.
+   127→// Priority: config override > FLY_APP_NAME.fly.dev > os.Hostname()
+   128→func resolveHostname(configHostname string) string {
+   129→        if configHostname != "" {
+   130→                return configHostname
+   131→        }
+   132→        if flyApp := os.Getenv("FLY_APP_NAME"); flyApp != "" {
+   133→                return flyApp + ".fly.dev"
+   134→        }
+   135→        h, _ := os.Hostname()
+   136→        if h == "" {
+   137→                return "unknown"
+   138→        }
+   139→        return h
+   140→}
+   141→
+   142→// normalizeMetricPrefix converts "LastSaaS" -> "lastsaas", "Flipbook Metavert" -> "flipbook-metavert"
+   143→func normalizeMetricPrefix(appName string) string {
+   144→        s := strings.ToLower(appName)
+   145→        s = strings.ReplaceAll(s, " ", "-")
+   146→        s = strings.ReplaceAll(s, ".", "-")
+   147→        return s
+   148→}
+   149→
+   150→// Startup validates the API key, sends a startup event and a heartbeat metric
+   151→// synchronously. Returns an error if DataDog is unreachable or rejects the data.
+   152→func (c *Client) Startup(ctx context.Context, appVersion string) error {
+   153→        if err := c.Validate(ctx); err != nil {
+   154→                return fmt.Errorf("API key validation failed: %w", err)
+   155→        }
+   156→
+   157→        evt := ddEvent{
+   158→                Title:          fmt.Sprintf("[startup] %s v%s started", c.appName, appVersion),
+   159→                Text:           fmt.Sprintf("%s version %s started on host %s (env: %s, machine: %s)", c.appName, appVersion, c.hostname, c.env, c.machineID),
+   160→                Priority:       "low",
+   161→                AlertType:      "info",
+   162→                Host:           c.hostname,
+   163→                SourceTypeName: c.appName,
+   164→                Tags:           append(c.baseTags(), "version:"+appVersion),
+   165→        }
+   166→        if err := c.submitEvent(evt); err != nil {
+   167→                return fmt.Errorf("startup event submission failed: %w", err)
+   168→        }
+   169→
+   170→        heartbeat := []metricPoint{{
+   171→                MetricName: c.metricPfx + ".heartbeat",
+   172→                Tags:       append(c.baseTags(), "version:"+appVersion),
+   173→                Value:      1,
+   174→                Timestamp:  time.Now().Unix(),
+   175→                MetricType: 1,
+   176→                Interval:   10,
+   177→        }}
+   178→        if err := c.submitMetrics(heartbeat); err != nil {
+   179→                return fmt.Errorf("startup metric submission failed: %w", err)
+   180→        }
+   181→
+   182→        slog.Info("datadog: startup verification complete",
+   183→                "hostname", c.hostname, "site", c.site,
+   184→                "machine", c.machineID, "region", c.region,
+   185→                "event", "sent", "metric", "sent")
+   186→        return nil
+   187→}
+   188→
+   189→// Stop gracefully drains buffers and shuts down flush loops.
+   190→func (c *Client) Stop() {
+   191→        close(c.stopCh)
+   192→        c.wg.Wait()
+   193→}
+   194→
+   195→// baseTags returns the common tags applied to every data point.
+   196→func (c *Client) baseTags() []string {
+   197→        tags := []string{
+   198→                "env:" + c.env,
+   199→                "app:" + c.appName,
+   200→        }
+   201→        if c.machineID != "" {
+   202→                tags = append(tags, "machine:"+c.machineID)
+   203→        }
+   204→        if c.region != "" {
+   205→                tags = append(tags, "region:"+c.region)
+   206→        }
+   207→        return tags
+   208→}
+   209→
+   210→// TrackTelemetryEvent converts a TelemetryEvent into a count metric and enqueues it.
+   211→func (c *Client) TrackTelemetryEvent(event models.TelemetryEvent) {
+   212→        tags := c.baseTags()
+   213→        tags = append(tags, "event_name:"+event.EventName, "category:"+event.Category)
+   214→
+   215→        point := metricPoint{
+   216→                MetricName: c.metricPfx + ".telemetry.event",
+   217→                Tags:       tags,
+   218→                Value:      1,
+   219→                Timestamp:  event.CreatedAt.Unix(),
+   220→                MetricType: 1, // count
+   221→                Interval:   10,
+   222→        }
+   223→        select {
+   224→        case c.metricsCh <- point:
+   225→        default:
+   226→                slog.Warn("datadog: metrics buffer full, dropping telemetry point", "event", event.EventName)
+   227→        }
+   228→}
+   229→
+   230→// TrackSyslogEntry converts a SystemLog into a DataDog log entry (all levels)
+   231→// and additionally a DataDog event (critical/high only for alerts).
+   232→func (c *Client) TrackSyslogEntry(entry models.SystemLog) {
+   233→        // Always forward as a structured log
+   234→        tags := c.baseTags()
+   235→        tags = append(tags, "severity:"+string(entry.Severity))
+   236→        if entry.Category != "" {
+   237→                tags = append(tags, "category:"+string(entry.Category))
+   238→        }
+   239→
+   240→        logEntry := ddLog{
+   241→                Message:  entry.Message,
+   242→                Hostname: c.hostname,
+   243→                Service:  c.appName,
+   244→                Status:   severityToLogStatus(entry.Severity),
+   245→                DDTags:   joinTags(tags),
+   246→                DDSource: "go",
+   247→        }
+   248→        select {
+   249→        case c.logsCh <- logEntry:
+   250→        default:
+   251→                slog.Warn("datadog: logs buffer full, dropping log entry")
+   252→        }
+   253→
+   254→        // Additionally forward critical/high as events (for event stream / alerts)
+   255→        if entry.Severity != models.LogCritical && entry.Severity != models.LogHigh {
+   256→                return
+   257→        }
+   258→        alertType := "warning"
+   259→        if entry.Severity == models.LogCritical {
+   260→                alertType = "error"
+   261→        }
+   262→
+   263→        evt := ddEvent{
+   264→                Title:          fmt.Sprintf("[%s] %s", entry.Severity, truncate(entry.Message, 100)),
+   265→                Text:           entry.Message,
+   266→                Priority:       "normal",
+   267→                AlertType:      alertType,
+   268→                Host:           c.hostname,
+   269→                SourceTypeName: c.appName,
+   270→                Tags:           tags,
+   271→        }
+   272→        select {
+   273→        case c.eventsCh <- evt:
+   274→        default:
+   275→                slog.Warn("datadog: events buffer full, dropping syslog event")
+   276→        }
+   277→}
+   278→
+   279→// TrackHealthSnapshot converts a SystemMetric snapshot into DataDog gauge metrics.
+   280→func (c *Client) TrackHealthSnapshot(metric models.SystemMetric) {
+   281→        now := time.Now().Unix()
+   282→        pfx := c.metricPfx
+   283→        tags := c.baseTags()
+   284→
+   285→        gauges := []metricPoint{
+   286→                // CPU
+   287→                {MetricName: pfx + ".cpu.usage", Tags: tags, Value: metric.CPU.UsagePercent, Timestamp: now, MetricType: 3},
+   288→                // Memory
+   289→                {MetricName: pfx + ".memory.used_bytes", Tags: tags, Value: float64(metric.Memory.UsedBytes), Timestamp: now, MetricType: 3},
+   290→                {MetricName: pfx + ".memory.used_percent", Tags: tags, Value: metric.Memory.UsedPercent, Timestamp: now, MetricType: 3},
+   291→                // Disk
+   292→                {MetricName: pfx + ".disk.used_bytes", Tags: tags, Value: float64(metric.Disk.UsedBytes), Timestamp: now, MetricType: 3},
+   293→                {MetricName: pfx + ".disk.used_percent", Tags: tags, Value: metric.Disk.UsedPercent, Timestamp: now, MetricType: 3},
+   294→                // HTTP
+   295→                {MetricName: pfx + ".http.requests", Tags: tags, Value: float64(metric.HTTP.RequestCount), Timestamp: now, MetricType: 1, Interval: 60},
+   296→                {MetricName: pfx + ".http.latency.p50", Tags: tags, Value: metric.HTTP.LatencyP50, Timestamp: now, MetricType: 3},
+   297→                {MetricName: pfx + ".http.latency.p95", Tags: tags, Value: metric.HTTP.LatencyP95, Timestamp: now, MetricType: 3},
+   298→                {MetricName: pfx + ".http.latency.p99", Tags: tags, Value: metric.HTTP.LatencyP99, Timestamp: now, MetricType: 3},
+   299→                {MetricName: pfx + ".http.error_rate_4xx", Tags: tags, Value: metric.HTTP.ErrorRate4xx, Timestamp: now, MetricType: 3},
+   300→                {MetricName: pfx + ".http.error_rate_5xx", Tags: tags, Value: metric.HTTP.ErrorRate5xx, Timestamp: now, MetricType: 3},
+   301→                // Go runtime
+   302→                {MetricName: pfx + ".runtime.goroutines", Tags: tags, Value: float64(metric.GoRuntime.NumGoroutine), Timestamp: now, MetricType: 3},
+   303→                {MetricName: pfx + ".runtime.heap_alloc", Tags: tags, Value: float64(metric.GoRuntime.HeapAlloc), Timestamp: now, MetricType: 3},
+   304→                // MongoDB
+   305→                {MetricName: pfx + ".mongo.connections", Tags: tags, Value: float64(metric.Mongo.CurrentConnections), Timestamp: now, MetricType: 3},
+   306→                {MetricName: pfx + ".mongo.available_connections", Tags: tags, Value: float64(metric.Mongo.AvailableConnections), Timestamp: now, MetricType: 3},
+   307→                // Network
+   308→                {MetricName: pfx + ".network.bytes_sent", Tags: tags, Value: float64(metric.Network.BytesSent), Timestamp: now, MetricType: 1, Interval: 60},
+   309→                {MetricName: pfx + ".network.bytes_recv", Tags: tags, Value: float64(metric.Network.BytesRecv), Timestamp: now, MetricType: 1, Interval: 60},
+   310→        }
+   311→
+   312→        // HTTP status code breakdown
+   313→        for code, count := range metric.HTTP.StatusCodes {
+   314→                statusTags := make([]string, len(tags), len(tags)+1)
+   315→                copy(statusTags, tags)
+   316→                statusTags = append(statusTags, "status_class:"+code)
+   317→                gauges = append(gauges, metricPoint{
+   318→                        MetricName: pfx + ".http.status_codes",
+   319→                        Tags:       statusTags,
+   320→                        Value:      float64(count),
+   321→                        Timestamp:  now,
+   322→                        MetricType: 1,
+   323→                        Interval:   60,
+   324→                })
+   325→        }
+   326→
+   327→        // MongoDB op counters
+   328→        for op, count := range metric.Mongo.OpCounters {
+   329→                opTags := make([]string, len(tags), len(tags)+1)
+   330→                copy(opTags, tags)
+   331→                opTags = append(opTags, "operation:"+op)
+   332→                gauges = append(gauges, metricPoint{
+   333→                        MetricName: pfx + ".mongo.ops",
+   334→                        Tags:       opTags,
+   335→                        Value:      float64(count),
+   336→                        Timestamp:  now,
+   337→                        MetricType: 1,
+   338→                        Interval:   60,
+   339→                })
+   340→        }
+   341→
+   342→        enqueued := 0
+   343→        for _, g := range gauges {
+   344→                select {
+   345→                case c.metricsCh <- g:
+   346→                        enqueued++
+   347→                default:
+   348→                        slog.Warn("datadog: metrics buffer full, dropping health metrics")
+   349→                        break
+   350→                }
+   351→        }
+   352→        slog.Info("datadog: health snapshot enqueued", "metrics", enqueued)
+   353→}
+   354→
+   355→// TrackIntegrationChecks forwards integration health check results as DataDog service checks.
+   356→func (c *Client) TrackIntegrationChecks(checks []models.IntegrationCheck) {
+   357→        for _, check := range checks {
+   358→                if check.Status == models.IntegrationNotConfigured {
+   359→                        continue
+   360→                }
+   361→                status := 3 // UNKNOWN
+   362→                switch check.Status {
+   363→                case models.IntegrationHealthy:
+   364→                        status = 0 // OK
+   365→                case models.IntegrationUnhealthy:
+   366→                        status = 2 // CRITICAL
+   367→                }
+   368→
+   369→                tags := c.baseTags()
+   370→                tags = append(tags, "integration:"+check.Name)
+   371→
+   372→                sc := ddServiceCheck{
+   373→                        Check:    c.metricPfx + ".integration." + check.Name,
+   374→                        HostName: c.hostname,
+   375→                        Status:   status,
+   376→                        Tags:     tags,
+   377→                        Message:  check.Message,
+   378→                }
+   379→                select {
+   380→                case c.checksCh <- sc:
+   381→                default:
+   382→                        slog.Warn("datadog: checks buffer full, dropping service check", "check", check.Name)
+   383→                }
+   384→        }
+   385→}
+   386→
+   387→// Validate checks whether the DataDog API key is valid.
+   388→func (c *Client) Validate(ctx context.Context) error {
+   389→        apiURL := fmt.Sprintf("https://api.%s/api/v1/validate", c.site)
+   390→        req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+   391→        if err != nil {
+   392→                return err
+   393→        }
+   394→        req.Header.Set("DD-API-KEY", c.apiKey)
+   395→
+   396→        resp, err := c.httpClient.Do(req)
+   397→        if err != nil {
+   398→                return fmt.Errorf("datadog validate request failed: %w", err)
+   399→        }
+   400→        io.Copy(io.Discard, resp.Body)
+   401→        resp.Body.Close()
+   402→
+   403→        apicounter.DataDogAPICalls.Add(1)
+   404→
+   405→        if resp.StatusCode != http.StatusOK {
+   406→                return fmt.Errorf("datadog API key validation failed: status %d", resp.StatusCode)
+   407→        }
+   408→        return nil
+   409→}
+   410→
+   411→// --- Flush loops ---
+   412→
+   413→func (c *Client) metricsFlushLoop() {
+   414→        defer c.wg.Done()
+   415→        backoff := flushInterval
+   416→        timer := time.NewTimer(backoff)
+   417→        timer.Stop()
+   418→
+   419→        buf := make([]metricPoint, 0, metricsBufferSize)
+   420→        flush := func() bool {
+   421→                if len(buf) == 0 {
+   422→                        return true
+   423→                }
+   424→                if err := c.submitMetrics(buf); err != nil {
+   425→                        slog.Warn("datadog: metrics flush failed, will retry", "count", len(buf), "error", err)
+   426→                        return false
+   427→                }
+   428→                buf = buf[:0]
+   429→                return true
+   430→        }
+   431→
+   432→        for {
+   433→                select {
+   434→                case pt := <-c.metricsCh:
+   435→                        wasEmpty := len(buf) == 0
+   436→                        buf = append(buf, pt)
+   437→                        if len(buf) >= metricsBufferSize {
+   438→                                if flush() {
+   439→                                        backoff = flushInterval
+   440→                                } else {
+   441→                                        backoff = min(backoff*2, maxBackoff)
+   442→                                }
+   443→                        }
+   444→                        if wasEmpty && len(buf) > 0 {
+   445→                                timer.Reset(backoff)
+   446→                        }
+   447→                case <-timer.C:
+   448→                        if flush() {
+   449→                                backoff = flushInterval
+   450→                        } else {
+   451→                                backoff = min(backoff*2, maxBackoff)
+   452→                        }
+   453→                        if len(buf) > 0 {
+   454→                                timer.Reset(backoff)
+   455→                        }
+   456→                case <-c.stopCh:
+   457→                        timer.Stop()
+   458→                        for {
+   459→                                select {
+   460→                                case pt := <-c.metricsCh:
+   461→                                        buf = append(buf, pt)
+   462→                                default:
+   463→                                        flush()
+   464→                                        return
+   465→                                }
+   466→                        }
+   467→                }
+   468→        }
+   469→}
+   470→
+   471→func (c *Client) eventsFlushLoop() {
+   472→        defer c.wg.Done()
+   473→        for {
+   474→                select {
+   475→                case evt := <-c.eventsCh:
+   476→                        if err := c.submitEvent(evt); err != nil {
+   477→                                slog.Warn("datadog: event submission failed", "title", evt.Title, "error", err)
+   478→                        }
+   479→                case <-c.stopCh:
+   480→                        for {
+   481→                                select {
+   482→                                case evt := <-c.eventsCh:
+   483→                                        if err := c.submitEvent(evt); err != nil {
+   484→                                                slog.Warn("datadog: event submission failed during shutdown", "error", err)
+   485→                                        }
+   486→                                default:
+   487→                                        return
+   488→                                }
+   489→                        }
+   490→                }
+   491→        }
+   492→}
+   493→
+   494→func (c *Client) logsFlushLoop() {
+   495→        defer c.wg.Done()
+   496→        backoff := logsFlushInterval
+   497→        timer := time.NewTimer(backoff)
+   498→        timer.Stop()
+   499→
+   500→        buf := make([]ddLog, 0, logsBufferSize)
+   501→        flush := func() bool {
+   502→                if len(buf) == 0 {
+   503→                        return true
+   504→                }
+   505→                if err := c.submitLogs(buf); err != nil {
+   506→                        slog.Warn("datadog: logs flush failed, will retry", "count", len(buf), "error", err)
+   507→                        return false
+   508→                }
+   509→                buf = buf[:0]
+   510→                return true
+   511→        }
+   512→
+   513→        for {
+   514→                select {
+   515→                case entry := <-c.logsCh:
+   516→                        wasEmpty := len(buf) == 0
+   517→                        buf = append(buf, entry)
+   518→                        if len(buf) >= logsBufferSize {
+   519→                                if flush() {
+   520→                                        backoff = logsFlushInterval
+   521→                                } else {
+   522→                                        backoff = min(backoff*2, maxBackoff)
+   523→                                }
+   524→                        }
+   525→                        if wasEmpty && len(buf) > 0 {
+   526→                                timer.Reset(backoff)
+   527→                        }
+   528→                case <-timer.C:
+   529→                        if flush() {
+   530→                                backoff = logsFlushInterval
+   531→                        } else {
+   532→                                backoff = min(backoff*2, maxBackoff)
+   533→                        }
+   534→                        if len(buf) > 0 {
+   535→                                timer.Reset(backoff)
+   536→                        }
+   537→                case <-c.stopCh:
+   538→                        timer.Stop()
+   539→                        for {
+   540→                                select {
+   541→                                case entry := <-c.logsCh:
+   542→                                        buf = append(buf, entry)
+   543→                                default:
+   544→                                        flush()
+   545→                                        return
+   546→                                }
+   547→                        }
+   548→                }
+   549→        }
+   550→}
+   551→
+   552→func (c *Client) checksFlushLoop() {
+   553→        defer c.wg.Done()
+   554→        for {
+   555→                select {
+   556→                case check := <-c.checksCh:
+   557→                        if err := c.submitServiceCheck(check); err != nil {
+   558→                                slog.Warn("datadog: service check submission failed", "check", check.Check, "error", err)
+   559→                        }
+   560→                case <-c.stopCh:
+   561→                        for {
+   562→                                select {
+   563→                                case check := <-c.checksCh:
+   564→                                        if err := c.submitServiceCheck(check); err != nil {
+   565→                                                slog.Warn("datadog: service check submission failed during shutdown", "error", err)
+   566→                                        }
+   567→                                default:
+   568→                                        return
+   569→                                }
+   570→                        }
+   571→                }
+   572→        }
+   573→}
+   574→
+   575→// --- HTTP submit methods ---
+   576→
+   577→func (c *Client) submitMetrics(points []metricPoint) error {
+   578→        type seriesKey struct {
+   579→                metric string
+   580→                tags   string
+   581→        }
+   582→        groups := make(map[seriesKey][]metricPoint)
+   583→        for _, p := range points {
+   584→                key := seriesKey{metric: p.MetricName, tags: fmt.Sprint(p.Tags)}
+   585→                groups[key] = append(groups[key], p)
+   586→        }
+   587→
+   588→        type ddPoint struct {
+   589→                Timestamp int64   `json:"timestamp"`
+   590→                Value     float64 `json:"value"`
+   591→        }
+   592→        type ddResource struct {
+   593→                Name string `json:"name"`
+   594→                Type string `json:"type"`
+   595→        }
+   596→        type ddSeries struct {
+   597→                Metric    string       `json:"metric"`
+   598→                Type      int          `json:"type"`
+   599→                Interval  int64        `json:"interval,omitempty"`
+   600→                Points    []ddPoint    `json:"points"`
+   601→                Tags      []string     `json:"tags"`
+   602→                Resources []ddResource `json:"resources"`
+   603→        }
+   604→
+   605→        series := make([]ddSeries, 0, len(groups))
+   606→        for _, pts := range groups {
+   607→                ddPts := make([]ddPoint, len(pts))
+   608→                for i, p := range pts {
+   609→                        ddPts[i] = ddPoint{Timestamp: p.Timestamp, Value: p.Value}
+   610→                }
+   611→                metricType := pts[0].MetricType
+   612→                if metricType == 0 {
+   613→                        metricType = 1 // default to count
+   614→                }
+   615→                series = append(series, ddSeries{
+   616→                        Metric:   pts[0].MetricName,
+   617→                        Type:     metricType,
+   618→                        Interval: pts[0].Interval,
+   619→                        Points:   ddPts,
+   620→                        Tags:     pts[0].Tags,
+   621→                        Resources: []ddResource{
+   622→                                {Name: c.hostname, Type: "host"},
+   623→                        },
+   624→                })
+   625→        }
+   626→
+   627→        payload := struct {
+   628→                Series []ddSeries `json:"series"`
+   629→        }{Series: series}
+   630→
+   631→        body, err := json.Marshal(payload)
+   632→        if err != nil {
+   633→                return err
+   634→        }
+   635→
+   636→        apiURL := fmt.Sprintf("https://api.%s/api/v2/series", c.site)
+   637→        req, err := http.NewRequest("POST", apiURL, bytes.NewReader(body))
+   638→        if err != nil {
+   639→                return err
+   640→        }
+   641→        req.Header.Set("DD-API-KEY", c.apiKey)
+   642→        req.Header.Set("Content-Type", "application/json")
+   643→
+   644→        ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
+   645→        defer cancel()
+   646→        req = req.WithContext(ctx)
+   647→
+   648→        resp, err := c.httpClient.Do(req)
+   649→        if err != nil {
+   650→                return err
+   651→        }
+   652→        respBody, _ := io.ReadAll(resp.Body)
+   653→        resp.Body.Close()
+   654→
+   655→        apicounter.DataDogAPICalls.Add(1)
+   656→
+   657→        if resp.StatusCode >= 400 {
+   658→                return fmt.Errorf("datadog metrics API returned status %d: %s", resp.StatusCode, truncate(string(respBody), 200))
+   659→        }
+   660→        slog.Info("datadog: metrics submitted", "series", len(series), "points", len(points), "status", resp.StatusCode, "response", truncate(string(respBody), 200))
+   661→        return nil
+   662→}
+   663→
+   664→func (c *Client) submitEvent(evt ddEvent) error {
+   665→        body, err := json.Marshal(evt)
+   666→        if err != nil {
+   667→                return err
+   668→        }
+   669→
+   670→        apiURL := fmt.Sprintf("https://api.%s/api/v1/events", c.site)
+   671→        req, err := http.NewRequest("POST", apiURL, bytes.NewReader(body))
+   672→        if err != nil {
+   673→                return err
+   674→        }
+   675→        req.Header.Set("DD-API-KEY", c.apiKey)
+   676→        req.Header.Set("Content-Type", "application/json")
+   677→
+   678→        ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
+   679→        defer cancel()
+   680→        req = req.WithContext(ctx)
+   681→
+   682→        resp, err := c.httpClient.Do(req)
+   683→        if err != nil {
+   684→                return err
+   685→        }
+   686→        respBody, _ := io.ReadAll(resp.Body)
+   687→        resp.Body.Close()
+   688→
+   689→        apicounter.DataDogAPICalls.Add(1)
+   690→
+   691→        if resp.StatusCode >= 400 {
+   692→                return fmt.Errorf("datadog events API returned status %d: %s", resp.StatusCode, truncate(string(respBody), 200))
+   693→        }
+   694→        return nil
+   695→}
+   696→
+   697→func (c *Client) submitLogs(logs []ddLog) error {
+   698→        body, err := json.Marshal(logs)
+   699→        if err != nil {
+   700→                return err
+   701→        }
+   702→
+   703→        apiURL := fmt.Sprintf("https://http-intake.logs.%s/v1/input", c.site)
+   704→        req, err := http.NewRequest("POST", apiURL, bytes.NewReader(body))
+   705→        if err != nil {
+   706→                return err
+   707→        }
+   708→        req.Header.Set("DD-API-KEY", c.apiKey)
+   709→        req.Header.Set("Content-Type", "application/json")
+   710→
+   711→        ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
+   712→        defer cancel()
+   713→        req = req.WithContext(ctx)
+   714→
+   715→        resp, err := c.httpClient.Do(req)
+   716→        if err != nil {
+   717→                return err
+   718→        }
+   719→        respBody, _ := io.ReadAll(resp.Body)
+   720→        resp.Body.Close()
+   721→
+   722→        apicounter.DataDogAPICalls.Add(1)
+   723→
+   724→        if resp.StatusCode >= 400 {
+   725→                return fmt.Errorf("datadog logs API returned status %d: %s", resp.StatusCode, truncate(string(respBody), 200))
+   726→        }
+   727→        return nil
+   728→}
+   729→
+   730→func (c *Client) submitServiceCheck(check ddServiceCheck) error {
+   731→        body, err := json.Marshal(check)
+   732→        if err != nil {
+   733→                return err
+   734→        }
+   735→
+   736→        apiURL := fmt.Sprintf("https://api.%s/api/v1/check_run", c.site)
+   737→        req, err := http.NewRequest("POST", apiURL, bytes.NewReader(body))
+   738→        if err != nil {
+   739→                return err
+   740→        }
+   741→        req.Header.Set("DD-API-KEY", c.apiKey)
+   742→        req.Header.Set("Content-Type", "application/json")
+   743→
+   744→        ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
+   745→        defer cancel()
+   746→        req = req.WithContext(ctx)
+   747→
+   748→        resp, err := c.httpClient.Do(req)
+   749→        if err != nil {
+   750→                return err
+   751→        }
+   752→        respBody, _ := io.ReadAll(resp.Body)
+   753→        resp.Body.Close()
+   754→
+   755→        apicounter.DataDogAPICalls.Add(1)
+   756→
+   757→        if resp.StatusCode >= 400 {
+   758→                return fmt.Errorf("datadog check_run API returned status %d: %s", resp.StatusCode, truncate(string(respBody), 200))
+   759→        }
+   760→        return nil
+   761→}
+   762→
+   763→// --- Helpers ---
+   764→
+   765→func severityToLogStatus(sev models.LogSeverity) string {
+   766→        switch sev {
+   767→        case models.LogCritical:
+   768→                return "critical"
+   769→        case models.LogHigh:
+   770→                return "error"
+   771→        case models.LogMedium:
+   772→                return "warn"
+   773→        default:
+   774→                return "info"
+   775→        }
+   776→}
+   777→
+   778→func joinTags(tags []string) string {
+   779→        return strings.Join(tags, ",")
+   780→}
+   781→
+   782→func truncate(s string, n int) string {
+   783→        if len(s) <= n {
+   784→                return s
+   785→        }
+   786→        return s[:n] + "..."
+   787→}
+   788→
