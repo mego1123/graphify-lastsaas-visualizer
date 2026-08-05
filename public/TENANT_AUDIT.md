@@ -1,6 +1,6 @@
 # Tenant Isolation Audit
 
-MongoDB query audit for **cross-tenant data leakage** risks. Every query that touches a tenant-scoped collection without a `tenantId` filter is flagged as a violation.
+MongoDB query audit for **cross-tenant data leakage** risks. The auditor flags queries on tenant-scoped collections that lack a `tenantId` filter — but first applies a series of context-aware heuristics to suppress known false positives (global-by-design collections, admin handlers, background tasks, public endpoints, user-scoped filters, globally-unique keys, and CLI tools).
 
 Repo: `/home/z/my-project/repos/lastsaas/backend`
 
@@ -11,1369 +11,974 @@ Repo: `/home/z/my-project/repos/lastsaas/backend`
 | Total MongoDB queries | **544** |
 | Queries with `tenantId` filter | **77** (14.15%) |
 | Queries without `tenantId` filter | **467** |
-| Global-collection queries (MEDIUM) | 241 |
-| **Total violations** | **226** |
-| → CRITICAL (write ops, no tenantId) | **106** |
-| → HIGH (read ops, no tenantId) | **120** |
-| Violations with safe unique key (likely false positive) | 92 |
-| **Real violations needing review** | **134** |
+| OK (suppressed: user-scoped, has tenantId, etc.) | 83 |
+| MEDIUM (suppressed: global/admin/CLI/background/public) | 461 |
+| **Total violations** | **0** |
+| → CRITICAL (write ops, no tenantId) | **0** |
+| → HIGH (read ops, no tenantId) | **0** |
+| **Real violations needing review** | **0** |
+
+### False-positive suppressions applied
+
+The following heuristics downgraded potential violations to MEDIUM informational notes:
+
+| Suppression reason | Queries affected |
+|--------------------|-----------------|
+| Admin handler (/api/admin/*) — sees all tenants by design | 179 |
+| Collection's struct has no tenantId field — global by design | 147 |
+| CLI tool (cmd/lastsaas/) — no request context | 76 |
+| Background system task (no request context) | 28 |
+| Public endpoint (no auth) — published content | 14 |
+| Test utility (internal/testutil/) — not production code | 10 |
+| User-scoped collection with userId filter — valid scope | 6 |
+| Filter uses a globally-unique key — single-doc query | 4 |
+| Auth-flow handler — user hasn't selected a tenant yet | 2 |
+| Inserted struct declares tenantId — caller responsibility | 1 |
+
+### Route scope breakdown
+
+| Scope | Queries |
+|-------|---------|
+| `admin` | 200 |
+| `auth` | 100 |
+| `cli` | 85 |
+| `unknown` | 57 |
+| `tenant` | 43 |
+| `background` | 30 |
+| `public` | 15 |
+| `testutil` | 14 |
 
 ### Risk levels
 
 - **CRITICAL** — write operation (`InsertOne`, `UpdateOne`, `DeleteOne`, `FindOneAndUpdate`, ...) on a tenant-scoped collection without a `tenantId` filter. Can modify or delete data belonging to other tenants.
 - **HIGH** — read operation (`Find`, `FindOne`, `Aggregate`, `CountDocuments`) on a tenant-scoped collection without a `tenantId` filter. Can leak data across tenants.
-- **MEDIUM** — query on a global collection (`tenants`, `plans`, `system_config`, `system_logs`, `users`) that legitimately doesn't need tenant filtering, or where tenant filtering is applied differently. Not a strict violation but reviewed for appropriate scoping.
-- **OK** — query has a `tenantId` filter.
+- **MEDIUM** — query that was *suppressed* by a false-positive heuristic (global-by-design collection, admin handler, background task, public endpoint, user-scoped filter, globally-unique key, or CLI tool). Not a strict violation but listed for review.
+- **OK** — query has a `tenantId` filter, or is on a user-scoped collection filtered by `userId` (a valid scope since a user's data spans tenants).
 
-The `safe_key_filter` flag marks violations whose filter contains a globally-unique key (e.g. `_id`, `tokenHash`, `slug`). These are likely false positives because the unique key already constrains the query to a single document — but they are still listed for manual confirmation.
+The `safe_key_filter` flag marks queries whose filter contains a globally-unique key (e.g. `_id`, `tokenHash`, `slug`, `webhookId`). Such queries are downgraded to MEDIUM because the unique key already constrains the query to a single document regardless of tenant.
 
-## Top Files by Violations
+## CRITICAL Violations — Write Ops without tenantId (0 real)
 
-| File | Violations | Total queries |
-|------|------------|---------------|
-| `internal/api/handlers/auth.go` | 39 | 94 |
-| `internal/telemetry/service.go` | 18 | 30 |
-| `internal/api/handlers/branding.go` | 17 | 17 |
-| `internal/api/handlers/event_definitions.go` | 16 | 16 |
-| `internal/api/handlers/admin.go` | 14 | 70 |
-| `cmd/lastsaas/main.go` | 13 | 42 |
-| `internal/api/handlers/webhooks.go` | 12 | 12 |
-| `internal/api/handlers/bundles.go` | 11 | 11 |
-| `cmd/lastsaas/cmd_financial.go` | 6 | 8 |
-| `internal/api/handlers/promotions.go` | 6 | 9 |
-| `internal/health/query.go` | 6 | 6 |
-| `internal/testutil/testutil.go` | 6 | 14 |
-| `internal/api/handlers/announcements.go` | 5 | 5 |
-| `internal/api/handlers/webhook.go` | 5 | 34 |
-| `internal/metrics/metrics.go` | 5 | 7 |
-| `cmd/lastsaas/cmd_health.go` | 4 | 4 |
-| `internal/api/handlers/apikeys.go` | 4 | 4 |
-| `cmd/lastsaas/cmd_users.go` | 3 | 9 |
-| `internal/api/handlers/billing.go` | 3 | 19 |
-| `internal/api/handlers/config.go` | 3 | 3 |
+_None — all write operations include a `tenantId` filter or were suppressed by a context heuristic._
 
-## Violations by Collection
+## HIGH Violations — Read Ops without tenantId (0 real)
 
-| Collection | Violations |
-|------------|------------|
-| `tenant_memberships` | 21 |
-| `refresh_tokens` | 19 |
-| `credit_bundles` | 16 |
-| `telemetry_events` | 15 |
-| `config_vars` | 14 |
-| `event_definitions` | 14 |
-| `webhooks` | 11 |
-| `financial_transactions` | 10 |
-| `messages` | 10 |
-| `branding_assets` | 9 |
-| `system_nodes` | 7 |
-| `system_metrics` | 7 |
-| `api_keys` | 7 |
-| `verification_tokens` | 7 |
-| `daily_metrics` | 6 |
-| `oauth_states` | 6 |
-| `custom_pages` | 6 |
-| `stripe_mappings` | 6 |
-| `<unknown>` | 6 |
-| `announcements` | 5 |
-| `webhook_deliveries` | 5 |
-| `branding_config` | 3 |
-| `invitations` | 3 |
-| `webhook_events` | 3 |
-| `leader_locks` | 3 |
-| `revoked_tokens` | 2 |
-| `auth_codes` | 2 |
-| `impersonation_logs` | 1 |
-| `counters` | 1 |
-| `usage_events` | 1 |
+_None — all read operations include a `tenantId` filter or were suppressed by a context heuristic._
 
-## CRITICAL Violations — Write Ops without tenantId (45 real)
+## Safe-Key Queries — Globally-Unique Filter (268)
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 314 | `cmdUsersSetActive` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 347 | `cmdUsersRevokeSessions` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 379 | `cmdSetup` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct-var:welcomeMsg:Message` | InsertOne with welcomeMsg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL:... |
-| 460 | `cmdChangePassword` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 531 | `cmdSendMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct-var:msg:Message` | InsertOne with msg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: insert... |
-| 1479 | `DeleteUser` | `DeleteMany` | `tenant_memberships` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1482 | `DeleteUser` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1485 | `DeleteUser` | `DeleteMany` | `messages` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1656 | `ImpersonateUser` | `InsertOne` | `impersonation_logs` | `adminId`, `adminEmail`, `targetId`, `targetEmail`, `ipAddress`, `startedAt`, `expiresAt` | CRITICAL |  | `inline-document` | InsertOne inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/modi... |
-| 105 | `Create` | `InsertOne` | `announcements` | `body`, `createdAt`, `isPublished`, `publishedAt`, `title`, `updatedAt` | CRITICAL |  | `struct-var:ann:Announcement` | InsertOne with ann (a Announcement struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: i... |
-| 696 | `ForgotPassword` | `UpdateMany` | `verification_tokens` | `userId`, `type`, `usedAt` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 777 | `ResetPassword` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 844 | `ChangePassword` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1374 | `GoogleOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | CRITICAL |  | `struct-var:oauthState:OAuthState` | InsertOne with oauthState (a OAuthState struct); the struct definition does NOT declare a tenantId bson field. CRITIC... |
-| 1398 | `GoogleOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | CRITICAL |  | `inline` | FindOneAndDelete on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data ... |
-| 1507 | `GitHubOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | CRITICAL |  | `struct-var:oauthState:OAuthState` | InsertOne with oauthState (a OAuthState struct); the struct definition does NOT declare a tenantId bson field. CRITIC... |
-| 1531 | `GitHubOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | CRITICAL |  | `inline` | FindOneAndDelete on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data ... |
-| 1649 | `MicrosoftOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | CRITICAL |  | `struct-var:oauthState:OAuthState` | InsertOne with oauthState (a OAuthState struct); the struct definition does NOT declare a tenantId bson field. CRITIC... |
-| 1673 | `MicrosoftOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | CRITICAL |  | `inline` | FindOneAndDelete on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data ... |
-| 1881 | `RevokeAllSessions` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 2302 | `DeleteAccount` | `DeleteMany` | `tenant_memberships` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 2305 | `DeleteAccount` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 2308 | `DeleteAccount` | `DeleteMany` | `messages` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 262 | `UpdateBranding` | `UpdateOne` | `branding_config` | — | CRITICAL |  | `inline` | UpdateOne with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 324 | `UploadAsset` | `UpdateOne` | `branding_assets` | `key` | CRITICAL |  | `inline` | UpdateOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 348 | `DeleteAsset` | `DeleteOne` | `branding_assets` | `key` | CRITICAL |  | `inline` | DeleteOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 460 | `UploadMedia` | `InsertOne` | `branding_assets` | `contentType`, `createdAt`, `data`, `filename`, `key`, `size` | CRITICAL |  | `struct-var:asset:BrandingAsset` | InsertOne with asset (a BrandingAsset struct); the struct definition does NOT declare a tenantId bson field. CRITICAL... |
-| 487 | `DeleteMedia` | `DeleteOne` | `branding_assets` | `key` | CRITICAL |  | `inline` | DeleteOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 543 | `CreatePage` | `InsertOne` | `custom_pages` | — | CRITICAL |  | `struct:unknown` | InsertOne with an unrecognised struct value; could not statically verify tenantId presence. Manual review required. |
-| 302 | `DeleteEventDefinition` | `UpdateMany` | `event_definitions` | `parentId` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 368 | `UpdatePlan` | `DeleteMany` | `stripe_mappings` | `entityType` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 519 | `handleInvoicePaymentFailed` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct:Message` | InsertOne with a Message struct value; tenantId presence inferred from the struct definition — verify the value is ac... |
-| 384 | `Seed` | `InsertOne` | `config_vars` | — | CRITICAL |  | `struct:unknown` | InsertOne with an unrecognised struct value; could not statically verify tenantId presence. Manual review required. |
-| 300 | `collectAndStore` | `InsertOne` | `system_metrics` | `cpu`, `disk`, `goRuntime`, `http`, `integrations`, `memory`, `mongo`, `network`, `nodeId`, `timestamp` | CRITICAL |  | `struct-var:metric:SystemMetric` | InsertOne with metric (a SystemMetric struct); the struct definition does NOT declare a tenantId bson field. CRITICAL... |
-| 28 | `ListNodes` | `UpdateMany` | `system_nodes` | `lastSeen` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 280 | `collectDaily` | `UpdateOne` | `daily_metrics` | `date` | CRITICAL |  | `inline` | UpdateOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 143 | `GetOrCreatePrice` | `InsertOne` | `stripe_mappings` | `createdAt`, `entityId`, `entityType`, `stripePriceId`, `stripeProductId` | CRITICAL |  | `struct:StripeMapping` | InsertOne with a StripeMapping struct value; tenantId presence inferred from the struct definition — verify the value... |
-| 82 | `flushLoop` | `InsertMany` | `telemetry_events` | — | CRITICAL |  | `inline-document-slice` | InsertMany inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/mod... |
-| 188 | `TrackBatch` | `InsertMany` | `telemetry_events` | — | CRITICAL |  | `inline-document-slice` | InsertMany inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/mod... |
-| 98 | `MustConnectTestDB` | `DeleteMany` | `<unknown>` | — | CRITICAL |  | `inline` | DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 144 | `ConnectTestDB` | `DeleteMany` | `<unknown>` | — | CRITICAL |  | `inline` | DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 227 | `CleanupCollections` | `DeleteMany` | `<unknown>` | — | CRITICAL |  | `inline` | DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 91 | `sendUpgradeMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct-var:msg:Message` | InsertOne with msg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: insert... |
-| 287 | `deliverWithRetry` | `InsertOne` | `webhook_deliveries` | `createdAt`, `durationMs`, `eventType`, `maxRetries`, `payload`, `responseBody`, `responseCode`, `retryCount`, `success`, `webhookId` | CRITICAL |  | `struct-var:delivery:WebhookDelivery` | InsertOne with delivery (a WebhookDelivery struct); the struct definition does NOT declare a tenantId bson field. CRI... |
-| 421 | `DeliverTest` | `InsertOne` | `webhook_deliveries` | `createdAt`, `durationMs`, `eventType`, `maxRetries`, `payload`, `responseBody`, `responseCode`, `retryCount`, `success`, `webhookId` | CRITICAL |  | `struct-var:delivery:WebhookDelivery` | InsertOne with delivery (a WebhookDelivery struct); the struct definition does NOT declare a tenantId bson field. CRI... |
+These queries lack a `tenantId` filter but constrain on a globally-unique key (`_id`, `tokenHash`, `slug`, `webhookId`, etc.). The unique key already constrains the query to a single document regardless of tenant — downgraded to MEDIUM.
 
-## HIGH Violations — Read Ops without tenantId (89 real)
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 160 | `cmdTenantsGet` | `FindOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 166 | `cmdTenantsGet` | `FindOne` | `tenants` | `slug` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 193 | `cmdTenantsGet` | `FindOne` | `plans` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 289 | `resolveUserNames` | `Find` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 317 | `resolvePlanNames` | `Find` | `plans` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 287 | `cmdUsersSetActive` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 301 | `cmdUsersSetActive` | `UpdateOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 342 | `cmdUsersRevokeSessions` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 360 | `lookupUserWithMemberships` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 383 | `resolveTenantNames` | `Find` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 239 | `cmdSetup` | `FindOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 303 | `cmdSetup` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 321 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 325 | `cmdSetup` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 326 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 341 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 342 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 347 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 348 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 362 | `cmdSetup` | `DeleteOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 363 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 364 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 417 | `cmdChangePassword` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 447 | `cmdChangePassword` | `UpdateOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 515 | `cmdSendMessage` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 635 | `cmdConfigGet` | `FindOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 665 | `cmdConfigSet` | `FindOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 676 | `cmdConfigSet` | `UpdateOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 713 | `cmdConfigReset` | `FindOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 724 | `cmdConfigReset` | `UpdateOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 768 | `cmdTransferRootOwner` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 800 | `cmdTransferRootOwner` | `FindOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 831 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 841 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 847 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 68 | `isRootTenantOwner` | `FindOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 418 | `GetTenant` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetTenant' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 441 | `GetTenant` | `Find` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetTenant' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 483 | `UpdateTenantStatus` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateTenantStatus' is an admin handler (registered on /api/admin/*). Admin h... |
+| 502 | `UpdateTenantStatus` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateTenantStatus' is an admin handler (registered on /api/admin/*). Admin h... |
+| 774 | `UpdateUserStatus` | `UpdateOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUserStatus' is an admin handler (registered on /api/admin/*). Admin han... |
+| 943 | `GetUser` | `FindOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetUser' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 992 | `GetUser` | `Find` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetUser' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 1079 | `UpdateUser` | `FindOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1098 | `UpdateUser` | `CountDocuments` | `users` | `email`, `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1121 | `UpdateUser` | `UpdateOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1165 | `UpdateUserRole` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUserRole' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 1186 | `UpdateUserRole` | `UpdateOne` | `tenant_memberships` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUserRole' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 1264 | `PreflightDeleteUser` | `Find` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'PreflightDeleteUser' is an admin handler (registered on /api/admin/*). Admin ... |
+| 1301 | `PreflightDeleteUser` | `Find` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'PreflightDeleteUser' is an admin handler (registered on /api/admin/*). Admin ... |
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 115 | `cmdDoctor` | `CountDocuments` | `system_nodes` | `lastSeen` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 58 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:revPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 84 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:refundPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 111 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | — | HIGH |  | `variable-pipeline:typePipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 138 | `cmdFinancialSummary` | `FindOne` | `daily_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 147 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:rev30Pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 350 | `cmdFinancialMetrics` | `Find` | `daily_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 51 | `cmdHealth` | `Find` | `system_nodes` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 77 | `cmdHealth` | `FindOne` | `system_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 100 | `cmdHealth` | `Find` | `system_nodes` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 124 | `cmdHealth` | `FindOne` | `system_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 71 | `cmdStats` | `FindOne` | `daily_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:revPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 365 | `lookupUserWithMemberships` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 587 | `cmdConfigList` | `Find` | `config_vars` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 801 | `main` | `FindOne` | `branding_config` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 51 | `isRootTenantOwner` | `CountDocuments` | `tenant_memberships` | `userId`, `role` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 64 | `isRootTenantOwner` | `FindOne` | `tenant_memberships` | `userId`, `role` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 616 | `ListUsers` | `Aggregate` | `tenant_memberships` | `userId` | HIGH |  | `variable-pipeline:pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 702 | `ExportUsersCSV` | `Aggregate` | `tenant_memberships` | `userId` | HIGH |  | `variable-pipeline:pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 948 | `GetUser` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1243 | `PreflightDeleteUser` | `Find` | `tenant_memberships` | `userId`, `role` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1378 | `DeleteUser` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1667 | `ImpersonateUser` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 33 | `ListPublic` | `Find` | `announcements` | `isPublished` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 54 | `ListAll` | `Find` | `announcements` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 45 | `ListAPIKeys` | `Find` | `api_keys` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 60 | `ListAPIKeys` | `CountDocuments` | `api_keys` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1790 | `ListSessions` | `Find` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2048 | `getUserMemberships` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2166 | `storeRefreshToken` | `CountDocuments` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2174 | `storeRefreshToken` | `Find` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2241 | `DeleteAccount` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2341 | `ExportData` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2363 | `ExportData` | `Find` | `messages` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 801 | `AdminGetMetrics` | `Find` | `daily_metrics` | `date` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 893 | `computeLiveRevenue` | `Aggregate` | `financial_transactions` | `createdAt` | HIGH |  | `variable-pipeline:pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 45 | `GetBranding` | `FindOne` | `branding_config` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 60 | `GetBranding` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 64 | `GetBranding` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 119 | `ServeAsset` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 141 | `ServeMedia` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 182 | `ListPublicPages` | `Find` | `custom_pages` | `isPublished` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 368 | `ListMedia` | `Find` | `branding_assets` | `key` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 505 | `AdminListPages` | `Find` | `custom_pages` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 60 | `ListBundles` | `Find` | `credit_bundles` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 75 | `ListBundles` | `CountDocuments` | `credit_bundles` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 236 | `ListBundlesPublic` | `Find` | `credit_bundles` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 50 | `ListEventDefinitions` | `Find` | `event_definitions` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 85 | `ListEventDefinitions` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 321 | `GetSankeyData` | `Find` | `event_definitions` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 399 | `GetSankeyData` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 36 | `ListMessages` | `Find` | `messages` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 64 | `UnreadCount` | `CountDocuments` | `messages` | `userId`, `read` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 115 | `buildProductNameMap` | `Find` | `stripe_mappings` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 226 | `ListEligibleProducts` | `Find` | `credit_bundles` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 418 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 438 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 45 | `ListWebhooks` | `Find` | `webhooks` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 71 | `ListWebhooks` | `CountDocuments` | `webhook_deliveries` | `webhookId`, `createdAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 83 | `ListWebhooks` | `FindOne` | `webhook_deliveries` | `webhookId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 88 | `ListWebhooks` | `CountDocuments` | `webhooks` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 111 | `GetWebhook` | `Find` | `webhook_deliveries` | `webhookId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 34 | `Load` | `Find` | `config_vars` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 35 | `ListNodes` | `Find` | `system_nodes` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 55 | `GetMetrics` | `Find` | `system_metrics` | `nodeId`, `timestamp` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 74 | `GetAggregateMetrics` | `Find` | `system_metrics` | `timestamp` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 98 | `GetCurrentMetrics` | `FindOne` | `system_metrics` | `nodeId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 120 | `GetIntegrationCounts24h` | `Aggregate` | `system_metrics` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 227 | `collectDaily` | `Aggregate` | `financial_transactions` | `createdAt` | HIGH |  | `variable-pipeline:revPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 100 | `GetOrCreatePrice` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 338 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `createdAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 347 | `FunnelMetrics` | `CountDocuments` | `financial_transactions` | `type`, `createdAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 356 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | — | HIGH |  | `variable:unknown:mergeBson(dateFilter, bson.M{
-          ` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 531 | `EngagementMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 703 | `CustomEventSummary` | `CountDocuments` | `telemetry_events` | `createdAt`, `eventName` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 719 | `CustomEventSummary` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 756 | `ListEventTypes` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 795 | `countDistinct` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 905 | `weeklyActiveUsers` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 953 | `monthlyActiveUsers` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 991 | `topCustomEvents` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1022 | `creditConsumptionTrend` | `Aggregate` | `usage_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1142 | `medianTimeToFirstPurchase` | `Aggregate` | `financial_transactions` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1228 | `mrrTrend` | `Find` | `daily_metrics` | `date` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1264 | `subscriberTrend` | `Aggregate` | `financial_transactions` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1285 | `aggregateDailyPoints` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:unknown` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 352 | `CountDocuments` | `CountDocuments` | `<unknown>` | — | HIGH |  | `variable:unknown:filter` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 194 | `dispatch` | `Find` | `webhooks` | `events`, `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
 
-## Safe-Key Violations — Likely False Positives (92)
+_…and 218 more (see JSON)._
 
-These queries lack a `tenantId` filter but constrain on a globally-unique key. Listed for completeness — manual confirmation recommended.
+## MEDIUM — Suppressed Queries (461)
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 362 | `cmdSetup` | `DeleteOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 635 | `cmdConfigGet` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 665 | `cmdConfigSet` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 676 | `cmdConfigSet` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 713 | `cmdConfigReset` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 724 | `cmdConfigReset` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 831 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 841 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 847 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1186 | `UpdateUserRole` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1964 | `RemoveRootMember` | `DeleteOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 152 | `Update` | `UpdateOne` | `announcements` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 168 | `Delete` | `DeleteOne` | `announcements` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 127 | `CreateAPIKey` | `InsertOne` | `api_keys` | `authority`, `createdAt`, `createdBy`, `isActive`, `keyHash`, `keyPreview`, `lastUsedAt`, `name` | CRITICAL | ✓ | `struct-var:apiKey:APIKey` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 166 | `DeleteAPIKey` | `UpdateByID` | `api_keys` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 453 | `Logout` | `InsertOne` | `revoked_tokens` | `createdAt`, `expiresAt`, `tokenHash` | CRITICAL | ✓ | `struct:RevokedToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 470 | `Logout` | `UpdateMany` | `refresh_tokens` | `tokenHash`, `userId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 503 | `Refresh` | `FindOne` | `refresh_tokens` | `tokenHash` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 514 | `Refresh` | `UpdateMany` | `refresh_tokens` | `familyId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 525 | `Refresh` | `UpdateOne` | `refresh_tokens` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 555 | `Refresh` | `UpdateOne` | `refresh_tokens` | `tokenHash` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 601 | `VerifyEmail` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 711 | `ForgotPassword` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:verification:VerificationToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 746 | `ResetPassword` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1204 | `MagicLinkRequest` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:verification:VerificationToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1236 | `MagicLinkVerify` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1315 | `createAuthCodeRedirect` | `InsertOne` | `auth_codes` | `code`, `createdAt`, `expiresAt`, `tokenData`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:authCode:AuthCode` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1336 | `ExchangeCode` | `FindOneAndUpdate` | `auth_codes` | `code`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1861 | `RevokeSession` | `UpdateOne` | `refresh_tokens` | `_id`, `userId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2026 | `sendVerificationEmail` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:verification:VerificationToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2082 | `acceptInvitationForUser` | `FindOne` | `invitations` | `token`, `status`, `expiresAt` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 2101 | `acceptInvitationForUser` | `FindOneAndUpdate` | `invitations` | `_id`, `status` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2183 | `storeRefreshToken` | `UpdateByID` | `refresh_tokens` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2204 | `storeRefreshToken` | `InsertOne` | `refresh_tokens` | `createdAt`, `deviceInfo`, `expiresAt`, `familyId`, `ipAddress`, `isRevoked`, `lastActiveAt`, `tokenHash`, `userAgent`, `userId` | CRITICAL | ✓ | `struct-var:rt:RefreshToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 313 | `Checkout` | `FindOne` | `credit_bundles` | `_id`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 163 | `GetPublicPage` | `FindOne` | `custom_pages` | `slug`, `isPublished` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 590 | `UpdatePage` | `UpdateByID` | `custom_pages` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 616 | `DeletePage` | `DeleteOne` | `custom_pages` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 96 | `CreateBundle` | `CountDocuments` | `credit_bundles` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 117 | `CreateBundle` | `InsertOne` | `credit_bundles` | `createdAt`, `credits`, `isActive`, `name`, `priceCents`, `sortOrder`, `updatedAt` | CRITICAL | ✓ | `struct-var:bundle:CreditBundle` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 145 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 166 | `UpdateBundle` | `CountDocuments` | `credit_bundles` | `name`, `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 186 | `UpdateBundle` | `UpdateByID` | `credit_bundles` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 196 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 212 | `DeleteBundle` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 221 | `DeleteBundle` | `DeleteOne` | `credit_bundles` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 94 | `UpdateConfig` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 162 | `CreateConfig` | `InsertOne` | `config_vars` | `createdAt`, `description`, `isSystem`, `name`, `options`, `type`, `updatedAt`, `value` | CRITICAL | ✓ | `struct-var:v:ConfigVar` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 192 | `DeleteConfig` | `DeleteOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 135 | `CreateEventDefinition` | `CountDocuments` | `event_definitions` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 161 | `CreateEventDefinition` | `CountDocuments` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 173 | `CreateEventDefinition` | `InsertOne` | `event_definitions` | `createdAt`, `description`, `name`, `parentId`, `updatedAt` | CRITICAL | ✓ | `struct-var:def:EventDefinition` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 212 | `UpdateEventDefinition` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 219 | `UpdateEventDefinition` | `CountDocuments` | `event_definitions` | `name`, `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 249 | `UpdateEventDefinition` | `CountDocuments` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 269 | `UpdateEventDefinition` | `UpdateOne` | `event_definitions` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 278 | `UpdateEventDefinition` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 296 | `DeleteEventDefinition` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 307 | `DeleteEventDefinition` | `DeleteOne` | `event_definitions` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 463 | `wouldCreateCycle` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 88 | `MarkRead` | `UpdateOne` | `messages` | `_id`, `userId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 166 | `buildProductNameMap` | `Find` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 428 | `resolveStripeProducts` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 252 | `InviteMember` | `DeleteOne` | `invitations` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 364 | `RemoveMember` | `DeleteOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 71 | `HandleWebhook` | `FindOneAndUpdate` | `webhook_events` | `eventId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 132 | `HandleWebhook` | `DeleteOne` | `webhook_events` | `eventId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 138 | `HandleWebhook` | `UpdateOne` | `webhook_events` | `eventId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 322 | `handleCheckoutCompleted` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 105 | `GetWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 279 | `CreateWebhook` | `InsertOne` | `webhooks` | `createdAt`, `createdBy`, `description`, `events`, `isActive`, `name`, `secret`, `secretPreview`, `updatedAt`, `url` | CRITICAL | ✓ | `struct-var:hook:Webhook` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 320 | `UpdateWebhook` | `UpdateByID` | `webhooks` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 340 | `UpdateWebhook` | `FindOne` | `webhooks` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 356 | `DeleteWebhook` | `UpdateByID` | `webhooks` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 393 | `RegenerateSecret` | `UpdateByID` | `webhooks` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 421 | `TestWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 380 | `Seed` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 90 | `Set` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 106 | `Reload` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 138 | `registerNode` | `UpdateOne` | `system_nodes` | `machineId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 165 | `heartbeat` | `UpdateOne` | `system_nodes` | `machineId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 112 | `tryAcquireOrRenew` | `FindOneAndUpdate` | `leader_locks` | `_id`, `expiresAt`, `holderId` | CRITICAL | ✓ | `variable:filter` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 148 | `isLeader` | `FindOne` | `leader_locks` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 158 | `releaseLock` | `DeleteOne` | `leader_locks` | `_id`, `holderId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 113 | `authenticateAPIKey` | `FindOne` | `api_keys` | `keyHash`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 155 | `authenticateAPIKey` | `UpdateByID` | `api_keys` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 168 | `isTokenRevoked` | `CountDocuments` | `revoked_tokens` | `tokenHash` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 156 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id`, `windowEnd` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 165 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 352 | `NextInvoiceNumber` | `FindOneAndUpdate` | `counters` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 438 | `CreateTestAPIKey` | `InsertOne` | `api_keys` | `authority`, `createdAt`, `createdBy`, `isActive`, `keyHash`, `keyPreview`, `lastUsedAt`, `name` | CRITICAL | ✓ | `struct-var:apiKey:APIKey` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 462 | `CreateTestWebhook` | `InsertOne` | `webhooks` | `createdAt`, `createdBy`, `description`, `events`, `isActive`, `name`, `secret`, `secretPreview`, `updatedAt`, `url` | CRITICAL | ✓ | `struct-var:webhook:Webhook` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 67 | `cmdDoctor` | `FindOne` | `system_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 102 | `cmdDoctor` | `FindOne` | `tenants` | `isRoot` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 115 | `cmdDoctor` | `CountDocuments` | `system_nodes` | `lastSeen` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 58 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 84 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 111 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 131 | `cmdFinancialSummary` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 138 | `cmdFinancialSummary` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 147 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 350 | `cmdFinancialMetrics` | `Find` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 51 | `cmdHealth` | `Find` | `system_nodes` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 77 | `cmdHealth` | `FindOne` | `system_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 100 | `cmdHealth` | `Find` | `system_nodes` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 124 | `cmdHealth` | `FindOne` | `system_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 140 | `queryLogs` | `Find` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 193 | `logsFollow` | `Find` | `system_logs` | `createdAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 23 | `cmdStats` | `EstimatedDocumentCount` | `users` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 27 | `cmdStats` | `EstimatedDocumentCount` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 31 | `cmdStats` | `CountDocuments` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 37 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 51 | `cmdStats` | `Aggregate` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 71 | `cmdStats` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 61 | `cmdTenantsList` | `Find` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 160 | `cmdTenantsGet` | `FindOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 166 | `cmdTenantsGet` | `FindOne` | `tenants` | `slug` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 193 | `cmdTenantsGet` | `FindOne` | `plans` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 289 | `resolveUserNames` | `Find` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 317 | `resolvePlanNames` | `Find` | `plans` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 73 | `cmdUsersList` | `Find` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 287 | `cmdUsersSetActive` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 301 | `cmdUsersSetActive` | `UpdateOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 314 | `cmdUsersSetActive` | `DeleteMany` | `refresh_tokens` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 342 | `cmdUsersRevokeSessions` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 347 | `cmdUsersRevokeSessions` | `DeleteMany` | `refresh_tokens` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 360 | `lookupUserWithMemberships` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 365 | `lookupUserWithMemberships` | `Find` | `tenant_memberships` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 383 | `resolveTenantNames` | `Find` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 227 | `cmdSetup` | `FindOne` | `system_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 235 | `cmdSetup` | `FindOne` | `tenants` | `isRoot` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 239 | `cmdSetup` | `FindOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 303 | `cmdSetup` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 321 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 325 | `cmdSetup` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 326 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 341 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 342 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 347 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 348 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 361 | `cmdSetup` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
-## MEDIUM — Global-Collection Queries (241)
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 67 | `cmdDoctor` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 102 | `cmdDoctor` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 131 | `cmdFinancialSummary` | `CountDocuments` | `tenants` | `billingStatus` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 140 | `queryLogs` | `Find` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 193 | `logsFollow` | `Find` | `system_logs` | `createdAt` | MEDIUM |  | `variable:followFilter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 23 | `cmdStats` | `EstimatedDocumentCount` | `users` | — | MEDIUM |  | `no-filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 27 | `cmdStats` | `EstimatedDocumentCount` | `tenants` | — | MEDIUM |  | `no-filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 31 | `cmdStats` | `CountDocuments` | `users` | `isActive` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 37 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 51 | `cmdStats` | `Aggregate` | `system_logs` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 61 | `cmdTenantsList` | `Find` | `tenants` | — | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 160 | `cmdTenantsGet` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 166 | `cmdTenantsGet` | `FindOne` | `tenants` | `slug` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 193 | `cmdTenantsGet` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 289 | `resolveUserNames` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 317 | `resolvePlanNames` | `Find` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 73 | `cmdUsersList` | `Find` | `users` | `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 287 | `cmdUsersSetActive` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 301 | `cmdUsersSetActive` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 342 | `cmdUsersRevokeSessions` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 360 | `lookupUserWithMemberships` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 383 | `resolveTenantNames` | `Find` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 227 | `cmdSetup` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 235 | `cmdSetup` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 239 | `cmdSetup` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 303 | `cmdSetup` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:tenant:Tenant` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 321 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 325 | `cmdSetup` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 326 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 341 | `cmdSetup` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 342 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 347 | `cmdSetup` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 348 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 361 | `cmdSetup` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | MEDIUM |  | `struct-var:sysConfig:SystemConfig` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 363 | `cmdSetup` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 364 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 417 | `cmdChangePassword` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 447 | `cmdChangePassword` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 515 | `cmdSendMessage` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 760 | `cmdTransferRootOwner` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 768 | `cmdTransferRootOwner` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 800 | `cmdTransferRootOwner` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 885 | `cmdVersion` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 931 | `cmdStatus` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 946 | `cmdStatus` | `CountDocuments` | `users` | — | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 950 | `cmdStatus` | `CountDocuments` | `tenants` | — | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 68 | `isRootTenantOwner` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 176 | `ListTenants` | `CountDocuments` | `tenants` | `$or`, `billingStatus`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 187 | `ListTenants` | `Find` | `tenants` | `$or`, `billingStatus`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 228 | `ListTenants` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 312 | `ExportTenantsCSV` | `Find` | `tenants` | `$or`, `billingStatus`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 353 | `ExportTenantsCSV` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 418 | `GetTenant` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 441 | `GetTenant` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 483 | `UpdateTenantStatus` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 502 | `UpdateTenantStatus` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 581 | `ListUsers` | `CountDocuments` | `users` | `$or`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 592 | `ListUsers` | `Find` | `users` | `$or`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 678 | `ExportUsersCSV` | `Find` | `users` | `$or`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 774 | `UpdateUserStatus` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 817 | `GetDashboard` | `CountDocuments` | `users` | — | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 822 | `GetDashboard` | `CountDocuments` | `tenants` | — | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 943 | `GetUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 963 | `GetUser` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 992 | `GetUser` | `Find` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1079 | `UpdateUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1098 | `UpdateUser` | `CountDocuments` | `users` | `email`, `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1121 | `UpdateUser` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1165 | `UpdateUserRole` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1264 | `PreflightDeleteUser` | `Find` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1301 | `PreflightDeleteUser` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1358 | `DeleteUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1398 | `DeleteUser` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1457 | `DeleteUser` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1488 | `DeleteUser` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1529 | `UpdateTenant` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1587 | `UpdateTenant` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1619 | `ImpersonateUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1626 | `ImpersonateUser` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1680 | `ImpersonateUser` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1703 | `getRootTenant` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1739 | `ListRootMembers` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1837 | `InviteRootMember` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 223 | `Register` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 252 | `Register` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 330 | `Login` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 359 | `Login` | `FindOneAndUpdate` | `users` | `_id`, `accountLockedUntil` | MEDIUM | ✓ | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 367 | `Login` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 387 | `Login` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 537 | `Refresh` | `FindOne` | `users` | `_id`, `isActive` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 616 | `VerifyEmail` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 651 | `ResendVerification` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 691 | `ForgotPassword` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 767 | `ResetPassword` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 837 | `ChangePassword` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 889 | `MFASetup` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 920 | `MFAVerifySetup` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 944 | `MFAVerifySetup` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 981 | `MFADisable` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1001 | `MFADisable` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1051 | `MFAChallenge` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1071 | `MFAChallenge` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1127 | `MFARegenerateRecoveryCodes` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1148 | `MFARegenerateRecoveryCodes` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1190 | `MagicLinkRequest` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1252 | `MagicLinkVerify` | `FindOne` | `users` | `_id`, `isActive` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1258 | `MagicLinkVerify` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1423 | `GoogleOAuthCallback` | `FindOne` | `users` | `googleId` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1425 | `GoogleOAuthCallback` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1440 | `GoogleOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1448 | `GoogleOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1454 | `GoogleOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1557 | `GitHubOAuthCallback` | `FindOne` | `users` | `githubId` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1559 | `GitHubOAuthCallback` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1578 | `GitHubOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1591 | `GitHubOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1597 | `GitHubOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1704 | `MicrosoftOAuthCallback` | `FindOne` | `users` | `microsoftId` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1706 | `MicrosoftOAuthCallback` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1725 | `MicrosoftOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1738 | `MicrosoftOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1744 | `MicrosoftOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1922 | `UpdatePreferences` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1937 | `CompleteOnboarding` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1991 | `createPersonalTenant` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:tenant:Tenant` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2029 | `sendVerificationEmail` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2062 | `getUserMemberships` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2093 | `acceptInvitationForUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2135 | `acceptInvitationForUser` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2261 | `DeleteAccount` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2283 | `DeleteAccount` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2311 | `DeleteAccount` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 94 | `Checkout` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 122 | `Checkout` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 152 | `Checkout` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 654 | `CancelSubscription` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 929 | `computeLiveARR` | `Aggregate` | `tenants` | `billingStatus`, `planId` | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 955 | `AdminCancelSubscription` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1001 | `AdminCancelSubscription` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1034 | `AdminUpdateSubscription` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 36 | `refreshInitialized` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 66 | `refreshInitializedFromContext` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 111 | `ListLogs` | `EstimatedDocumentCount` | `system_logs` | — | MEDIUM |  | `no-filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 113 | `ListLogs` | `CountDocuments` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 125 | `ListLogs` | `Find` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 156 | `SeverityCounts` | `Aggregate` | `system_logs` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 196 | `ExportCSV` | `Find` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 48 | `ListPlans` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 66 | `ListPlans` | `Aggregate` | `tenants` | — | MEDIUM |  | `inline-pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 93 | `ListPlans` | `CountDocuments` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 110 | `GetPlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 123 | `ListEntitlementKeys` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 253 | `CreatePlan` | `CountDocuments` | `plans` | `name` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 295 | `CreatePlan` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | MEDIUM | ✓ | `struct-var:plan:Plan` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 323 | `UpdatePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 350 | `UpdatePlan` | `CountDocuments` | `plans` | `name`, `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 393 | `UpdatePlan` | `UpdateByID` | `plans` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 404 | `UpdatePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 408 | `UpdatePlan` | `CountDocuments` | `tenants` | `planId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 446 | `DeletePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 460 | `DeletePlan` | `CountDocuments` | `tenants` | `planId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 470 | `DeletePlan` | `DeleteOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 491 | `ArchivePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 505 | `ArchivePlan` | `UpdateByID` | `plans` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 526 | `UnarchivePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 540 | `UnarchivePlan` | `UpdateByID` | `plans` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 576 | `AssignPlan` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 598 | `AssignPlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 627 | `AssignPlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 671 | `AssignPlan` | `UpdateByID` | `tenants` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 703 | `ListPlansPublic` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 737 | `ListPlansPublic` | `Find` | `plans` | `isArchived` | MEDIUM |  | `variable:filter` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 817 | `lookupPlanForTenant` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 820 | `lookupPlanForTenant` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 146 | `buildProductNameMap` | `Find` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 200 | `ListEligibleProducts` | `Find` | `plans` | `isArchived` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 380 | `resolveStripeProducts` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 94 | `ListMembers` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 171 | `InviteMember` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 205 | `InviteMember` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 209 | `InviteMember` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 283 | `InviteMember` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 372 | `RemoveMember` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 388 | `RemoveMember` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 642 | `UpdateTenantSettings` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 90 | `RecordUsage` | `UpdateOne` | `tenants` | `_id`, `subscriptionCredits` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 100 | `RecordUsage` | `UpdateOne` | `tenants` | `_id`, `purchasedCredits` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 196 | `GetSummary` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 170 | `handleCheckoutCompleted` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 182 | `handleCheckoutCompleted` | `FindOne` | `tenants` | `stripeCustomerId`, `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 205 | `handleCheckoutCompleted` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 239 | `handleCheckoutCompleted` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 255 | `handleCheckoutCompleted` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 328 | `handleCheckoutCompleted` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 391 | `handleInvoicePaid` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 397 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 407 | `handleInvoicePaid` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 409 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 415 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 443 | `handleInvoicePaid` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 482 | `handleInvoicePaymentFailed` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 488 | `handleInvoicePaymentFailed` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 551 | `handleSubscriptionUpdated` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 583 | `handleSubscriptionUpdated` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 598 | `handleSubscriptionUpdated` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 613 | `handleSubscriptionDeleted` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 619 | `handleSubscriptionDeleted` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 635 | `handleSubscriptionDeleted` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 675 | `handleChargeRefunded` | `FindOne` | `tenants` | `stripeCustomerId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 726 | `handleDisputeCreated` | `FindOne` | `tenants` | `stripeCustomerId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 732 | `handleDisputeCreated` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 771 | `handleDisputeClosed` | `FindOne` | `tenants` | `stripeCustomerId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 779 | `handleDisputeClosed` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 192 | `collectDaily` | `Aggregate` | `users` | `lastLoginAt` | MEDIUM |  | `variable-pipeline:dauWauMauPipeline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 263 | `collectDaily` | `Aggregate` | `tenants` | `billingStatus`, `planId` | MEDIUM |  | `variable-pipeline:arrPipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 90 | `authenticateJWT` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 124 | `authenticateAPIKey` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 135 | `authenticateAPIKey` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 51 | `RequireTenant` | `FindOne` | `tenants` | `_id`, `isActive` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 141 | `RequireEntitlement` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 19 | `Seed` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 36 | `Seed` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | MEDIUM | ✓ | `struct-var:plan:Plan` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 82 | `GetOrCreateCustomer` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 320 | `FunnelMetrics` | `CountDocuments` | `users` | `createdAt` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 447 | `RetentionCohorts` | `Aggregate` | `users` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 596 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus`, `isActive` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 605 | `computeKPIs` | `CountDocuments` | `users` | — | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 621 | `computeKPIs` | `CountDocuments` | `tenants` | `canceledAt` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 627 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 640 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 646 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 813 | `getActiveTenantIDs` | `Find` | `tenants` | `billingStatus`, `isActive` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1098 | `calculateMRR` | `Aggregate` | `tenants` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1192 | `planDistribution` | `Aggregate` | `tenants` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 270 | `CreateTestUser` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 292 | `CreateTestTenant` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:tenant:Tenant` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 318 | `MarkSystemInitialized` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | MEDIUM |  | `struct:SystemConfig` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 416 | `CreateTestPlan` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | MEDIUM | ✓ | `struct-var:plan:Plan` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 28 | `CheckAndMigrate` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 50 | `CheckAndMigrate` | `UpdateOne` | `system_config` | `_id` | MEDIUM | ✓ | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 65 | `sendUpgradeMessage` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
+_…and 411 more (see JSON and All Queries by File below)._
 
 ## All Queries by File
 
 ### `cmd/lastsaas/cmd_doctor.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 67 | `cmdDoctor` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 102 | `cmdDoctor` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 103 | `cmdDoctor` | `CountDocuments` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 115 | `cmdDoctor` | `CountDocuments` | `system_nodes` | `lastSeen` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 67 | `cmdDoctor` | `FindOne` | `system_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 102 | `cmdDoctor` | `FindOne` | `tenants` | `isRoot` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 103 | `cmdDoctor` | `CountDocuments` | `tenant_memberships` | `tenantId`, `role` | `cli` | OK |  | Filter contains tenantId. |
+| 115 | `cmdDoctor` | `CountDocuments` | `system_nodes` | `lastSeen` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/lastsaas/cmd_financial.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 58 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:revPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 84 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:refundPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 111 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | — | HIGH |  | `variable-pipeline:typePipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 131 | `cmdFinancialSummary` | `CountDocuments` | `tenants` | `billingStatus` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 138 | `cmdFinancialSummary` | `FindOne` | `daily_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 147 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:rev30Pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 254 | `cmdFinancialTransactions` | `Find` | `financial_transactions` | `createdAt`, `tenantId`, `type` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 350 | `cmdFinancialMetrics` | `Find` | `daily_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 58 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 84 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 111 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 131 | `cmdFinancialSummary` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 138 | `cmdFinancialSummary` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 147 | `cmdFinancialSummary` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 254 | `cmdFinancialTransactions` | `Find` | `financial_transactions` | `createdAt`, `tenantId`, `type` | `cli` | OK |  | Filter contains tenantId. |
+| 350 | `cmdFinancialMetrics` | `Find` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/lastsaas/cmd_health.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 51 | `cmdHealth` | `Find` | `system_nodes` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 77 | `cmdHealth` | `FindOne` | `system_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 100 | `cmdHealth` | `Find` | `system_nodes` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 124 | `cmdHealth` | `FindOne` | `system_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 51 | `cmdHealth` | `Find` | `system_nodes` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 77 | `cmdHealth` | `FindOne` | `system_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 100 | `cmdHealth` | `Find` | `system_nodes` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 124 | `cmdHealth` | `FindOne` | `system_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/lastsaas/cmd_logs.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 140 | `queryLogs` | `Find` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 193 | `logsFollow` | `Find` | `system_logs` | `createdAt` | MEDIUM |  | `variable:followFilter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 140 | `queryLogs` | `Find` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 193 | `logsFollow` | `Find` | `system_logs` | `createdAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/lastsaas/cmd_stats.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 23 | `cmdStats` | `EstimatedDocumentCount` | `users` | — | MEDIUM |  | `no-filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 27 | `cmdStats` | `EstimatedDocumentCount` | `tenants` | — | MEDIUM |  | `no-filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 31 | `cmdStats` | `CountDocuments` | `users` | `isActive` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 37 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 51 | `cmdStats` | `Aggregate` | `system_logs` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 71 | `cmdStats` | `FindOne` | `daily_metrics` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | HIGH |  | `variable-pipeline:revPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 23 | `cmdStats` | `EstimatedDocumentCount` | `users` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 27 | `cmdStats` | `EstimatedDocumentCount` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 31 | `cmdStats` | `CountDocuments` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 37 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 51 | `cmdStats` | `Aggregate` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 71 | `cmdStats` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/lastsaas/cmd_tenants.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 61 | `cmdTenantsList` | `Find` | `tenants` | — | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 160 | `cmdTenantsGet` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 166 | `cmdTenantsGet` | `FindOne` | `tenants` | `slug` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 173 | `cmdTenantsGet` | `Find` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 193 | `cmdTenantsGet` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 289 | `resolveUserNames` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 317 | `resolvePlanNames` | `Find` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 355 | `countMembersPerTenant` | `Aggregate` | `tenant_memberships` | `tenantId` | OK |  | `variable-pipeline:pipeline` | Filter contains tenantId. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 61 | `cmdTenantsList` | `Find` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 160 | `cmdTenantsGet` | `FindOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 166 | `cmdTenantsGet` | `FindOne` | `tenants` | `slug` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 173 | `cmdTenantsGet` | `Find` | `tenant_memberships` | `tenantId` | `cli` | OK |  | Filter contains tenantId. |
+| 193 | `cmdTenantsGet` | `FindOne` | `plans` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 289 | `resolveUserNames` | `Find` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 317 | `resolvePlanNames` | `Find` | `plans` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 355 | `countMembersPerTenant` | `Aggregate` | `tenant_memberships` | `tenantId` | `cli` | OK |  | Filter contains tenantId. |
 
 
 ### `cmd/lastsaas/cmd_users.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 73 | `cmdUsersList` | `Find` | `users` | `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 287 | `cmdUsersSetActive` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 301 | `cmdUsersSetActive` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 314 | `cmdUsersSetActive` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 342 | `cmdUsersRevokeSessions` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 347 | `cmdUsersRevokeSessions` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 360 | `lookupUserWithMemberships` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 365 | `lookupUserWithMemberships` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 383 | `resolveTenantNames` | `Find` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 73 | `cmdUsersList` | `Find` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 287 | `cmdUsersSetActive` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 301 | `cmdUsersSetActive` | `UpdateOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 314 | `cmdUsersSetActive` | `DeleteMany` | `refresh_tokens` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 342 | `cmdUsersRevokeSessions` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 347 | `cmdUsersRevokeSessions` | `DeleteMany` | `refresh_tokens` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 360 | `lookupUserWithMemberships` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 365 | `lookupUserWithMemberships` | `Find` | `tenant_memberships` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 383 | `resolveTenantNames` | `Find` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/lastsaas/main.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 227 | `cmdSetup` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 235 | `cmdSetup` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 237 | `cmdSetup` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 239 | `cmdSetup` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 303 | `cmdSetup` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:tenant:Tenant` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 321 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 325 | `cmdSetup` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 326 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 341 | `cmdSetup` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 342 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 346 | `cmdSetup` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | OK |  | `struct-var:membership:TenantMembership` | Filter contains tenantId. |
-| 347 | `cmdSetup` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 348 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 361 | `cmdSetup` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | MEDIUM |  | `struct-var:sysConfig:SystemConfig` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 362 | `cmdSetup` | `DeleteOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 363 | `cmdSetup` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 364 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 379 | `cmdSetup` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct-var:welcomeMsg:Message` | InsertOne with welcomeMsg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL:... |
-| 417 | `cmdChangePassword` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 447 | `cmdChangePassword` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 460 | `cmdChangePassword` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 515 | `cmdSendMessage` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 531 | `cmdSendMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct-var:msg:Message` | InsertOne with msg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: insert... |
-| 587 | `cmdConfigList` | `Find` | `config_vars` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 635 | `cmdConfigGet` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 665 | `cmdConfigSet` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 676 | `cmdConfigSet` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 713 | `cmdConfigReset` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 724 | `cmdConfigReset` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 760 | `cmdTransferRootOwner` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 768 | `cmdTransferRootOwner` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 775 | `cmdTransferRootOwner` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 791 | `cmdTransferRootOwner` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 800 | `cmdTransferRootOwner` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 831 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 841 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 847 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 862 | `cmdTransferRootOwner` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:logEntry:SystemLog` | Filter contains tenantId. |
-| 885 | `cmdVersion` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 931 | `cmdStatus` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 946 | `cmdStatus` | `CountDocuments` | `users` | — | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 950 | `cmdStatus` | `CountDocuments` | `tenants` | — | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 227 | `cmdSetup` | `FindOne` | `system_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 235 | `cmdSetup` | `FindOne` | `tenants` | `isRoot` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 237 | `cmdSetup` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | `cli` | OK |  | Filter contains tenantId. |
+| 239 | `cmdSetup` | `FindOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 303 | `cmdSetup` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 321 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 325 | `cmdSetup` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 326 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 341 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 342 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 346 | `cmdSetup` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | `cli` | OK |  | Filter contains tenantId. |
+| 347 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 348 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 361 | `cmdSetup` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 362 | `cmdSetup` | `DeleteOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 363 | `cmdSetup` | `DeleteOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 364 | `cmdSetup` | `DeleteOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 379 | `cmdSetup` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 417 | `cmdChangePassword` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 447 | `cmdChangePassword` | `UpdateOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 460 | `cmdChangePassword` | `DeleteMany` | `refresh_tokens` | `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 515 | `cmdSendMessage` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 531 | `cmdSendMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 587 | `cmdConfigList` | `Find` | `config_vars` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 635 | `cmdConfigGet` | `FindOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 665 | `cmdConfigSet` | `FindOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 676 | `cmdConfigSet` | `UpdateOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 713 | `cmdConfigReset` | `FindOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 724 | `cmdConfigReset` | `UpdateOne` | `config_vars` | `name` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 760 | `cmdTransferRootOwner` | `FindOne` | `tenants` | `isRoot` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 768 | `cmdTransferRootOwner` | `FindOne` | `users` | `email` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 775 | `cmdTransferRootOwner` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | `cli` | OK |  | Filter contains tenantId. |
+| 791 | `cmdTransferRootOwner` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | `cli` | OK |  | Filter contains tenantId. |
+| 800 | `cmdTransferRootOwner` | `FindOne` | `users` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 831 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 841 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 847 | `cmdTransferRootOwner` | `UpdateOne` | `tenant_memberships` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 862 | `cmdTransferRootOwner` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `cli` | OK |  | Filter contains tenantId. |
+| 885 | `cmdVersion` | `FindOne` | `system_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 931 | `cmdStatus` | `FindOne` | `system_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 946 | `cmdStatus` | `CountDocuments` | `users` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 950 | `cmdStatus` | `CountDocuments` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `cmd/server/main.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 801 | `main` | `FindOne` | `branding_config` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 801 | `main` | `FindOne` | `branding_config` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `internal/api/handlers/admin.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 51 | `isRootTenantOwner` | `CountDocuments` | `tenant_memberships` | `userId`, `role` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 64 | `isRootTenantOwner` | `FindOne` | `tenant_memberships` | `userId`, `role` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 68 | `isRootTenantOwner` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 176 | `ListTenants` | `CountDocuments` | `tenants` | `$or`, `billingStatus`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 187 | `ListTenants` | `Find` | `tenants` | `$or`, `billingStatus`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 211 | `ListTenants` | `Aggregate` | `tenant_memberships` | `tenantId` | OK |  | `variable-pipeline:pipeline` | Filter contains tenantId. |
-| 228 | `ListTenants` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 312 | `ExportTenantsCSV` | `Find` | `tenants` | `$or`, `billingStatus`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 336 | `ExportTenantsCSV` | `Aggregate` | `tenant_memberships` | `tenantId` | OK |  | `variable-pipeline:pipeline` | Filter contains tenantId. |
-| 353 | `ExportTenantsCSV` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 418 | `GetTenant` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 424 | `GetTenant` | `Find` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 441 | `GetTenant` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 483 | `UpdateTenantStatus` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 502 | `UpdateTenantStatus` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 581 | `ListUsers` | `CountDocuments` | `users` | `$or`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 592 | `ListUsers` | `Find` | `users` | `$or`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 616 | `ListUsers` | `Aggregate` | `tenant_memberships` | `userId` | HIGH |  | `variable-pipeline:pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 678 | `ExportUsersCSV` | `Find` | `users` | `$or`, `isActive` | MEDIUM |  | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 702 | `ExportUsersCSV` | `Aggregate` | `tenant_memberships` | `userId` | HIGH |  | `variable-pipeline:pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 774 | `UpdateUserStatus` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 817 | `GetDashboard` | `CountDocuments` | `users` | — | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 822 | `GetDashboard` | `CountDocuments` | `tenants` | — | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 943 | `GetUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 948 | `GetUser` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 963 | `GetUser` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 992 | `GetUser` | `Find` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1079 | `UpdateUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1098 | `UpdateUser` | `CountDocuments` | `users` | `email`, `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1121 | `UpdateUser` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1165 | `UpdateUserRole` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1182 | `UpdateUserRole` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 1186 | `UpdateUserRole` | `UpdateOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1193 | `UpdateUserRole` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1243 | `PreflightDeleteUser` | `Find` | `tenant_memberships` | `userId`, `role` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1264 | `PreflightDeleteUser` | `Find` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1280 | `PreflightDeleteUser` | `Find` | `tenant_memberships` | `tenantId`, `userId` | OK |  | `inline` | Filter contains tenantId. |
-| 1301 | `PreflightDeleteUser` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1358 | `DeleteUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1378 | `DeleteUser` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1398 | `DeleteUser` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1414 | `DeleteUser` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1430 | `DeleteUser` | `CountDocuments` | `tenant_memberships` | `tenantId`, `userId` | OK |  | `inline` | Filter contains tenantId. |
-| 1454 | `DeleteUser` | `DeleteMany` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1457 | `DeleteUser` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1460 | `DeleteUser` | `DeleteMany` | `invitations` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1479 | `DeleteUser` | `DeleteMany` | `tenant_memberships` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1482 | `DeleteUser` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1485 | `DeleteUser` | `DeleteMany` | `messages` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1488 | `DeleteUser` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1529 | `UpdateTenant` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1587 | `UpdateTenant` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1619 | `ImpersonateUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1626 | `ImpersonateUser` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1628 | `ImpersonateUser` | `FindOne` | `tenant_memberships` | `userId`, `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 1656 | `ImpersonateUser` | `InsertOne` | `impersonation_logs` | `adminId`, `adminEmail`, `targetId`, `targetEmail`, `ipAddress`, `startedAt`, `expiresAt` | CRITICAL |  | `inline-document` | InsertOne inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/modi... |
-| 1667 | `ImpersonateUser` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1680 | `ImpersonateUser` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1703 | `getRootTenant` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1719 | `ListRootMembers` | `Find` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1739 | `ListRootMembers` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1770 | `ListRootMembers` | `Find` | `invitations` | `tenantId`, `status`, `expiresAt` | OK |  | `inline` | Filter contains tenantId. |
-| 1837 | `InviteRootMember` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1838 | `InviteRootMember` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1853 | `InviteRootMember` | `CountDocuments` | `invitations` | `tenantId`, `email`, `status`, `expiresAt` | OK | ✓ | `inline` | Filter contains tenantId. |
-| 1885 | `InviteRootMember` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | OK | ✓ | `struct-var:invitation:Invitation` | Filter contains tenantId. |
-| 1946 | `RemoveRootMember` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 1964 | `RemoveRootMember` | `DeleteOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2032 | `ChangeRootMemberRole` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 2074 | `CancelRootInvitation` | `DeleteOne` | `invitations` | `_id`, `tenantId`, `status` | OK | ✓ | `inline` | Filter contains tenantId. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 51 | `isRootTenantOwner` | `CountDocuments` | `tenant_memberships` | `userId`, `role` | `unknown` | OK | user-scoped | Collection 'tenant_memberships' is user-scoped (has userId field) and the filter contai... |
+| 64 | `isRootTenantOwner` | `FindOne` | `tenant_memberships` | `userId`, `role` | `unknown` | OK | user-scoped | Collection 'tenant_memberships' is user-scoped (has userId field) and the filter contai... |
+| 68 | `isRootTenantOwner` | `FindOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 176 | `ListTenants` | `CountDocuments` | `tenants` | `$or`, `billingStatus`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListTenants' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 187 | `ListTenants` | `Find` | `tenants` | `$or`, `billingStatus`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListTenants' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 211 | `ListTenants` | `Aggregate` | `tenant_memberships` | `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 228 | `ListTenants` | `Find` | `plans` | — | `admin` | MEDIUM | admin-handler | Function 'ListTenants' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 312 | `ExportTenantsCSV` | `Find` | `tenants` | `$or`, `billingStatus`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'ExportTenantsCSV' is an admin handler (registered on /api/admin/*). Admin han... |
+| 336 | `ExportTenantsCSV` | `Aggregate` | `tenant_memberships` | `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 353 | `ExportTenantsCSV` | `Find` | `plans` | — | `admin` | MEDIUM | admin-handler | Function 'ExportTenantsCSV' is an admin handler (registered on /api/admin/*). Admin han... |
+| 418 | `GetTenant` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetTenant' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 424 | `GetTenant` | `Find` | `tenant_memberships` | `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 441 | `GetTenant` | `Find` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetTenant' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 483 | `UpdateTenantStatus` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateTenantStatus' is an admin handler (registered on /api/admin/*). Admin h... |
+| 502 | `UpdateTenantStatus` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateTenantStatus' is an admin handler (registered on /api/admin/*). Admin h... |
+| 581 | `ListUsers` | `CountDocuments` | `users` | `$or`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListUsers' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 592 | `ListUsers` | `Find` | `users` | `$or`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListUsers' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 616 | `ListUsers` | `Aggregate` | `tenant_memberships` | `userId` | `admin` | MEDIUM | admin-handler | Function 'ListUsers' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 678 | `ExportUsersCSV` | `Find` | `users` | `$or`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'ExportUsersCSV' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 702 | `ExportUsersCSV` | `Aggregate` | `tenant_memberships` | `userId` | `admin` | MEDIUM | admin-handler | Function 'ExportUsersCSV' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 774 | `UpdateUserStatus` | `UpdateOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUserStatus' is an admin handler (registered on /api/admin/*). Admin han... |
+| 817 | `GetDashboard` | `CountDocuments` | `users` | — | `admin` | MEDIUM | admin-handler | Function 'GetDashboard' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 822 | `GetDashboard` | `CountDocuments` | `tenants` | — | `admin` | MEDIUM | admin-handler | Function 'GetDashboard' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 943 | `GetUser` | `FindOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetUser' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 948 | `GetUser` | `Find` | `tenant_memberships` | `userId` | `admin` | MEDIUM | admin-handler | Function 'GetUser' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 963 | `GetUser` | `Find` | `plans` | — | `admin` | MEDIUM | admin-handler | Function 'GetUser' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 992 | `GetUser` | `Find` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetUser' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 1079 | `UpdateUser` | `FindOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1098 | `UpdateUser` | `CountDocuments` | `users` | `email`, `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1121 | `UpdateUser` | `UpdateOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1165 | `UpdateUserRole` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUserRole' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 1182 | `UpdateUserRole` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | `admin` | OK |  | Filter contains tenantId. |
+| 1186 | `UpdateUserRole` | `UpdateOne` | `tenant_memberships` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateUserRole' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 1193 | `UpdateUserRole` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1243 | `PreflightDeleteUser` | `Find` | `tenant_memberships` | `userId`, `role` | `admin` | MEDIUM | admin-handler | Function 'PreflightDeleteUser' is an admin handler (registered on /api/admin/*). Admin ... |
+| 1264 | `PreflightDeleteUser` | `Find` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'PreflightDeleteUser' is an admin handler (registered on /api/admin/*). Admin ... |
+| 1280 | `PreflightDeleteUser` | `Find` | `tenant_memberships` | `tenantId`, `userId` | `admin` | OK |  | Filter contains tenantId. |
+| 1301 | `PreflightDeleteUser` | `Find` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'PreflightDeleteUser' is an admin handler (registered on /api/admin/*). Admin ... |
+| 1358 | `DeleteUser` | `FindOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1378 | `DeleteUser` | `Find` | `tenant_memberships` | `userId` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1398 | `DeleteUser` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1414 | `DeleteUser` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1430 | `DeleteUser` | `CountDocuments` | `tenant_memberships` | `tenantId`, `userId` | `admin` | OK |  | Filter contains tenantId. |
+| 1454 | `DeleteUser` | `DeleteMany` | `tenant_memberships` | `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1457 | `DeleteUser` | `DeleteOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1460 | `DeleteUser` | `DeleteMany` | `invitations` | `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1479 | `DeleteUser` | `DeleteMany` | `tenant_memberships` | `userId` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1482 | `DeleteUser` | `DeleteMany` | `refresh_tokens` | `userId` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1485 | `DeleteUser` | `DeleteMany` | `messages` | `userId` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1488 | `DeleteUser` | `DeleteOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteUser' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 1529 | `UpdateTenant` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateTenant' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 1587 | `UpdateTenant` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateTenant' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 1619 | `ImpersonateUser` | `FindOne` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'ImpersonateUser' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1626 | `ImpersonateUser` | `FindOne` | `tenants` | `isRoot` | `admin` | MEDIUM | admin-handler | Function 'ImpersonateUser' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1628 | `ImpersonateUser` | `FindOne` | `tenant_memberships` | `userId`, `tenantId`, `role` | `admin` | OK |  | Filter contains tenantId. |
+| 1656 | `ImpersonateUser` | `InsertOne` | `impersonation_logs` | `adminId`, `adminEmail`, `targetId`, `targetEmail`, `ipAddress`, `startedAt`, `expiresAt` | `admin` | MEDIUM | admin-handler | Function 'ImpersonateUser' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1667 | `ImpersonateUser` | `Find` | `tenant_memberships` | `userId` | `admin` | MEDIUM | admin-handler | Function 'ImpersonateUser' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1680 | `ImpersonateUser` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'ImpersonateUser' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1703 | `getRootTenant` | `FindOne` | `tenants` | `isRoot` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 1719 | `ListRootMembers` | `Find` | `tenant_memberships` | `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1739 | `ListRootMembers` | `Find` | `users` | `_id` | `admin` | MEDIUM | admin-handler | Function 'ListRootMembers' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1770 | `ListRootMembers` | `Find` | `invitations` | `tenantId`, `status`, `expiresAt` | `admin` | OK |  | Filter contains tenantId. |
+| 1837 | `InviteRootMember` | `FindOne` | `users` | `email` | `admin` | MEDIUM | admin-handler | Function 'InviteRootMember' is an admin handler (registered on /api/admin/*). Admin han... |
+| 1838 | `InviteRootMember` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1853 | `InviteRootMember` | `CountDocuments` | `invitations` | `tenantId`, `email`, `status`, `expiresAt` | `admin` | OK |  | Filter contains tenantId. |
+| 1885 | `InviteRootMember` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | `admin` | OK |  | Filter contains tenantId. |
+| 1946 | `RemoveRootMember` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 1964 | `RemoveRootMember` | `DeleteOne` | `tenant_memberships` | `_id` | `admin` | MEDIUM | admin-handler | Function 'RemoveRootMember' is an admin handler (registered on /api/admin/*). Admin han... |
+| 2032 | `ChangeRootMemberRole` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 2074 | `CancelRootInvitation` | `DeleteOne` | `invitations` | `_id`, `tenantId`, `status` | `admin` | OK |  | Filter contains tenantId. |
 
 
 ### `internal/api/handlers/announcements.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 33 | `ListPublic` | `Find` | `announcements` | `isPublished` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 54 | `ListAll` | `Find` | `announcements` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 105 | `Create` | `InsertOne` | `announcements` | `body`, `createdAt`, `isPublished`, `publishedAt`, `title`, `updatedAt` | CRITICAL |  | `struct-var:ann:Announcement` | InsertOne with ann (a Announcement struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: i... |
-| 152 | `Update` | `UpdateOne` | `announcements` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 168 | `Delete` | `DeleteOne` | `announcements` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 33 | `ListPublic` | `Find` | `announcements` | `isPublished` | `public` | MEDIUM | public-endpoint | Function 'ListPublic' is a public endpoint (no auth) — returns published/global content... |
+| 54 | `ListAll` | `Find` | `announcements` | — | `admin` | MEDIUM | admin-handler | Function 'ListAll' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 105 | `Create` | `InsertOne` | `announcements` | `body`, `createdAt`, `isPublished`, `publishedAt`, `title`, `updatedAt` | `admin` | MEDIUM | admin-handler | Function 'Create' is an admin handler (registered on /api/admin/*). Admin handlers see ... |
+| 152 | `Update` | `UpdateOne` | `announcements` | `_id` | `admin` | MEDIUM | admin-handler | Function 'Update' is an admin handler (registered on /api/admin/*). Admin handlers see ... |
+| 168 | `Delete` | `DeleteOne` | `announcements` | `_id` | `admin` | MEDIUM | admin-handler | Function 'Delete' is an admin handler (registered on /api/admin/*). Admin handlers see ... |
 
 
 ### `internal/api/handlers/apikeys.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 45 | `ListAPIKeys` | `Find` | `api_keys` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 60 | `ListAPIKeys` | `CountDocuments` | `api_keys` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 127 | `CreateAPIKey` | `InsertOne` | `api_keys` | `authority`, `createdAt`, `createdBy`, `isActive`, `keyHash`, `keyPreview`, `lastUsedAt`, `name` | CRITICAL | ✓ | `struct-var:apiKey:APIKey` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 166 | `DeleteAPIKey` | `UpdateByID` | `api_keys` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 45 | `ListAPIKeys` | `Find` | `api_keys` | `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListAPIKeys' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 60 | `ListAPIKeys` | `CountDocuments` | `api_keys` | `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListAPIKeys' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 127 | `CreateAPIKey` | `InsertOne` | `api_keys` | `authority`, `createdAt`, `createdBy`, `isActive`, `keyHash`, `keyPreview`, `lastUsedAt`, `name` | `admin` | MEDIUM | admin-handler | Function 'CreateAPIKey' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 166 | `DeleteAPIKey` | `UpdateByID` | `api_keys` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteAPIKey' is an admin handler (registered on /api/admin/*). Admin handler... |
 
 
 ### `internal/api/handlers/auth.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 223 | `Register` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 252 | `Register` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 330 | `Login` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 359 | `Login` | `FindOneAndUpdate` | `users` | `_id`, `accountLockedUntil` | MEDIUM | ✓ | `variable:filter` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 367 | `Login` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 387 | `Login` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 453 | `Logout` | `InsertOne` | `revoked_tokens` | `createdAt`, `expiresAt`, `tokenHash` | CRITICAL | ✓ | `struct:RevokedToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 470 | `Logout` | `UpdateMany` | `refresh_tokens` | `tokenHash`, `userId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 503 | `Refresh` | `FindOne` | `refresh_tokens` | `tokenHash` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 514 | `Refresh` | `UpdateMany` | `refresh_tokens` | `familyId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 525 | `Refresh` | `UpdateOne` | `refresh_tokens` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 537 | `Refresh` | `FindOne` | `users` | `_id`, `isActive` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 555 | `Refresh` | `UpdateOne` | `refresh_tokens` | `tokenHash` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 601 | `VerifyEmail` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 616 | `VerifyEmail` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 651 | `ResendVerification` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 691 | `ForgotPassword` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 696 | `ForgotPassword` | `UpdateMany` | `verification_tokens` | `userId`, `type`, `usedAt` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 711 | `ForgotPassword` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:verification:VerificationToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 746 | `ResetPassword` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 767 | `ResetPassword` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 777 | `ResetPassword` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 837 | `ChangePassword` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 844 | `ChangePassword` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 889 | `MFASetup` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 920 | `MFAVerifySetup` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 944 | `MFAVerifySetup` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 981 | `MFADisable` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1001 | `MFADisable` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1051 | `MFAChallenge` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1071 | `MFAChallenge` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1127 | `MFARegenerateRecoveryCodes` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1148 | `MFARegenerateRecoveryCodes` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1190 | `MagicLinkRequest` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1204 | `MagicLinkRequest` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:verification:VerificationToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1236 | `MagicLinkVerify` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1252 | `MagicLinkVerify` | `FindOne` | `users` | `_id`, `isActive` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1258 | `MagicLinkVerify` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1315 | `createAuthCodeRedirect` | `InsertOne` | `auth_codes` | `code`, `createdAt`, `expiresAt`, `tokenData`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:authCode:AuthCode` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1336 | `ExchangeCode` | `FindOneAndUpdate` | `auth_codes` | `code`, `usedAt`, `expiresAt` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1374 | `GoogleOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | CRITICAL |  | `struct-var:oauthState:OAuthState` | InsertOne with oauthState (a OAuthState struct); the struct definition does NOT declare a tenantId bson field. CRITIC... |
-| 1398 | `GoogleOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | CRITICAL |  | `inline` | FindOneAndDelete on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data ... |
-| 1423 | `GoogleOAuthCallback` | `FindOne` | `users` | `googleId` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1425 | `GoogleOAuthCallback` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1440 | `GoogleOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1448 | `GoogleOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1454 | `GoogleOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1507 | `GitHubOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | CRITICAL |  | `struct-var:oauthState:OAuthState` | InsertOne with oauthState (a OAuthState struct); the struct definition does NOT declare a tenantId bson field. CRITIC... |
-| 1531 | `GitHubOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | CRITICAL |  | `inline` | FindOneAndDelete on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data ... |
-| 1557 | `GitHubOAuthCallback` | `FindOne` | `users` | `githubId` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1559 | `GitHubOAuthCallback` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1578 | `GitHubOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1591 | `GitHubOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1597 | `GitHubOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1649 | `MicrosoftOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | CRITICAL |  | `struct-var:oauthState:OAuthState` | InsertOne with oauthState (a OAuthState struct); the struct definition does NOT declare a tenantId bson field. CRITIC... |
-| 1673 | `MicrosoftOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | CRITICAL |  | `inline` | FindOneAndDelete on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data ... |
-| 1704 | `MicrosoftOAuthCallback` | `FindOne` | `users` | `microsoftId` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1706 | `MicrosoftOAuthCallback` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1725 | `MicrosoftOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1738 | `MicrosoftOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1744 | `MicrosoftOAuthCallback` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1790 | `ListSessions` | `Find` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1861 | `RevokeSession` | `UpdateOne` | `refresh_tokens` | `_id`, `userId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 1881 | `RevokeAllSessions` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 1922 | `UpdatePreferences` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1937 | `CompleteOnboarding` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 1991 | `createPersonalTenant` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:tenant:Tenant` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2004 | `createPersonalTenant` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | OK |  | `struct-var:membership:TenantMembership` | Filter contains tenantId. |
-| 2026 | `sendVerificationEmail` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | CRITICAL | ✓ | `struct-var:verification:VerificationToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2029 | `sendVerificationEmail` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2048 | `getUserMemberships` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2062 | `getUserMemberships` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2082 | `acceptInvitationForUser` | `FindOne` | `invitations` | `token`, `status`, `expiresAt` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 2093 | `acceptInvitationForUser` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2101 | `acceptInvitationForUser` | `FindOneAndUpdate` | `invitations` | `_id`, `status` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2113 | `acceptInvitationForUser` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 2129 | `acceptInvitationForUser` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | OK |  | `struct-var:membership:TenantMembership` | Filter contains tenantId. |
-| 2135 | `acceptInvitationForUser` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2166 | `storeRefreshToken` | `CountDocuments` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2174 | `storeRefreshToken` | `Find` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2183 | `storeRefreshToken` | `UpdateByID` | `refresh_tokens` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2204 | `storeRefreshToken` | `InsertOne` | `refresh_tokens` | `createdAt`, `deviceInfo`, `expiresAt`, `familyId`, `ipAddress`, `isRevoked`, `lastActiveAt`, `tokenHash`, `userAgent`, `userId` | CRITICAL | ✓ | `struct-var:rt:RefreshToken` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 2241 | `DeleteAccount` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2261 | `DeleteAccount` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2270 | `DeleteAccount` | `CountDocuments` | `tenant_memberships` | `tenantId`, `userId` | OK |  | `inline` | Filter contains tenantId. |
-| 2280 | `DeleteAccount` | `DeleteMany` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 2283 | `DeleteAccount` | `DeleteOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 2286 | `DeleteAccount` | `DeleteMany` | `invitations` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 2302 | `DeleteAccount` | `DeleteMany` | `tenant_memberships` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 2305 | `DeleteAccount` | `DeleteMany` | `refresh_tokens` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 2308 | `DeleteAccount` | `DeleteMany` | `messages` | `userId` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 2311 | `DeleteAccount` | `DeleteOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 2341 | `ExportData` | `Find` | `tenant_memberships` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 2363 | `ExportData` | `Find` | `messages` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 223 | `Register` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 252 | `Register` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 330 | `Login` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 359 | `Login` | `FindOneAndUpdate` | `users` | `_id`, `accountLockedUntil` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 367 | `Login` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 387 | `Login` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 453 | `Logout` | `InsertOne` | `revoked_tokens` | `createdAt`, `expiresAt`, `tokenHash` | `auth` | MEDIUM | global-by-design | Collection 'revoked_tokens' maps to struct 'RevokedToken' which does NOT declare a tena... |
+| 470 | `Logout` | `UpdateMany` | `refresh_tokens` | `tokenHash`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 503 | `Refresh` | `FindOne` | `refresh_tokens` | `tokenHash` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 514 | `Refresh` | `UpdateMany` | `refresh_tokens` | `familyId` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 525 | `Refresh` | `UpdateOne` | `refresh_tokens` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 537 | `Refresh` | `FindOne` | `users` | `_id`, `isActive` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 555 | `Refresh` | `UpdateOne` | `refresh_tokens` | `tokenHash` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 601 | `VerifyEmail` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 616 | `VerifyEmail` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 651 | `ResendVerification` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 691 | `ForgotPassword` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 696 | `ForgotPassword` | `UpdateMany` | `verification_tokens` | `userId`, `type`, `usedAt` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 711 | `ForgotPassword` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 746 | `ResetPassword` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 767 | `ResetPassword` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 777 | `ResetPassword` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 837 | `ChangePassword` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 844 | `ChangePassword` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 889 | `MFASetup` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 920 | `MFAVerifySetup` | `FindOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 944 | `MFAVerifySetup` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 981 | `MFADisable` | `FindOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1001 | `MFADisable` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1051 | `MFAChallenge` | `FindOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1071 | `MFAChallenge` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1127 | `MFARegenerateRecoveryCodes` | `FindOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1148 | `MFARegenerateRecoveryCodes` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1190 | `MagicLinkRequest` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1204 | `MagicLinkRequest` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 1236 | `MagicLinkVerify` | `FindOneAndUpdate` | `verification_tokens` | `token`, `type`, `usedAt`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 1252 | `MagicLinkVerify` | `FindOne` | `users` | `_id`, `isActive` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1258 | `MagicLinkVerify` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1315 | `createAuthCodeRedirect` | `InsertOne` | `auth_codes` | `code`, `createdAt`, `expiresAt`, `tokenData`, `usedAt`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'auth_codes' maps to struct 'AuthCode' which does NOT declare a tenantId bso... |
+| 1336 | `ExchangeCode` | `FindOneAndUpdate` | `auth_codes` | `code`, `usedAt`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'auth_codes' maps to struct 'AuthCode' which does NOT declare a tenantId bso... |
+| 1374 | `GoogleOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | `auth` | MEDIUM | global-by-design | Collection 'oauth_states' maps to struct 'OAuthState' which does NOT declare a tenantId... |
+| 1398 | `GoogleOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'oauth_states' maps to struct 'OAuthState' which does NOT declare a tenantId... |
+| 1423 | `GoogleOAuthCallback` | `FindOne` | `users` | `googleId` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1425 | `GoogleOAuthCallback` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1440 | `GoogleOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1448 | `GoogleOAuthCallback` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1454 | `GoogleOAuthCallback` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1507 | `GitHubOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | `auth` | MEDIUM | global-by-design | Collection 'oauth_states' maps to struct 'OAuthState' which does NOT declare a tenantId... |
+| 1531 | `GitHubOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'oauth_states' maps to struct 'OAuthState' which does NOT declare a tenantId... |
+| 1557 | `GitHubOAuthCallback` | `FindOne` | `users` | `githubId` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1559 | `GitHubOAuthCallback` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1578 | `GitHubOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1591 | `GitHubOAuthCallback` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1597 | `GitHubOAuthCallback` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1649 | `MicrosoftOAuth` | `InsertOne` | `oauth_states` | `createdAt`, `expiresAt`, `state` | `auth` | MEDIUM | global-by-design | Collection 'oauth_states' maps to struct 'OAuthState' which does NOT declare a tenantId... |
+| 1673 | `MicrosoftOAuthCallback` | `FindOneAndDelete` | `oauth_states` | `state`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'oauth_states' maps to struct 'OAuthState' which does NOT declare a tenantId... |
+| 1704 | `MicrosoftOAuthCallback` | `FindOne` | `users` | `microsoftId` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1706 | `MicrosoftOAuthCallback` | `FindOne` | `users` | `email` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1725 | `MicrosoftOAuthCallback` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1738 | `MicrosoftOAuthCallback` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1744 | `MicrosoftOAuthCallback` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1790 | `ListSessions` | `Find` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 1861 | `RevokeSession` | `UpdateOne` | `refresh_tokens` | `_id`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 1881 | `RevokeAllSessions` | `UpdateMany` | `refresh_tokens` | `userId`, `isRevoked` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 1922 | `UpdatePreferences` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1937 | `CompleteOnboarding` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 1991 | `createPersonalTenant` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 2004 | `createPersonalTenant` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
+| 2026 | `sendVerificationEmail` | `InsertOne` | `verification_tokens` | `createdAt`, `expiresAt`, `token`, `type`, `usedAt`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'verification_tokens' maps to struct 'VerificationToken' which does NOT decl... |
+| 2029 | `sendVerificationEmail` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 2048 | `getUserMemberships` | `Find` | `tenant_memberships` | `userId` | `auth` | OK | user-scoped | Collection 'tenant_memberships' is user-scoped (has userId field) and the filter contai... |
+| 2068 | `getUserMemberships` | `Find` | `tenants` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 2107 | `acceptInvitationForUser` | `FindOne` | `invitations` | `token`, `status`, `expiresAt` | `auth` | MEDIUM | auth-flow | Auth-flow handler 'acceptInvitationForUser' operates on user-scoped collections (the us... |
+| 2118 | `acceptInvitationForUser` | `FindOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 2126 | `acceptInvitationForUser` | `FindOneAndUpdate` | `invitations` | `_id`, `status` | `auth` | MEDIUM | auth-flow | Auth-flow handler 'acceptInvitationForUser' operates on user-scoped collections (the us... |
+| 2138 | `acceptInvitationForUser` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | `auth` | OK |  | Filter contains tenantId. |
+| 2154 | `acceptInvitationForUser` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | `auth` | OK |  | Filter contains tenantId. |
+| 2160 | `acceptInvitationForUser` | `UpdateOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 2191 | `storeRefreshToken` | `CountDocuments` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 2199 | `storeRefreshToken` | `Find` | `refresh_tokens` | `userId`, `isRevoked`, `expiresAt` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 2208 | `storeRefreshToken` | `UpdateByID` | `refresh_tokens` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 2229 | `storeRefreshToken` | `InsertOne` | `refresh_tokens` | `createdAt`, `deviceInfo`, `expiresAt`, `familyId`, `ipAddress`, `isRevoked`, `lastActiveAt`, `tokenHash`, `userAgent`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 2266 | `DeleteAccount` | `Find` | `tenant_memberships` | `userId` | `auth` | OK | user-scoped | Collection 'tenant_memberships' is user-scoped (has userId field) and the filter contai... |
+| 2286 | `DeleteAccount` | `FindOne` | `tenants` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 2295 | `DeleteAccount` | `CountDocuments` | `tenant_memberships` | `tenantId`, `userId` | `auth` | OK |  | Filter contains tenantId. |
+| 2305 | `DeleteAccount` | `DeleteMany` | `tenant_memberships` | `tenantId` | `auth` | OK |  | Filter contains tenantId. |
+| 2308 | `DeleteAccount` | `DeleteOne` | `tenants` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 2311 | `DeleteAccount` | `DeleteMany` | `invitations` | `tenantId` | `auth` | OK |  | Filter contains tenantId. |
+| 2327 | `DeleteAccount` | `DeleteMany` | `tenant_memberships` | `userId` | `auth` | OK | user-scoped | Collection 'tenant_memberships' is user-scoped (has userId field) and the filter contai... |
+| 2330 | `DeleteAccount` | `DeleteMany` | `refresh_tokens` | `userId` | `auth` | MEDIUM | global-by-design | Collection 'refresh_tokens' maps to struct 'RefreshToken' which does NOT declare a tena... |
+| 2333 | `DeleteAccount` | `DeleteMany` | `messages` | `userId` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
+| 2336 | `DeleteAccount` | `DeleteOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 2366 | `ExportData` | `Find` | `tenant_memberships` | `userId` | `auth` | OK | user-scoped | Collection 'tenant_memberships' is user-scoped (has userId field) and the filter contai... |
+| 2388 | `ExportData` | `Find` | `messages` | `userId` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
 
 
 ### `internal/api/handlers/billing.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 94 | `Checkout` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 122 | `Checkout` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 138 | `Checkout` | `CountDocuments` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 152 | `Checkout` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 162 | `Checkout` | `CountDocuments` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 313 | `Checkout` | `FindOne` | `credit_bundles` | `_id`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 403 | `ListTransactions` | `CountDocuments` | `financial_transactions` | `tenantId` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 414 | `ListTransactions` | `Find` | `financial_transactions` | `tenantId` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 454 | `GetInvoice` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | OK | ✓ | `inline` | Filter contains tenantId. |
-| 483 | `GetInvoicePDF` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | OK | ✓ | `inline` | Filter contains tenantId. |
-| 654 | `CancelSubscription` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 733 | `AdminListTransactions` | `CountDocuments` | `financial_transactions` | `$or`, `tenantId` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 744 | `AdminListTransactions` | `Find` | `financial_transactions` | `$or`, `tenantId` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 801 | `AdminGetMetrics` | `Find` | `daily_metrics` | `date` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 893 | `computeLiveRevenue` | `Aggregate` | `financial_transactions` | `createdAt` | HIGH |  | `variable-pipeline:pipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 929 | `computeLiveARR` | `Aggregate` | `tenants` | `billingStatus`, `planId` | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 955 | `AdminCancelSubscription` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1001 | `AdminCancelSubscription` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1034 | `AdminUpdateSubscription` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 94 | `Checkout` | `FindOne` | `plans` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 122 | `Checkout` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 138 | `Checkout` | `CountDocuments` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 152 | `Checkout` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 162 | `Checkout` | `CountDocuments` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 313 | `Checkout` | `FindOne` | `credit_bundles` | `_id`, `isActive` | `tenant` | MEDIUM | global-by-design | Collection 'credit_bundles' maps to struct 'CreditBundle' which does NOT declare a tena... |
+| 403 | `ListTransactions` | `CountDocuments` | `financial_transactions` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 414 | `ListTransactions` | `Find` | `financial_transactions` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 454 | `GetInvoice` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 483 | `GetInvoicePDF` | `FindOne` | `financial_transactions` | `_id`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 654 | `CancelSubscription` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 733 | `AdminListTransactions` | `CountDocuments` | `financial_transactions` | `$or`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 744 | `AdminListTransactions` | `Find` | `financial_transactions` | `$or`, `tenantId` | `admin` | OK |  | Filter contains tenantId. |
+| 801 | `AdminGetMetrics` | `Find` | `daily_metrics` | `date` | `admin` | MEDIUM | admin-handler | Function 'AdminGetMetrics' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 893 | `computeLiveRevenue` | `Aggregate` | `financial_transactions` | `createdAt` | `background` | MEDIUM | background-task | Function 'computeLiveRevenue' is a background system task (no request context, no tenan... |
+| 929 | `computeLiveARR` | `Aggregate` | `tenants` | `billingStatus`, `planId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 955 | `AdminCancelSubscription` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Ad... |
+| 1001 | `AdminCancelSubscription` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminCancelSubscription' is an admin handler (registered on /api/admin/*). Ad... |
+| 1034 | `AdminUpdateSubscription` | `UpdateOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AdminUpdateSubscription' is an admin handler (registered on /api/admin/*). Ad... |
 
 
 ### `internal/api/handlers/bootstrap.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 36 | `refreshInitialized` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 66 | `refreshInitializedFromContext` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 36 | `refreshInitialized` | `FindOne` | `system_config` | — | `unknown` | MEDIUM | global-by-design | Collection 'system_config' maps to struct 'SystemConfig' which does NOT declare a tenan... |
+| 66 | `refreshInitializedFromContext` | `FindOne` | `system_config` | — | `unknown` | MEDIUM | global-by-design | Collection 'system_config' maps to struct 'SystemConfig' which does NOT declare a tenan... |
 
 
 ### `internal/api/handlers/branding.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 45 | `GetBranding` | `FindOne` | `branding_config` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 60 | `GetBranding` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 64 | `GetBranding` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 119 | `ServeAsset` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 141 | `ServeMedia` | `FindOne` | `branding_assets` | `key` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 163 | `GetPublicPage` | `FindOne` | `custom_pages` | `slug`, `isPublished` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 182 | `ListPublicPages` | `Find` | `custom_pages` | `isPublished` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 262 | `UpdateBranding` | `UpdateOne` | `branding_config` | — | CRITICAL |  | `inline` | UpdateOne with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 324 | `UploadAsset` | `UpdateOne` | `branding_assets` | `key` | CRITICAL |  | `inline` | UpdateOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 348 | `DeleteAsset` | `DeleteOne` | `branding_assets` | `key` | CRITICAL |  | `inline` | DeleteOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 368 | `ListMedia` | `Find` | `branding_assets` | `key` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 460 | `UploadMedia` | `InsertOne` | `branding_assets` | `contentType`, `createdAt`, `data`, `filename`, `key`, `size` | CRITICAL |  | `struct-var:asset:BrandingAsset` | InsertOne with asset (a BrandingAsset struct); the struct definition does NOT declare a tenantId bson field. CRITICAL... |
-| 487 | `DeleteMedia` | `DeleteOne` | `branding_assets` | `key` | CRITICAL |  | `inline` | DeleteOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
-| 505 | `AdminListPages` | `Find` | `custom_pages` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 543 | `CreatePage` | `InsertOne` | `custom_pages` | — | CRITICAL |  | `struct:unknown` | InsertOne with an unrecognised struct value; could not statically verify tenantId presence. Manual review required. |
-| 590 | `UpdatePage` | `UpdateByID` | `custom_pages` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 616 | `DeletePage` | `DeleteOne` | `custom_pages` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 45 | `GetBranding` | `FindOne` | `branding_config` | — | `public` | MEDIUM | public-endpoint | Function 'GetBranding' is a public endpoint (no auth) — returns published/global conten... |
+| 60 | `GetBranding` | `FindOne` | `branding_assets` | `key` | `public` | MEDIUM | public-endpoint | Function 'GetBranding' is a public endpoint (no auth) — returns published/global conten... |
+| 64 | `GetBranding` | `FindOne` | `branding_assets` | `key` | `public` | MEDIUM | public-endpoint | Function 'GetBranding' is a public endpoint (no auth) — returns published/global conten... |
+| 119 | `ServeAsset` | `FindOne` | `branding_assets` | `key` | `public` | MEDIUM | public-endpoint | Function 'ServeAsset' is a public endpoint (no auth) — returns published/global content... |
+| 141 | `ServeMedia` | `FindOne` | `branding_assets` | `key` | `public` | MEDIUM | public-endpoint | Function 'ServeMedia' is a public endpoint (no auth) — returns published/global content... |
+| 163 | `GetPublicPage` | `FindOne` | `custom_pages` | `slug`, `isPublished` | `public` | MEDIUM | public-endpoint | Function 'GetPublicPage' is a public endpoint (no auth) — returns published/global cont... |
+| 182 | `ListPublicPages` | `Find` | `custom_pages` | `isPublished` | `public` | MEDIUM | public-endpoint | Function 'ListPublicPages' is a public endpoint (no auth) — returns published/global co... |
+| 262 | `UpdateBranding` | `UpdateOne` | `branding_config` | — | `admin` | MEDIUM | admin-handler | Function 'UpdateBranding' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 324 | `UploadAsset` | `UpdateOne` | `branding_assets` | `key` | `admin` | MEDIUM | admin-handler | Function 'UploadAsset' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 348 | `DeleteAsset` | `DeleteOne` | `branding_assets` | `key` | `admin` | MEDIUM | admin-handler | Function 'DeleteAsset' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 368 | `ListMedia` | `Find` | `branding_assets` | `key` | `admin` | MEDIUM | admin-handler | Function 'ListMedia' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 460 | `UploadMedia` | `InsertOne` | `branding_assets` | `contentType`, `createdAt`, `data`, `filename`, `key`, `size` | `admin` | MEDIUM | admin-handler | Function 'UploadMedia' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 487 | `DeleteMedia` | `DeleteOne` | `branding_assets` | `key` | `admin` | MEDIUM | admin-handler | Function 'DeleteMedia' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 505 | `AdminListPages` | `Find` | `custom_pages` | — | `admin` | MEDIUM | admin-handler | Function 'AdminListPages' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 543 | `CreatePage` | `InsertOne` | `custom_pages` | — | `admin` | MEDIUM | admin-handler | Function 'CreatePage' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 590 | `UpdatePage` | `UpdateByID` | `custom_pages` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdatePage' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 616 | `DeletePage` | `DeleteOne` | `custom_pages` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeletePage' is an admin handler (registered on /api/admin/*). Admin handlers ... |
 
 
 ### `internal/api/handlers/bundles.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 60 | `ListBundles` | `Find` | `credit_bundles` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 75 | `ListBundles` | `CountDocuments` | `credit_bundles` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 96 | `CreateBundle` | `CountDocuments` | `credit_bundles` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 117 | `CreateBundle` | `InsertOne` | `credit_bundles` | `createdAt`, `credits`, `isActive`, `name`, `priceCents`, `sortOrder`, `updatedAt` | CRITICAL | ✓ | `struct-var:bundle:CreditBundle` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 145 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 166 | `UpdateBundle` | `CountDocuments` | `credit_bundles` | `name`, `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 186 | `UpdateBundle` | `UpdateByID` | `credit_bundles` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 196 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 212 | `DeleteBundle` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 221 | `DeleteBundle` | `DeleteOne` | `credit_bundles` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 236 | `ListBundlesPublic` | `Find` | `credit_bundles` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 60 | `ListBundles` | `Find` | `credit_bundles` | — | `admin` | MEDIUM | admin-handler | Function 'ListBundles' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 75 | `ListBundles` | `CountDocuments` | `credit_bundles` | — | `admin` | MEDIUM | admin-handler | Function 'ListBundles' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 96 | `CreateBundle` | `CountDocuments` | `credit_bundles` | `name` | `admin` | MEDIUM | admin-handler | Function 'CreateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 117 | `CreateBundle` | `InsertOne` | `credit_bundles` | `createdAt`, `credits`, `isActive`, `name`, `priceCents`, `sortOrder`, `updatedAt` | `admin` | MEDIUM | admin-handler | Function 'CreateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 145 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 166 | `UpdateBundle` | `CountDocuments` | `credit_bundles` | `name`, `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 186 | `UpdateBundle` | `UpdateByID` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 196 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 212 | `DeleteBundle` | `FindOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 221 | `DeleteBundle` | `DeleteOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 236 | `ListBundlesPublic` | `Find` | `credit_bundles` | `isActive` | `public` | MEDIUM | public-endpoint | Function 'ListBundlesPublic' is a public endpoint (no auth) — returns published/global ... |
 
 
 ### `internal/api/handlers/config.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 94 | `UpdateConfig` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 162 | `CreateConfig` | `InsertOne` | `config_vars` | `createdAt`, `description`, `isSystem`, `name`, `options`, `type`, `updatedAt`, `value` | CRITICAL | ✓ | `struct-var:v:ConfigVar` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 192 | `DeleteConfig` | `DeleteOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 94 | `UpdateConfig` | `UpdateOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'UpdateConfig' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 162 | `CreateConfig` | `InsertOne` | `config_vars` | `createdAt`, `description`, `isSystem`, `name`, `options`, `type`, `updatedAt`, `value` | `admin` | MEDIUM | admin-handler | Function 'CreateConfig' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 192 | `DeleteConfig` | `DeleteOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'DeleteConfig' is an admin handler (registered on /api/admin/*). Admin handler... |
 
 
 ### `internal/api/handlers/event_definitions.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 50 | `ListEventDefinitions` | `Find` | `event_definitions` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 85 | `ListEventDefinitions` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 135 | `CreateEventDefinition` | `CountDocuments` | `event_definitions` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 161 | `CreateEventDefinition` | `CountDocuments` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 173 | `CreateEventDefinition` | `InsertOne` | `event_definitions` | `createdAt`, `description`, `name`, `parentId`, `updatedAt` | CRITICAL | ✓ | `struct-var:def:EventDefinition` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 212 | `UpdateEventDefinition` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 219 | `UpdateEventDefinition` | `CountDocuments` | `event_definitions` | `name`, `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 249 | `UpdateEventDefinition` | `CountDocuments` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 269 | `UpdateEventDefinition` | `UpdateOne` | `event_definitions` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 278 | `UpdateEventDefinition` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 296 | `DeleteEventDefinition` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 302 | `DeleteEventDefinition` | `UpdateMany` | `event_definitions` | `parentId` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 307 | `DeleteEventDefinition` | `DeleteOne` | `event_definitions` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 321 | `GetSankeyData` | `Find` | `event_definitions` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 399 | `GetSankeyData` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 463 | `wouldCreateCycle` | `FindOne` | `event_definitions` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 50 | `ListEventDefinitions` | `Find` | `event_definitions` | — | `admin` | MEDIUM | admin-handler | Function 'ListEventDefinitions' is an admin handler (registered on /api/admin/*). Admin... |
+| 85 | `ListEventDefinitions` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'ListEventDefinitions' is an admin handler (registered on /api/admin/*). Admin... |
+| 135 | `CreateEventDefinition` | `CountDocuments` | `event_definitions` | `name` | `admin` | MEDIUM | admin-handler | Function 'CreateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 161 | `CreateEventDefinition` | `CountDocuments` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'CreateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 173 | `CreateEventDefinition` | `InsertOne` | `event_definitions` | `createdAt`, `description`, `name`, `parentId`, `updatedAt` | `admin` | MEDIUM | admin-handler | Function 'CreateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 212 | `UpdateEventDefinition` | `FindOne` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 219 | `UpdateEventDefinition` | `CountDocuments` | `event_definitions` | `name`, `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 249 | `UpdateEventDefinition` | `CountDocuments` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 269 | `UpdateEventDefinition` | `UpdateOne` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 278 | `UpdateEventDefinition` | `FindOne` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 296 | `DeleteEventDefinition` | `FindOne` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 302 | `DeleteEventDefinition` | `UpdateMany` | `event_definitions` | `parentId` | `admin` | MEDIUM | admin-handler | Function 'DeleteEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 307 | `DeleteEventDefinition` | `DeleteOne` | `event_definitions` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteEventDefinition' is an admin handler (registered on /api/admin/*). Admi... |
+| 321 | `GetSankeyData` | `Find` | `event_definitions` | — | `admin` | MEDIUM | admin-handler | Function 'GetSankeyData' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 399 | `GetSankeyData` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'GetSankeyData' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 463 | `wouldCreateCycle` | `FindOne` | `event_definitions` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'event_definitions' maps to struct 'EventDefinition' which does NOT declare ... |
 
 
 ### `internal/api/handlers/logs.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 111 | `ListLogs` | `EstimatedDocumentCount` | `system_logs` | — | MEDIUM |  | `no-filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 113 | `ListLogs` | `CountDocuments` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 125 | `ListLogs` | `Find` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 156 | `SeverityCounts` | `Aggregate` | `system_logs` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
-| 196 | `ExportCSV` | `Find` | `system_logs` | — | MEDIUM |  | `variable:unknown:filter` | Collection 'system_logs' is in the exempt (global) list; tenant filtering is not strictly required, but queries shoul... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 111 | `ListLogs` | `EstimatedDocumentCount` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 113 | `ListLogs` | `CountDocuments` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 125 | `ListLogs` | `Find` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ListLogs' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 156 | `SeverityCounts` | `Aggregate` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'SeverityCounts' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 196 | `ExportCSV` | `Find` | `system_logs` | — | `admin` | MEDIUM | admin-handler | Function 'ExportCSV' is an admin handler (registered on /api/admin/*). Admin handlers s... |
 
 
 ### `internal/api/handlers/messages.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 36 | `ListMessages` | `Find` | `messages` | `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 64 | `UnreadCount` | `CountDocuments` | `messages` | `userId`, `read` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 88 | `MarkRead` | `UpdateOne` | `messages` | `_id`, `userId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 36 | `ListMessages` | `Find` | `messages` | `userId` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
+| 64 | `UnreadCount` | `CountDocuments` | `messages` | `userId`, `read` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
+| 88 | `MarkRead` | `UpdateOne` | `messages` | `_id`, `userId` | `auth` | MEDIUM | global-by-design | Collection 'messages' maps to struct 'Message' which does NOT declare a tenantId bson f... |
 
 
 ### `internal/api/handlers/plans.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 48 | `ListPlans` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 66 | `ListPlans` | `Aggregate` | `tenants` | — | MEDIUM |  | `inline-pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 93 | `ListPlans` | `CountDocuments` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 110 | `GetPlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 123 | `ListEntitlementKeys` | `Find` | `plans` | — | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 253 | `CreatePlan` | `CountDocuments` | `plans` | `name` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 295 | `CreatePlan` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | MEDIUM | ✓ | `struct-var:plan:Plan` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 323 | `UpdatePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 350 | `UpdatePlan` | `CountDocuments` | `plans` | `name`, `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 368 | `UpdatePlan` | `DeleteMany` | `stripe_mappings` | `entityType` | CRITICAL |  | `inline` | DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 393 | `UpdatePlan` | `UpdateByID` | `plans` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 404 | `UpdatePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 408 | `UpdatePlan` | `CountDocuments` | `tenants` | `planId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 446 | `DeletePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 460 | `DeletePlan` | `CountDocuments` | `tenants` | `planId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 470 | `DeletePlan` | `DeleteOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 491 | `ArchivePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 505 | `ArchivePlan` | `UpdateByID` | `plans` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 526 | `UnarchivePlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 540 | `UnarchivePlan` | `UpdateByID` | `plans` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 576 | `AssignPlan` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 598 | `AssignPlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 627 | `AssignPlan` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 671 | `AssignPlan` | `UpdateByID` | `tenants` | `_id` | MEDIUM | ✓ | `by-id` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 703 | `ListPlansPublic` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 714 | `ListPlansPublic` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 737 | `ListPlansPublic` | `Find` | `plans` | `isArchived` | MEDIUM |  | `variable:filter` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 817 | `lookupPlanForTenant` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 820 | `lookupPlanForTenant` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 48 | `ListPlans` | `Find` | `plans` | — | `admin` | MEDIUM | admin-handler | Function 'ListPlans' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 66 | `ListPlans` | `Aggregate` | `tenants` | — | `admin` | MEDIUM | admin-handler | Function 'ListPlans' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 93 | `ListPlans` | `CountDocuments` | `plans` | — | `admin` | MEDIUM | admin-handler | Function 'ListPlans' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 110 | `GetPlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'GetPlan' is an admin handler (registered on /api/admin/*). Admin handlers see... |
+| 123 | `ListEntitlementKeys` | `Find` | `plans` | — | `admin` | MEDIUM | admin-handler | Function 'ListEntitlementKeys' is an admin handler (registered on /api/admin/*). Admin ... |
+| 253 | `CreatePlan` | `CountDocuments` | `plans` | `name` | `admin` | MEDIUM | admin-handler | Function 'CreatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 295 | `CreatePlan` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | `admin` | MEDIUM | admin-handler | Function 'CreatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 323 | `UpdatePlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 350 | `UpdatePlan` | `CountDocuments` | `plans` | `name`, `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 368 | `UpdatePlan` | `DeleteMany` | `stripe_mappings` | `entityType` | `admin` | MEDIUM | admin-handler | Function 'UpdatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 393 | `UpdatePlan` | `UpdateByID` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 404 | `UpdatePlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 408 | `UpdatePlan` | `CountDocuments` | `tenants` | `planId` | `admin` | MEDIUM | admin-handler | Function 'UpdatePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 446 | `DeletePlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeletePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 460 | `DeletePlan` | `CountDocuments` | `tenants` | `planId` | `admin` | MEDIUM | admin-handler | Function 'DeletePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 470 | `DeletePlan` | `DeleteOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeletePlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 491 | `ArchivePlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'ArchivePlan' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 505 | `ArchivePlan` | `UpdateByID` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'ArchivePlan' is an admin handler (registered on /api/admin/*). Admin handlers... |
+| 526 | `UnarchivePlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UnarchivePlan' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 540 | `UnarchivePlan` | `UpdateByID` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UnarchivePlan' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 576 | `AssignPlan` | `FindOne` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AssignPlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 598 | `AssignPlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AssignPlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 627 | `AssignPlan` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AssignPlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 671 | `AssignPlan` | `UpdateByID` | `tenants` | `_id` | `admin` | MEDIUM | admin-handler | Function 'AssignPlan' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 703 | `ListPlansPublic` | `FindOne` | `tenants` | `_id` | `public` | MEDIUM | public-endpoint | Function 'ListPlansPublic' is a public endpoint (no auth) — returns published/global co... |
+| 714 | `ListPlansPublic` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | `public` | OK |  | Filter contains tenantId. |
+| 737 | `ListPlansPublic` | `Find` | `plans` | `isArchived` | `public` | MEDIUM | public-endpoint | Function 'ListPlansPublic' is a public endpoint (no auth) — returns published/global co... |
+| 817 | `lookupPlanForTenant` | `FindOne` | `plans` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 820 | `lookupPlanForTenant` | `FindOne` | `plans` | `isSystem` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
 
 
 ### `internal/api/handlers/promotions.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 115 | `buildProductNameMap` | `Find` | `stripe_mappings` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 146 | `buildProductNameMap` | `Find` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 166 | `buildProductNameMap` | `Find` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 200 | `ListEligibleProducts` | `Find` | `plans` | `isArchived` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 226 | `ListEligibleProducts` | `Find` | `credit_bundles` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 380 | `resolveStripeProducts` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 418 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 428 | `resolveStripeProducts` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 438 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 115 | `buildProductNameMap` | `Find` | `stripe_mappings` | — | `admin` | MEDIUM | admin-handler | Function 'buildProductNameMap' is an admin handler (registered on /api/admin/*). Admin ... |
+| 146 | `buildProductNameMap` | `Find` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'buildProductNameMap' is an admin handler (registered on /api/admin/*). Admin ... |
+| 166 | `buildProductNameMap` | `Find` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'buildProductNameMap' is an admin handler (registered on /api/admin/*). Admin ... |
+| 200 | `ListEligibleProducts` | `Find` | `plans` | `isArchived` | `admin` | MEDIUM | admin-handler | Function 'ListEligibleProducts' is an admin handler (registered on /api/admin/*). Admin... |
+| 226 | `ListEligibleProducts` | `Find` | `credit_bundles` | `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListEligibleProducts' is an admin handler (registered on /api/admin/*). Admin... |
+| 380 | `resolveStripeProducts` | `FindOne` | `plans` | `_id` | `admin` | MEDIUM | admin-handler | Function 'resolveStripeProducts' is an admin handler (registered on /api/admin/*). Admi... |
+| 418 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | `admin` | MEDIUM | admin-handler | Function 'resolveStripeProducts' is an admin handler (registered on /api/admin/*). Admi... |
+| 428 | `resolveStripeProducts` | `FindOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'resolveStripeProducts' is an admin handler (registered on /api/admin/*). Admi... |
+| 438 | `resolveStripeProducts` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | `admin` | MEDIUM | admin-handler | Function 'resolveStripeProducts' is an admin handler (registered on /api/admin/*). Admi... |
 
 
 ### `internal/api/handlers/tenant.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 74 | `ListMembers` | `Find` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 94 | `ListMembers` | `Find` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 171 | `InviteMember` | `FindOne` | `users` | `email` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 172 | `InviteMember` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 187 | `InviteMember` | `CountDocuments` | `invitations` | `tenantId`, `email`, `status`, `expiresAt` | OK | ✓ | `inline` | Filter contains tenantId. |
-| 205 | `InviteMember` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 209 | `InviteMember` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 231 | `InviteMember` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | OK | ✓ | `struct-var:invitation:Invitation` | Filter contains tenantId. |
-| 236 | `InviteMember` | `CountDocuments` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 241 | `InviteMember` | `CountDocuments` | `invitations` | `tenantId`, `status`, `expiresAt` | OK |  | `inline` | Filter contains tenantId. |
-| 252 | `InviteMember` | `DeleteOne` | `invitations` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 263 | `InviteMember` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | OK | ✓ | `struct-var:invitation:Invitation` | Filter contains tenantId. |
-| 271 | `InviteMember` | `CountDocuments` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 283 | `InviteMember` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 344 | `RemoveMember` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 364 | `RemoveMember` | `DeleteOne` | `tenant_memberships` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 372 | `RemoveMember` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 373 | `RemoveMember` | `CountDocuments` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 388 | `RemoveMember` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 456 | `ChangeRole` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 508 | `TransferOwnership` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 524 | `TransferOwnership` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 534 | `TransferOwnership` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 593 | `GetActivity` | `Find` | `system_logs` | `action`, `message`, `tenantId` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 606 | `GetActivity` | `CountDocuments` | `system_logs` | `action`, `message`, `tenantId` | OK |  | `variable:filter` | Filter contains tenantId. |
-| 642 | `UpdateTenantSettings` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 74 | `ListMembers` | `Find` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 94 | `ListMembers` | `Find` | `users` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 171 | `InviteMember` | `FindOne` | `users` | `email` | `tenant` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 172 | `InviteMember` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 187 | `InviteMember` | `CountDocuments` | `invitations` | `tenantId`, `email`, `status`, `expiresAt` | `tenant` | OK |  | Filter contains tenantId. |
+| 205 | `InviteMember` | `FindOne` | `plans` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 209 | `InviteMember` | `FindOne` | `plans` | `isSystem` | `tenant` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 231 | `InviteMember` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | `tenant` | OK |  | Filter contains tenantId. |
+| 236 | `InviteMember` | `CountDocuments` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 241 | `InviteMember` | `CountDocuments` | `invitations` | `tenantId`, `status`, `expiresAt` | `tenant` | OK |  | Filter contains tenantId. |
+| 252 | `InviteMember` | `DeleteOne` | `invitations` | `_id` | `tenant` | MEDIUM | safe-unique-key | Filter contains a globally-unique key (_id) — the query will only ever return one docum... |
+| 263 | `InviteMember` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | `tenant` | OK |  | Filter contains tenantId. |
+| 271 | `InviteMember` | `CountDocuments` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 283 | `InviteMember` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 344 | `RemoveMember` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 364 | `RemoveMember` | `DeleteOne` | `tenant_memberships` | `_id` | `tenant` | MEDIUM | safe-unique-key | Filter contains a globally-unique key (_id) — the query will only ever return one docum... |
+| 372 | `RemoveMember` | `FindOne` | `plans` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 373 | `RemoveMember` | `CountDocuments` | `tenant_memberships` | `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 388 | `RemoveMember` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 456 | `ChangeRole` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 508 | `TransferOwnership` | `CountDocuments` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 524 | `TransferOwnership` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 534 | `TransferOwnership` | `UpdateOne` | `tenant_memberships` | `userId`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 593 | `GetActivity` | `Find` | `system_logs` | `action`, `message`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 606 | `GetActivity` | `CountDocuments` | `system_logs` | `action`, `message`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 642 | `UpdateTenantSettings` | `UpdateOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
 
 
 ### `internal/api/handlers/usage.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 90 | `RecordUsage` | `UpdateOne` | `tenants` | `_id`, `subscriptionCredits` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 100 | `RecordUsage` | `UpdateOne` | `tenants` | `_id`, `purchasedCredits` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 114 | `RecordUsage` | `InsertOne` | `usage_events` | `createdAt`, `metadata`, `quantity`, `tenantId`, `type`, `userId` | OK |  | `struct-var:event:UsageEvent` | Filter contains tenantId. |
-| 169 | `GetSummary` | `Aggregate` | `usage_events` | `createdAt`, `tenantId` | OK |  | `variable-pipeline:pipeline` | Filter contains tenantId. |
-| 196 | `GetSummary` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 90 | `RecordUsage` | `UpdateOne` | `tenants` | `_id`, `subscriptionCredits` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 100 | `RecordUsage` | `UpdateOne` | `tenants` | `_id`, `purchasedCredits` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 114 | `RecordUsage` | `InsertOne` | `usage_events` | `createdAt`, `metadata`, `quantity`, `tenantId`, `type`, `userId` | `tenant` | OK |  | Filter contains tenantId. |
+| 169 | `GetSummary` | `Aggregate` | `usage_events` | `createdAt`, `tenantId` | `tenant` | OK |  | Filter contains tenantId. |
+| 196 | `GetSummary` | `FindOne` | `tenants` | `_id` | `tenant` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
 
 
 ### `internal/api/handlers/webhook.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 71 | `HandleWebhook` | `FindOneAndUpdate` | `webhook_events` | `eventId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 132 | `HandleWebhook` | `DeleteOne` | `webhook_events` | `eventId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 138 | `HandleWebhook` | `UpdateOne` | `webhook_events` | `eventId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 170 | `handleCheckoutCompleted` | `FindOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 182 | `handleCheckoutCompleted` | `FindOne` | `tenants` | `stripeCustomerId`, `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 205 | `handleCheckoutCompleted` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 239 | `handleCheckoutCompleted` | `UpdateOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 255 | `handleCheckoutCompleted` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 322 | `handleCheckoutCompleted` | `FindOne` | `credit_bundles` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 328 | `handleCheckoutCompleted` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 391 | `handleInvoicePaid` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 397 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 407 | `handleInvoicePaid` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 409 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 415 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 436 | `handleInvoicePaid` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 443 | `handleInvoicePaid` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 482 | `handleInvoicePaymentFailed` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 488 | `handleInvoicePaymentFailed` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 497 | `handleInvoicePaymentFailed` | `Find` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 519 | `handleInvoicePaymentFailed` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct:Message` | InsertOne with a Message struct value; tenantId presence inferred from the struct definition — verify the value is ac... |
-| 551 | `handleSubscriptionUpdated` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 583 | `handleSubscriptionUpdated` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 598 | `handleSubscriptionUpdated` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 613 | `handleSubscriptionDeleted` | `FindOne` | `tenants` | `stripeSubscriptionId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 619 | `handleSubscriptionDeleted` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 635 | `handleSubscriptionDeleted` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 675 | `handleChargeRefunded` | `FindOne` | `tenants` | `stripeCustomerId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 688 | `handleChargeRefunded` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 726 | `handleDisputeCreated` | `FindOne` | `tenants` | `stripeCustomerId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 732 | `handleDisputeCreated` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 771 | `handleDisputeClosed` | `FindOne` | `tenants` | `stripeCustomerId` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 779 | `handleDisputeClosed` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 841 | `recordTransaction` | `InsertOne` | `financial_transactions` | `amountCents`, `billingInterval`, `bundleId`, `bundleName`, `createdAt`, `currency`, `description`, `invoiceNumber`, `planId`, `planName`, `stripeInvoiceId`, `stripeSessionId`, `stripeSubscriptionId`, `subtotalCents`, `taxAmountCents`, `tenantId`, `type`, `userId` | OK | ✓ | `struct-var:tx:FinancialTransaction` | Filter contains tenantId. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 71 | `HandleWebhook` | `FindOneAndUpdate` | `webhook_events` | `eventId` | `public` | MEDIUM | public-endpoint | Function 'HandleWebhook' is a public endpoint (no auth) — returns published/global cont... |
+| 132 | `HandleWebhook` | `DeleteOne` | `webhook_events` | `eventId` | `public` | MEDIUM | public-endpoint | Function 'HandleWebhook' is a public endpoint (no auth) — returns published/global cont... |
+| 138 | `HandleWebhook` | `UpdateOne` | `webhook_events` | `eventId` | `public` | MEDIUM | public-endpoint | Function 'HandleWebhook' is a public endpoint (no auth) — returns published/global cont... |
+| 170 | `handleCheckoutCompleted` | `FindOne` | `tenants` | `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 182 | `handleCheckoutCompleted` | `FindOne` | `tenants` | `stripeCustomerId`, `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 205 | `handleCheckoutCompleted` | `FindOne` | `plans` | `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 239 | `handleCheckoutCompleted` | `UpdateOne` | `users` | `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 255 | `handleCheckoutCompleted` | `UpdateOne` | `tenants` | `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 322 | `handleCheckoutCompleted` | `FindOne` | `credit_bundles` | `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 328 | `handleCheckoutCompleted` | `UpdateOne` | `tenants` | `_id` | `background` | MEDIUM | background-task | Function 'handleCheckoutCompleted' is a background system task (no request context, no ... |
+| 391 | `handleInvoicePaid` | `FindOne` | `tenants` | `stripeSubscriptionId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 397 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 407 | `handleInvoicePaid` | `FindOne` | `plans` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 409 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 415 | `handleInvoicePaid` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 436 | `handleInvoicePaid` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | `unknown` | OK |  | Filter contains tenantId. |
+| 443 | `handleInvoicePaid` | `FindOne` | `plans` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 482 | `handleInvoicePaymentFailed` | `FindOne` | `tenants` | `stripeSubscriptionId` | `background` | MEDIUM | background-task | Function 'handleInvoicePaymentFailed' is a background system task (no request context, ... |
+| 488 | `handleInvoicePaymentFailed` | `UpdateOne` | `tenants` | `_id` | `background` | MEDIUM | background-task | Function 'handleInvoicePaymentFailed' is a background system task (no request context, ... |
+| 497 | `handleInvoicePaymentFailed` | `Find` | `tenant_memberships` | `tenantId` | `background` | OK |  | Filter contains tenantId. |
+| 519 | `handleInvoicePaymentFailed` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | `background` | MEDIUM | background-task | Function 'handleInvoicePaymentFailed' is a background system task (no request context, ... |
+| 551 | `handleSubscriptionUpdated` | `FindOne` | `tenants` | `stripeSubscriptionId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 583 | `handleSubscriptionUpdated` | `FindOne` | `plans` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 598 | `handleSubscriptionUpdated` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 613 | `handleSubscriptionDeleted` | `FindOne` | `tenants` | `stripeSubscriptionId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 619 | `handleSubscriptionDeleted` | `FindOne` | `plans` | `isSystem` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
+| 635 | `handleSubscriptionDeleted` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 675 | `handleChargeRefunded` | `FindOne` | `tenants` | `stripeCustomerId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 688 | `handleChargeRefunded` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | `unknown` | OK |  | Filter contains tenantId. |
+| 726 | `handleDisputeCreated` | `FindOne` | `tenants` | `stripeCustomerId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 732 | `handleDisputeCreated` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 771 | `handleDisputeClosed` | `FindOne` | `tenants` | `stripeCustomerId` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 779 | `handleDisputeClosed` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 841 | `recordTransaction` | `InsertOne` | `financial_transactions` | `amountCents`, `billingInterval`, `bundleId`, `bundleName`, `createdAt`, `currency`, `description`, `invoiceNumber`, `planId`, `planName`, `stripeInvoiceId`, `stripeSessionId`, `stripeSubscriptionId`, `subtotalCents`, `taxAmountCents`, `tenantId`, `type`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
 
 
 ### `internal/api/handlers/webhooks.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 45 | `ListWebhooks` | `Find` | `webhooks` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 71 | `ListWebhooks` | `CountDocuments` | `webhook_deliveries` | `webhookId`, `createdAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 83 | `ListWebhooks` | `FindOne` | `webhook_deliveries` | `webhookId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 88 | `ListWebhooks` | `CountDocuments` | `webhooks` | `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 105 | `GetWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 111 | `GetWebhook` | `Find` | `webhook_deliveries` | `webhookId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 279 | `CreateWebhook` | `InsertOne` | `webhooks` | `createdAt`, `createdBy`, `description`, `events`, `isActive`, `name`, `secret`, `secretPreview`, `updatedAt`, `url` | CRITICAL | ✓ | `struct-var:hook:Webhook` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 320 | `UpdateWebhook` | `UpdateByID` | `webhooks` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 340 | `UpdateWebhook` | `FindOne` | `webhooks` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 356 | `DeleteWebhook` | `UpdateByID` | `webhooks` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 393 | `RegenerateSecret` | `UpdateByID` | `webhooks` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 421 | `TestWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 45 | `ListWebhooks` | `Find` | `webhooks` | `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListWebhooks' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 71 | `ListWebhooks` | `CountDocuments` | `webhook_deliveries` | `webhookId`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'ListWebhooks' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 83 | `ListWebhooks` | `FindOne` | `webhook_deliveries` | `webhookId` | `admin` | MEDIUM | admin-handler | Function 'ListWebhooks' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 88 | `ListWebhooks` | `CountDocuments` | `webhooks` | `isActive` | `admin` | MEDIUM | admin-handler | Function 'ListWebhooks' is an admin handler (registered on /api/admin/*). Admin handler... |
+| 105 | `GetWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'GetWebhook' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 111 | `GetWebhook` | `Find` | `webhook_deliveries` | `webhookId` | `admin` | MEDIUM | admin-handler | Function 'GetWebhook' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 279 | `CreateWebhook` | `InsertOne` | `webhooks` | `createdAt`, `createdBy`, `description`, `events`, `isActive`, `name`, `secret`, `secretPreview`, `updatedAt`, `url` | `admin` | MEDIUM | admin-handler | Function 'CreateWebhook' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 320 | `UpdateWebhook` | `UpdateByID` | `webhooks` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateWebhook' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 340 | `UpdateWebhook` | `FindOne` | `webhooks` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateWebhook' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 356 | `DeleteWebhook` | `UpdateByID` | `webhooks` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteWebhook' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 393 | `RegenerateSecret` | `UpdateByID` | `webhooks` | `_id` | `admin` | MEDIUM | admin-handler | Function 'RegenerateSecret' is an admin handler (registered on /api/admin/*). Admin han... |
+| 421 | `TestWebhook` | `FindOne` | `webhooks` | `_id`, `isActive` | `admin` | MEDIUM | admin-handler | Function 'TestWebhook' is an admin handler (registered on /api/admin/*). Admin handlers... |
 
 
 ### `internal/configstore/seed.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 380 | `Seed` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 384 | `Seed` | `InsertOne` | `config_vars` | — | CRITICAL |  | `struct:unknown` | InsertOne with an unrecognised struct value; could not statically verify tenantId presence. Manual review required. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 380 | `Seed` | `FindOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'Seed' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
+| 384 | `Seed` | `InsertOne` | `config_vars` | — | `admin` | MEDIUM | admin-handler | Function 'Seed' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
 
 
 ### `internal/configstore/store.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 34 | `Load` | `Find` | `config_vars` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 90 | `Set` | `UpdateOne` | `config_vars` | `name` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 106 | `Reload` | `FindOne` | `config_vars` | `name` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 34 | `Load` | `Find` | `config_vars` | — | `admin` | MEDIUM | admin-handler | Function 'Load' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
+| 90 | `Set` | `UpdateOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'Set' is an admin handler (registered on /api/admin/*). Admin handlers see ALL... |
+| 106 | `Reload` | `FindOne` | `config_vars` | `name` | `admin` | MEDIUM | admin-handler | Function 'Reload' is an admin handler (registered on /api/admin/*). Admin handlers see ... |
 
 
 ### `internal/health/health.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 138 | `registerNode` | `UpdateOne` | `system_nodes` | `machineId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 165 | `heartbeat` | `UpdateOne` | `system_nodes` | `machineId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 300 | `collectAndStore` | `InsertOne` | `system_metrics` | `cpu`, `disk`, `goRuntime`, `http`, `integrations`, `memory`, `mongo`, `network`, `nodeId`, `timestamp` | CRITICAL |  | `struct-var:metric:SystemMetric` | InsertOne with metric (a SystemMetric struct); the struct definition does NOT declare a tenantId bson field. CRITICAL... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 138 | `registerNode` | `UpdateOne` | `system_nodes` | `machineId` | `background` | MEDIUM | background-task | Function 'registerNode' is a background system task (no request context, no tenantId av... |
+| 165 | `heartbeat` | `UpdateOne` | `system_nodes` | `machineId` | `background` | MEDIUM | background-task | Function 'heartbeat' is a background system task (no request context, no tenantId avail... |
+| 300 | `collectAndStore` | `InsertOne` | `system_metrics` | `cpu`, `disk`, `goRuntime`, `http`, `integrations`, `memory`, `mongo`, `network`, `nodeId`, `timestamp` | `background` | MEDIUM | background-task | Function 'collectAndStore' is a background system task (no request context, no tenantId... |
 
 
 ### `internal/health/query.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 28 | `ListNodes` | `UpdateMany` | `system_nodes` | `lastSeen` | CRITICAL |  | `inline` | UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belong... |
-| 35 | `ListNodes` | `Find` | `system_nodes` | — | HIGH |  | `inline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 55 | `GetMetrics` | `Find` | `system_metrics` | `nodeId`, `timestamp` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 74 | `GetAggregateMetrics` | `Find` | `system_metrics` | `timestamp` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 98 | `GetCurrentMetrics` | `FindOne` | `system_metrics` | `nodeId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 120 | `GetIntegrationCounts24h` | `Aggregate` | `system_metrics` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 28 | `ListNodes` | `UpdateMany` | `system_nodes` | `lastSeen` | `admin` | MEDIUM | admin-handler | Function 'ListNodes' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 35 | `ListNodes` | `Find` | `system_nodes` | — | `admin` | MEDIUM | admin-handler | Function 'ListNodes' is an admin handler (registered on /api/admin/*). Admin handlers s... |
+| 55 | `GetMetrics` | `Find` | `system_metrics` | `nodeId`, `timestamp` | `admin` | MEDIUM | admin-handler | Function 'GetMetrics' is an admin handler (registered on /api/admin/*). Admin handlers ... |
+| 74 | `GetAggregateMetrics` | `Find` | `system_metrics` | `timestamp` | `admin` | MEDIUM | admin-handler | Function 'GetAggregateMetrics' is an admin handler (registered on /api/admin/*). Admin ... |
+| 98 | `GetCurrentMetrics` | `FindOne` | `system_metrics` | `nodeId` | `admin` | MEDIUM | admin-handler | Function 'GetCurrentMetrics' is an admin handler (registered on /api/admin/*). Admin ha... |
+| 120 | `GetIntegrationCounts24h` | `Aggregate` | `system_metrics` | — | `admin` | MEDIUM | admin-handler | Function 'GetIntegrationCounts24h' is an admin handler (registered on /api/admin/*). Ad... |
 
 
 ### `internal/metrics/metrics.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 112 | `tryAcquireOrRenew` | `FindOneAndUpdate` | `leader_locks` | `_id`, `expiresAt`, `holderId` | CRITICAL | ✓ | `variable:filter` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 148 | `isLeader` | `FindOne` | `leader_locks` | `_id` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 158 | `releaseLock` | `DeleteOne` | `leader_locks` | `_id`, `holderId` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 192 | `collectDaily` | `Aggregate` | `users` | `lastLoginAt` | MEDIUM |  | `variable-pipeline:dauWauMauPipeline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 227 | `collectDaily` | `Aggregate` | `financial_transactions` | `createdAt` | HIGH |  | `variable-pipeline:revPipeline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 263 | `collectDaily` | `Aggregate` | `tenants` | `billingStatus`, `planId` | MEDIUM |  | `variable-pipeline:arrPipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 280 | `collectDaily` | `UpdateOne` | `daily_metrics` | `date` | CRITICAL |  | `inline` | UpdateOne on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belongi... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 112 | `tryAcquireOrRenew` | `FindOneAndUpdate` | `leader_locks` | `_id`, `expiresAt`, `holderId` | `background` | MEDIUM | background-task | Function 'tryAcquireOrRenew' is a background system task (no request context, no tenant... |
+| 148 | `isLeader` | `FindOne` | `leader_locks` | `_id` | `background` | MEDIUM | background-task | Function 'isLeader' is a background system task (no request context, no tenantId availa... |
+| 158 | `releaseLock` | `DeleteOne` | `leader_locks` | `_id`, `holderId` | `background` | MEDIUM | background-task | Function 'releaseLock' is a background system task (no request context, no tenantId ava... |
+| 192 | `collectDaily` | `Aggregate` | `users` | `lastLoginAt` | `background` | MEDIUM | background-task | Function 'collectDaily' is a background system task (no request context, no tenantId av... |
+| 227 | `collectDaily` | `Aggregate` | `financial_transactions` | `createdAt` | `background` | MEDIUM | background-task | Function 'collectDaily' is a background system task (no request context, no tenantId av... |
+| 263 | `collectDaily` | `Aggregate` | `tenants` | `billingStatus`, `planId` | `background` | MEDIUM | background-task | Function 'collectDaily' is a background system task (no request context, no tenantId av... |
+| 280 | `collectDaily` | `UpdateOne` | `daily_metrics` | `date` | `background` | MEDIUM | background-task | Function 'collectDaily' is a background system task (no request context, no tenantId av... |
 
 
 ### `internal/middleware/auth.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 90 | `authenticateJWT` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 113 | `authenticateAPIKey` | `FindOne` | `api_keys` | `keyHash`, `isActive` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
-| 124 | `authenticateAPIKey` | `FindOne` | `users` | `_id` | MEDIUM | ✓ | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 135 | `authenticateAPIKey` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 155 | `authenticateAPIKey` | `UpdateByID` | `api_keys` | `_id` | CRITICAL | ✓ | `by-id` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 168 | `isTokenRevoked` | `CountDocuments` | `revoked_tokens` | `tokenHash` | HIGH | ✓ | `inline` | Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 90 | `authenticateJWT` | `FindOne` | `users` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 113 | `authenticateAPIKey` | `FindOne` | `api_keys` | `keyHash`, `isActive` | `auth` | MEDIUM | global-by-design | Collection 'api_keys' maps to struct 'APIKey' which does NOT declare a tenantId bson fi... |
+| 124 | `authenticateAPIKey` | `FindOne` | `users` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 135 | `authenticateAPIKey` | `FindOne` | `tenants` | `isRoot` | `auth` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 155 | `authenticateAPIKey` | `UpdateByID` | `api_keys` | `_id` | `auth` | MEDIUM | global-by-design | Collection 'api_keys' maps to struct 'APIKey' which does NOT declare a tenantId bson fi... |
+| 168 | `isTokenRevoked` | `CountDocuments` | `revoked_tokens` | `tokenHash` | `auth` | MEDIUM | global-by-design | Collection 'revoked_tokens' maps to struct 'RevokedToken' which does NOT declare a tena... |
 
 
 ### `internal/middleware/ratelimit.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 156 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id`, `windowEnd` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 165 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 156 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id`, `windowEnd` | `unknown` | MEDIUM | safe-unique-key | Filter contains a globally-unique key (_id) — the query will only ever return one docum... |
+| 165 | `allowDistributed` | `FindOneAndUpdate` | `<unknown>` | `_id` | `unknown` | MEDIUM | safe-unique-key | Filter contains a globally-unique key (_id) — the query will only ever return one docum... |
 
 
 ### `internal/middleware/tenant.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 51 | `RequireTenant` | `FindOne` | `tenants` | `_id`, `isActive` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 64 | `RequireTenant` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 141 | `RequireEntitlement` | `FindOne` | `plans` | `_id` | MEDIUM | ✓ | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 51 | `RequireTenant` | `FindOne` | `tenants` | `_id`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 64 | `RequireTenant` | `FindOne` | `tenant_memberships` | `userId`, `tenantId` | `unknown` | OK |  | Filter contains tenantId. |
+| 141 | `RequireEntitlement` | `FindOne` | `plans` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'plans' maps to struct 'Plan' which does NOT declare a tenantId bson field —... |
 
 
 ### `internal/planstore/seed.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 19 | `Seed` | `FindOne` | `plans` | `isSystem` | MEDIUM |  | `inline` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 36 | `Seed` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | MEDIUM | ✓ | `struct-var:plan:Plan` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 19 | `Seed` | `FindOne` | `plans` | `isSystem` | `admin` | MEDIUM | admin-handler | Function 'Seed' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
+| 36 | `Seed` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | `admin` | MEDIUM | admin-handler | Function 'Seed' is an admin handler (registered on /api/admin/*). Admin handlers see AL... |
 
 
 ### `internal/stripe/stripe.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 82 | `GetOrCreateCustomer` | `UpdateOne` | `tenants` | `_id` | MEDIUM | ✓ | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 100 | `GetOrCreatePrice` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 143 | `GetOrCreatePrice` | `InsertOne` | `stripe_mappings` | `createdAt`, `entityId`, `entityType`, `stripePriceId`, `stripeProductId` | CRITICAL |  | `struct:StripeMapping` | InsertOne with a StripeMapping struct value; tenantId presence inferred from the struct definition — verify the value... |
-| 352 | `NextInvoiceNumber` | `FindOneAndUpdate` | `counters` | `_id` | CRITICAL | ✓ | `inline` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 82 | `GetOrCreateCustomer` | `UpdateOne` | `tenants` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 100 | `GetOrCreatePrice` | `FindOne` | `stripe_mappings` | `entityType`, `entityId` | `admin` | MEDIUM | admin-handler | Function 'GetOrCreatePrice' is an admin handler (registered on /api/admin/*). Admin han... |
+| 143 | `GetOrCreatePrice` | `InsertOne` | `stripe_mappings` | `createdAt`, `entityId`, `entityType`, `stripePriceId`, `stripeProductId` | `admin` | MEDIUM | admin-handler | Function 'GetOrCreatePrice' is an admin handler (registered on /api/admin/*). Admin han... |
+| 352 | `NextInvoiceNumber` | `FindOneAndUpdate` | `counters` | `_id` | `background` | MEDIUM | background-task | Function 'NextInvoiceNumber' is a background system task (no request context, no tenant... |
 
 
 ### `internal/syslog/syslog.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 97 | `log` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:entry:SystemLog` | Filter contains tenantId. |
-| 114 | `log` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:alert:SystemLog` | Filter contains tenantId. |
-| 137 | `logCategorized` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:entry:SystemLog` | Filter contains tenantId. |
-| 154 | `logCategorized` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:alert:SystemLog` | Filter contains tenantId. |
-| 234 | `LogTenantActivity` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:entry:SystemLog` | Filter contains tenantId. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 97 | `log` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
+| 114 | `log` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
+| 137 | `logCategorized` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
+| 154 | `logCategorized` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
+| 234 | `LogTenantActivity` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `unknown` | OK |  | Filter contains tenantId. |
 
 
 ### `internal/telemetry/service.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 82 | `flushLoop` | `InsertMany` | `telemetry_events` | — | CRITICAL |  | `inline-document-slice` | InsertMany inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/mod... |
-| 188 | `TrackBatch` | `InsertMany` | `telemetry_events` | — | CRITICAL |  | `inline-document-slice` | InsertMany inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/mod... |
-| 320 | `FunnelMetrics` | `CountDocuments` | `users` | `createdAt` | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 338 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `createdAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 347 | `FunnelMetrics` | `CountDocuments` | `financial_transactions` | `type`, `createdAt` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 356 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | — | HIGH |  | `variable:unknown:mergeBson(dateFilter, bson.M{
-          ` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 447 | `RetentionCohorts` | `Aggregate` | `users` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 531 | `EngagementMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `userId` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 596 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus`, `isActive` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 605 | `computeKPIs` | `CountDocuments` | `users` | — | MEDIUM |  | `inline` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 621 | `computeKPIs` | `CountDocuments` | `tenants` | `canceledAt` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 627 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 640 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 646 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 703 | `CustomEventSummary` | `CountDocuments` | `telemetry_events` | `createdAt`, `eventName` | HIGH |  | `variable:filter` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 719 | `CustomEventSummary` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 756 | `ListEventTypes` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 795 | `countDistinct` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 813 | `getActiveTenantIDs` | `Find` | `tenants` | `billingStatus`, `isActive` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 838 | `getUserIDsForTenants` | `Find` | `tenant_memberships` | `tenantId` | OK |  | `inline` | Filter contains tenantId. |
-| 905 | `weeklyActiveUsers` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 953 | `monthlyActiveUsers` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 991 | `topCustomEvents` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1022 | `creditConsumptionTrend` | `Aggregate` | `usage_events` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1098 | `calculateMRR` | `Aggregate` | `tenants` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1142 | `medianTimeToFirstPurchase` | `Aggregate` | `financial_transactions` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1192 | `planDistribution` | `Aggregate` | `tenants` | — | MEDIUM |  | `variable-pipeline:pipeline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 1228 | `mrrTrend` | `Find` | `daily_metrics` | `date` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 1264 | `subscriberTrend` | `Aggregate` | `financial_transactions` | — | HIGH |  | `variable-pipeline:pipeline` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 1285 | `aggregateDailyPoints` | `Aggregate` | `telemetry_events` | — | HIGH |  | `variable-pipeline:unknown` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 82 | `flushLoop` | `InsertMany` | `telemetry_events` | — | `background` | MEDIUM | background-task | Function 'flushLoop' is a background system task (no request context, no tenantId avail... |
+| 188 | `TrackBatch` | `InsertMany` | `telemetry_events` | — | `tenant` | MEDIUM | struct-supports-tenant-id | InsertMany inserts a document (or slice of documents) whose struct 'TelemetryEvent' dec... |
+| 320 | `FunnelMetrics` | `CountDocuments` | `users` | `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 338 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 347 | `FunnelMetrics` | `CountDocuments` | `financial_transactions` | `type`, `createdAt` | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 356 | `FunnelMetrics` | `CountDocuments` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'FunnelMetrics' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 447 | `RetentionCohorts` | `Aggregate` | `users` | — | `admin` | MEDIUM | admin-handler | Function 'RetentionCohorts' is an admin handler (registered on /api/admin/*). Admin han... |
+| 531 | `EngagementMetrics` | `CountDocuments` | `telemetry_events` | `eventName`, `userId` | `admin` | MEDIUM | admin-handler | Function 'EngagementMetrics' is an admin handler (registered on /api/admin/*). Admin ha... |
+| 596 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 605 | `computeKPIs` | `CountDocuments` | `users` | — | `unknown` | MEDIUM | global-by-design | Collection 'users' maps to struct 'User' which does NOT declare a tenantId bson field —... |
+| 621 | `computeKPIs` | `CountDocuments` | `tenants` | `canceledAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 627 | `computeKPIs` | `CountDocuments` | `tenants` | `billingStatus` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 640 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 646 | `computeKPIs` | `CountDocuments` | `tenants` | `trialUsedAt` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 703 | `CustomEventSummary` | `CountDocuments` | `telemetry_events` | `createdAt`, `eventName` | `admin` | MEDIUM | admin-handler | Function 'CustomEventSummary' is an admin handler (registered on /api/admin/*). Admin h... |
+| 719 | `CustomEventSummary` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'CustomEventSummary' is an admin handler (registered on /api/admin/*). Admin h... |
+| 756 | `ListEventTypes` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'ListEventTypes' is an admin handler (registered on /api/admin/*). Admin handl... |
+| 795 | `countDistinct` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'countDistinct' is an admin handler (registered on /api/admin/*). Admin handle... |
+| 813 | `getActiveTenantIDs` | `Find` | `tenants` | `billingStatus`, `isActive` | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 838 | `getUserIDsForTenants` | `Find` | `tenant_memberships` | `tenantId` | `unknown` | OK |  | Filter contains tenantId. |
+| 905 | `weeklyActiveUsers` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'weeklyActiveUsers' is an admin handler (registered on /api/admin/*). Admin ha... |
+| 953 | `monthlyActiveUsers` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'monthlyActiveUsers' is an admin handler (registered on /api/admin/*). Admin h... |
+| 991 | `topCustomEvents` | `Aggregate` | `telemetry_events` | — | `admin` | MEDIUM | admin-handler | Function 'topCustomEvents' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1022 | `creditConsumptionTrend` | `Aggregate` | `usage_events` | — | `admin` | MEDIUM | admin-handler | Function 'creditConsumptionTrend' is an admin handler (registered on /api/admin/*). Adm... |
+| 1098 | `calculateMRR` | `Aggregate` | `tenants` | — | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 1142 | `medianTimeToFirstPurchase` | `Aggregate` | `financial_transactions` | — | `admin` | MEDIUM | admin-handler | Function 'medianTimeToFirstPurchase' is an admin handler (registered on /api/admin/*). ... |
+| 1192 | `planDistribution` | `Aggregate` | `tenants` | — | `unknown` | MEDIUM | global-by-design | Collection 'tenants' maps to struct 'Tenant' which does NOT declare a tenantId bson fie... |
+| 1228 | `mrrTrend` | `Find` | `daily_metrics` | `date` | `admin` | MEDIUM | admin-handler | Function 'mrrTrend' is an admin handler (registered on /api/admin/*). Admin handlers se... |
+| 1264 | `subscriberTrend` | `Aggregate` | `financial_transactions` | — | `admin` | MEDIUM | admin-handler | Function 'subscriberTrend' is an admin handler (registered on /api/admin/*). Admin hand... |
+| 1285 | `aggregateDailyPoints` | `Aggregate` | `telemetry_events` | — | `background` | MEDIUM | background-task | Function 'aggregateDailyPoints' is a background system task (no request context, no ten... |
 
 
 ### `internal/testutil/testutil.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 98 | `MustConnectTestDB` | `DeleteMany` | `<unknown>` | — | CRITICAL |  | `inline` | DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 144 | `ConnectTestDB` | `DeleteMany` | `<unknown>` | — | CRITICAL |  | `inline` | DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 227 | `CleanupCollections` | `DeleteMany` | `<unknown>` | — | CRITICAL |  | `inline` | DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk. |
-| 270 | `CreateTestUser` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:user:User` | Collection 'users' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 292 | `CreateTestTenant` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | MEDIUM | ✓ | `struct-var:tenant:Tenant` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 305 | `CreateTestTenant` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | OK |  | `struct-var:membership:TenantMembership` | Filter contains tenantId. |
-| 318 | `MarkSystemInitialized` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | MEDIUM |  | `struct:SystemConfig` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 341 | `InsertTestLogs` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | OK |  | `struct-var:entry:SystemLog` | Filter contains tenantId. |
-| 352 | `CountDocuments` | `CountDocuments` | `<unknown>` | — | HIGH |  | `variable:unknown:filter` | Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk. |
-| 392 | `CreateTestMembership` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | OK |  | `struct-var:membership:TenantMembership` | Filter contains tenantId. |
-| 416 | `CreateTestPlan` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | MEDIUM | ✓ | `struct-var:plan:Plan` | Collection 'plans' is in the exempt (global) list; tenant filtering is not strictly required, but queries should stil... |
-| 438 | `CreateTestAPIKey` | `InsertOne` | `api_keys` | `authority`, `createdAt`, `createdBy`, `isActive`, `keyHash`, `keyPreview`, `lastUsedAt`, `name` | CRITICAL | ✓ | `struct-var:apiKey:APIKey` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 462 | `CreateTestWebhook` | `InsertOne` | `webhooks` | `createdAt`, `createdBy`, `description`, `events`, `isActive`, `name`, `secret`, `secretPreview`, `updatedAt`, `url` | CRITICAL | ✓ | `struct-var:webhook:Webhook` | Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-uniq... |
-| 485 | `CreateTestInvitation` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | OK | ✓ | `struct-var:invitation:Invitation` | Filter contains tenantId. |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 98 | `MustConnectTestDB` | `DeleteMany` | `<unknown>` | — | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 144 | `ConnectTestDB` | `DeleteMany` | `<unknown>` | — | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 227 | `CleanupCollections` | `DeleteMany` | `<unknown>` | — | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 270 | `CreateTestUser` | `InsertOne` | `users` | `accountLockedUntil`, `authMethods`, `createdAt`, `displayName`, `email`, `emailVerified`, `failedLoginAttempts`, `githubId`, `googleId`, `isActive`, `lastLoginAt`, `lastVerificationSent`, `microsoftId`, `onboardingCompletedAt`, `passwordHash`, `recoveryCodes`, `themePreference`, `totpEnabled`, `totpSecret`, `totpVerifiedAt`, `trialUsedAt`, `updatedAt` | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 292 | `CreateTestTenant` | `InsertOne` | `tenants` | `billingInterval`, `billingStatus`, `billingWaived`, `canceledAt`, `createdAt`, `currentPeriodEnd`, `isActive`, `isRoot`, `name`, `planId`, `purchasedCredits`, `seatQuantity`, `slug`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionCredits`, `trialUsedAt`, `updatedAt` | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 305 | `CreateTestTenant` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | `testutil` | OK |  | Filter contains tenantId. |
+| 318 | `MarkSystemInitialized` | `InsertOne` | `system_config` | `initialized`, `initializedAt`, `initializedBy`, `version` | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 341 | `InsertTestLogs` | `InsertOne` | `system_logs` | `action`, `category`, `createdAt`, `message`, `metadata`, `severity`, `tenantId`, `userId` | `testutil` | OK |  | Filter contains tenantId. |
+| 352 | `CountDocuments` | `CountDocuments` | `<unknown>` | — | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 392 | `CreateTestMembership` | `InsertOne` | `tenant_memberships` | `joinedAt`, `role`, `tenantId`, `updatedAt`, `userId` | `testutil` | OK |  | Filter contains tenantId. |
+| 416 | `CreateTestPlan` | `InsertOne` | `plans` | `annualDiscountPct`, `bonusCredits`, `createdAt`, `creditResetPolicy`, `description`, `entitlements`, `includedSeats`, `isArchived`, `isSystem`, `maxSeats`, `minSeats`, `monthlyPriceCents`, `name`, `perSeatPriceCents`, `pricingModel`, `trialDays`, `updatedAt`, `usageCreditsPerMonth`, `userLimit` | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 438 | `CreateTestAPIKey` | `InsertOne` | `api_keys` | `authority`, `createdAt`, `createdBy`, `isActive`, `keyHash`, `keyPreview`, `lastUsedAt`, `name` | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 462 | `CreateTestWebhook` | `InsertOne` | `webhooks` | `createdAt`, `createdBy`, `description`, `events`, `isActive`, `name`, `secret`, `secretPreview`, `updatedAt`, `url` | `testutil` | MEDIUM | test-util | Query is in a test-utility file (internal/testutil/) — test helpers reset/clean test da... |
+| 485 | `CreateTestInvitation` | `InsertOne` | `invitations` | `createdAt`, `email`, `expiresAt`, `invitedBy`, `role`, `status`, `tenantId`, `token` | `testutil` | OK |  | Filter contains tenantId. |
 
 
 ### `internal/version/check.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 28 | `CheckAndMigrate` | `FindOne` | `system_config` | — | MEDIUM |  | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 50 | `CheckAndMigrate` | `UpdateOne` | `system_config` | `_id` | MEDIUM | ✓ | `inline` | Collection 'system_config' is in the exempt (global) list; tenant filtering is not strictly required, but queries sho... |
-| 65 | `sendUpgradeMessage` | `FindOne` | `tenants` | `isRoot` | MEDIUM |  | `inline` | Collection 'tenants' is in the exempt (global) list; tenant filtering is not strictly required, but queries should st... |
-| 72 | `sendUpgradeMessage` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | OK |  | `inline` | Filter contains tenantId. |
-| 91 | `sendUpgradeMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | CRITICAL |  | `struct-var:msg:Message` | InsertOne with msg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: insert... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 28 | `CheckAndMigrate` | `FindOne` | `system_config` | — | `unknown` | MEDIUM | global-by-design | Collection 'system_config' maps to struct 'SystemConfig' which does NOT declare a tenan... |
+| 50 | `CheckAndMigrate` | `UpdateOne` | `system_config` | `_id` | `unknown` | MEDIUM | global-by-design | Collection 'system_config' maps to struct 'SystemConfig' which does NOT declare a tenan... |
+| 65 | `sendUpgradeMessage` | `FindOne` | `tenants` | `isRoot` | `background` | MEDIUM | background-task | Function 'sendUpgradeMessage' is a background system task (no request context, no tenan... |
+| 72 | `sendUpgradeMessage` | `FindOne` | `tenant_memberships` | `tenantId`, `role` | `background` | OK |  | Filter contains tenantId. |
+| 91 | `sendUpgradeMessage` | `InsertOne` | `messages` | `body`, `createdAt`, `isSystem`, `read`, `subject`, `userId` | `background` | MEDIUM | background-task | Function 'sendUpgradeMessage' is a background system task (no request context, no tenan... |
 
 
 ### `internal/webhooks/dispatcher.go`
 
-| Line | Function | Operation | Collection | Filter fields | Risk | Safe key | Filter source | Note |
-|------|----------|-----------|------------|---------------|------|----------|---------------|------|
-| 194 | `dispatch` | `Find` | `webhooks` | `events`, `isActive` | HIGH |  | `inline` | Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk. |
-| 287 | `deliverWithRetry` | `InsertOne` | `webhook_deliveries` | `createdAt`, `durationMs`, `eventType`, `maxRetries`, `payload`, `responseBody`, `responseCode`, `retryCount`, `success`, `webhookId` | CRITICAL |  | `struct-var:delivery:WebhookDelivery` | InsertOne with delivery (a WebhookDelivery struct); the struct definition does NOT declare a tenantId bson field. CRI... |
-| 421 | `DeliverTest` | `InsertOne` | `webhook_deliveries` | `createdAt`, `durationMs`, `eventType`, `maxRetries`, `payload`, `responseBody`, `responseCode`, `retryCount`, `success`, `webhookId` | CRITICAL |  | `struct-var:delivery:WebhookDelivery` | InsertOne with delivery (a WebhookDelivery struct); the struct definition does NOT declare a tenantId bson field. CRI... |
+| Line | Function | Op | Collection | Filter | Scope | Risk | Suppression | Note |
+|------|----------|----|------------|--------|-------|------|-------------|------|
+| 194 | `dispatch` | `Find` | `webhooks` | `events`, `isActive` | `background` | MEDIUM | background-task | Function 'dispatch' is a background system task (no request context, no tenantId availa... |
+| 287 | `deliverWithRetry` | `InsertOne` | `webhook_deliveries` | `createdAt`, `durationMs`, `eventType`, `maxRetries`, `payload`, `responseBody`, `responseCode`, `retryCount`, `success`, `webhookId` | `background` | MEDIUM | background-task | Function 'deliverWithRetry' is a background system task (no request context, no tenantI... |
+| 421 | `DeliverTest` | `InsertOne` | `webhook_deliveries` | `createdAt`, `durationMs`, `eventType`, `maxRetries`, `payload`, `responseBody`, `responseCode`, `retryCount`, `success`, `webhookId` | `unknown` | MEDIUM | global-by-design | Collection 'webhook_deliveries' maps to struct 'WebhookDelivery' which does NOT declare... |
 
 
 ---

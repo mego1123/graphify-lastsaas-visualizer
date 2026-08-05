@@ -1,0 +1,683 @@
+     1→     1→=== Sample violations per file (showing 3 each) ===
+     2→     2→
+     3→     3→### cmd/lastsaas/cmd_doctor.go (1 violations)
+     4→     4→  Line 115 in cmdDoctor: CountDocuments on system_nodes
+     5→     5→    filter_source=inline
+     6→     6→    filter_fields=['lastSeen']
+     7→     7→    safe_key=False
+     8→     8→    snippet: nodeCount, err := database.SystemNodes().CountDocuments(ctx, bson.M{
+     9→     9→                "lastSeen": bson.M{"$gte": time.Now
+    10→    10→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+    11→    11→
+    12→    12→### cmd/lastsaas/cmd_financial.go (6 violations)
+    13→    13→  Line 58 in cmdFinancialSummary: Aggregate on financial_transactions
+    14→    14→    filter_source=variable-pipeline:revPipeline
+    15→    15→    filter_fields=['type']
+    16→    16→    safe_key=False
+    17→    17→    snippet: revCursor, err := database.FinancialTransactions().Aggregate(ctx, revPipeline)
+    18→    18→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+    19→    19→  Line 84 in cmdFinancialSummary: Aggregate on financial_transactions
+    20→    20→    filter_source=variable-pipeline:refundPipeline
+    21→    21→    filter_fields=['type']
+    22→    22→    safe_key=False
+    23→    23→    snippet: refCursor, err := database.FinancialTransactions().Aggregate(ctx, refundPipeline)
+    24→    24→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+    25→    25→  Line 111 in cmdFinancialSummary: Aggregate on financial_transactions
+    26→    26→    filter_source=variable-pipeline:typePipeline
+    27→    27→    filter_fields=[]
+    28→    28→    safe_key=False
+    29→    29→    snippet: typeCursor, err := database.FinancialTransactions().Aggregate(ctx, typePipeline)
+    30→    30→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+    31→    31→
+    32→    32→### cmd/lastsaas/cmd_health.go (4 violations)
+    33→    33→  Line 51 in cmdHealth: Find on system_nodes
+    34→    34→    filter_source=inline
+    35→    35→    filter_fields=[]
+    36→    36→    safe_key=False
+    37→    37→    snippet: cursor, err := database.SystemNodes().Find(ctx, bson.M{},
+    38→    38→                        options.Find().SetSort(bson.D{{Key: "l
+    39→    39→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+    40→    40→  Line 77 in cmdHealth: FindOne on system_metrics
+    41→    41→    filter_source=inline
+    42→    42→    filter_fields=[]
+    43→    43→    safe_key=False
+    44→    44→    snippet: err = database.SystemMetrics().FindOne(ctx, bson.M{},
+    45→    45→                        options.FindOne().SetSort(bson.D{{Key: "ti
+    46→    46→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+    47→    47→  Line 100 in cmdHealth: Find on system_nodes
+    48→    48→    filter_source=inline
+    49→    49→    filter_fields=[]
+    50→    50→    safe_key=False
+    51→    51→    snippet: cursor, err := database.SystemNodes().Find(ctx, bson.M{},
+    52→    52→                options.Find().SetSort(bson.D{{Key: "lastSeen"
+    53→    53→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+    54→    54→
+    55→    55→### cmd/lastsaas/cmd_stats.go (2 violations)
+    56→    56→  Line 71 in cmdStats: FindOne on daily_metrics
+    57→    57→    filter_source=inline
+    58→    58→    filter_fields=[]
+    59→    59→    safe_key=False
+    60→    60→    snippet: database.DailyMetrics().FindOne(ctx, bson.M{},
+    61→    61→                options.FindOne().SetSort(bson.D{{Key: "date", Value: -1}
+    62→    62→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+    63→    63→  Line 79 in cmdStats: Aggregate on financial_transactions
+    64→    64→    filter_source=variable-pipeline:revPipeline
+    65→    65→    filter_fields=['type']
+    66→    66→    safe_key=False
+    67→    67→    snippet: revCursor, err := database.FinancialTransactions().Aggregate(ctx, revPipeline)
+    68→    68→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+    69→    69→
+    70→    70→### cmd/lastsaas/cmd_users.go (3 violations)
+    71→    71→  Line 314 in cmdUsersSetActive: DeleteMany on refresh_tokens
+    72→    72→    filter_source=inline
+    73→    73→    filter_fields=['userId']
+    74→    74→    safe_key=False
+    75→    75→    snippet: if _, err := database.RefreshTokens().DeleteMany(ctx, bson.M{"userId": user.ID}); err != nil {
+    76→    76→                        f
+    77→    77→    note: DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belonging
+    78→    78→  Line 347 in cmdUsersRevokeSessions: DeleteMany on refresh_tokens
+    79→    79→    filter_source=inline
+    80→    80→    filter_fields=['userId']
+    81→    81→    safe_key=False
+    82→    82→    snippet: result, err := database.RefreshTokens().DeleteMany(ctx, bson.M{"userId": user.ID})
+    83→    83→    note: DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belonging
+    84→    84→  Line 365 in lookupUserWithMemberships: Find on tenant_memberships
+    85→    85→    filter_source=inline
+    86→    86→    filter_fields=['userId']
+    87→    87→    safe_key=False
+    88→    88→    snippet: cursor, err := database.TenantMemberships().Find(ctx, bson.M{"userId": user.ID})
+    89→    89→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+    90→    90→
+    91→    91→### cmd/lastsaas/main.go (13 violations)
+    92→    92→  Line 362 in cmdSetup: DeleteOne on tenant_memberships
+    93→    93→    filter_source=inline
+    94→    94→    filter_fields=['_id']
+    95→    95→    safe_key=True
+    96→    96→    snippet: database.TenantMemberships().DeleteOne(ctx, bson.M{"_id": membership.ID})
+    97→    97→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+    98→    98→  Line 379 in cmdSetup: InsertOne on messages
+    99→    99→    filter_source=struct-var:welcomeMsg:Message
+   100→   100→    filter_fields=['body', 'createdAt', 'isSystem', 'read', 'subject', 'userId']
+   101→   101→    safe_key=False
+   102→   102→    snippet: if _, err := database.Messages().InsertOne(ctx, welcomeMsg); err != nil {
+   103→   103→                fmt.Fprintf(os.Stderr, "warnin
+   104→   104→    note: InsertOne with welcomeMsg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: in
+   105→   105→  Line 460 in cmdChangePassword: DeleteMany on refresh_tokens
+   106→   106→    filter_source=inline
+   107→   107→    filter_fields=['userId']
+   108→   108→    safe_key=False
+   109→   109→    snippet: if _, err := database.RefreshTokens().DeleteMany(ctx, bson.M{"userId": user.ID}); err != nil {
+   110→   110→                fmt.Fprin
+   111→   111→    note: DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belonging
+   112→   112→
+   113→   113→### cmd/server/main.go (1 violations)
+   114→   114→  Line 801 in main: FindOne on branding_config
+   115→   115→    filter_source=inline
+   116→   116→    filter_fields=[]
+   117→   117→    safe_key=False
+   118→   118→    snippet: if err := database.BrandingConfig().FindOne(context.Background(), bson.M{}).Decode(&bc); err == nil && bc.AppName != "" 
+   119→   119→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   120→   120→
+   121→   121→### internal/api/handlers/admin.go (14 violations)
+   122→   122→  Line 51 in isRootTenantOwner: CountDocuments on tenant_memberships
+   123→   123→    filter_source=inline
+   124→   124→    filter_fields=['userId', 'role']
+   125→   125→    safe_key=False
+   126→   126→    snippet: count, err := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
+   127→   127→                "userId": userID,
+   128→   128→                "role":   models.RoleOwner,
+   129→   129→        })
+   130→   130→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   131→   131→  Line 64 in isRootTenantOwner: FindOne on tenant_memberships
+   132→   132→    filter_source=inline
+   133→   133→    filter_fields=['userId', 'role']
+   134→   134→    safe_key=False
+   135→   135→    snippet: if err := h.db.TenantMemberships().FindOne(ctx, bson.M{"userId": userID, "role": models.RoleOwner}).Decode(&membership);
+   136→   136→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   137→   137→  Line 616 in ListUsers: Aggregate on tenant_memberships
+   138→   138→    filter_source=variable-pipeline:pipeline
+   139→   139→    filter_fields=['userId']
+   140→   140→    safe_key=False
+   141→   141→    snippet: aggCursor, err := h.db.TenantMemberships().Aggregate(ctx, pipeline)
+   142→   142→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   143→   143→
+   144→   144→### internal/api/handlers/announcements.go (5 violations)
+   145→   145→  Line 33 in ListPublic: Find on announcements
+   146→   146→    filter_source=inline
+   147→   147→    filter_fields=['isPublished']
+   148→   148→    safe_key=False
+   149→   149→    snippet: cursor, err := h.db.Announcements().Find(r.Context(), bson.M{"isPublished": true}, opts)
+   150→   150→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   151→   151→  Line 54 in ListAll: Find on announcements
+   152→   152→    filter_source=inline
+   153→   153→    filter_fields=[]
+   154→   154→    safe_key=False
+   155→   155→    snippet: cursor, err := h.db.Announcements().Find(r.Context(), bson.M{}, opts)
+   156→   156→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   157→   157→  Line 105 in Create: InsertOne on announcements
+   158→   158→    filter_source=struct-var:ann:Announcement
+   159→   159→    filter_fields=['body', 'createdAt', 'isPublished', 'publishedAt', 'title', 'updatedAt']
+   160→   160→    safe_key=False
+   161→   161→    snippet: result, err := h.db.Announcements().InsertOne(r.Context(), ann)
+   162→   162→    note: InsertOne with ann (a Announcement struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: inse
+   163→   163→
+   164→   164→### internal/api/handlers/apikeys.go (4 violations)
+   165→   165→  Line 45 in ListAPIKeys: Find on api_keys
+   166→   166→    filter_source=inline
+   167→   167→    filter_fields=['isActive']
+   168→   168→    safe_key=False
+   169→   169→    snippet: cursor, err := h.db.APIKeys().Find(r.Context(), bson.M{"isActive": true}, opts)
+   170→   170→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   171→   171→  Line 60 in ListAPIKeys: CountDocuments on api_keys
+   172→   172→    filter_source=inline
+   173→   173→    filter_fields=['isActive']
+   174→   174→    safe_key=False
+   175→   175→    snippet: total, err := h.db.APIKeys().CountDocuments(r.Context(), bson.M{"isActive": true})
+   176→   176→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   177→   177→  Line 127 in CreateAPIKey: InsertOne on api_keys
+   178→   178→    filter_source=struct-var:apiKey:APIKey
+   179→   179→    filter_fields=['authority', 'createdAt', 'createdBy', 'isActive', 'keyHash', 'keyPreview', 'lastUsedAt', 'name']
+   180→   180→    safe_key=True
+   181→   181→    snippet: result, err := h.db.APIKeys().InsertOne(r.Context(), apiKey)
+   182→   182→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   183→   183→
+   184→   184→### internal/api/handlers/auth.go (39 violations)
+   185→   185→  Line 453 in Logout: InsertOne on revoked_tokens
+   186→   186→    filter_source=struct:RevokedToken
+   187→   187→    filter_fields=['createdAt', 'expiresAt', 'tokenHash']
+   188→   188→    safe_key=True
+   189→   189→    snippet: if _, err := h.db.RevokedTokens().InsertOne(r.Context(), models.RevokedToken{
+   190→   190→                        ID:        primiti
+   191→   191→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   192→   192→  Line 470 in Logout: UpdateMany on refresh_tokens
+   193→   193→    filter_source=inline
+   194→   194→    filter_fields=['tokenHash', 'userId']
+   195→   195→    safe_key=True
+   196→   196→    snippet: if _, err := h.db.RefreshTokens().UpdateMany(r.Context(),
+   197→   197→                                bson.M{"tokenHash": tokenHash,
+   198→   198→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   199→   199→  Line 503 in Refresh: FindOne on refresh_tokens
+   200→   200→    filter_source=inline
+   201→   201→    filter_fields=['tokenHash']
+   202→   202→    safe_key=True
+   203→   203→    snippet: err = h.db.RefreshTokens().FindOne(r.Context(), bson.M{
+   204→   204→                "tokenHash": tokenHash,
+   205→   205→        }).Decode(&store
+   206→   206→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   207→   207→
+   208→   208→### internal/api/handlers/billing.go (3 violations)
+   209→   209→  Line 313 in Checkout: FindOne on credit_bundles
+   210→   210→    filter_source=inline
+   211→   211→    filter_fields=['_id', 'isActive']
+   212→   212→    safe_key=True
+   213→   213→    snippet: if err := h.db.CreditBundles().FindOne(ctx, bson.M{"_id": bundleID, "isActive": true}).Decode(&bundle); err != nil {
+   214→   214→                        
+   215→   215→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   216→   216→  Line 801 in AdminGetMetrics: Find on daily_metrics
+   217→   217→    filter_source=variable:filter
+   218→   218→    filter_fields=['date']
+   219→   219→    safe_key=False
+   220→   220→    snippet: cursor, err := h.db.DailyMetrics().Find(ctx, filter, opts)
+   221→   221→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   222→   222→  Line 893 in computeLiveRevenue: Aggregate on financial_transactions
+   223→   223→    filter_source=variable-pipeline:pipeline
+   224→   224→    filter_fields=['createdAt']
+   225→   225→    safe_key=False
+   226→   226→    snippet: cursor, err := h.db.FinancialTransactions().Aggregate(ctx, pipeline)
+   227→   227→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   228→   228→
+   229→   229→### internal/api/handlers/branding.go (17 violations)
+   230→   230→  Line 45 in GetBranding: FindOne on branding_config
+   231→   231→    filter_source=inline
+   232→   232→    filter_fields=[]
+   233→   233→    safe_key=False
+   234→   234→    snippet: err := h.db.BrandingConfig().FindOne(r.Context(), bson.M{}).Decode(&cfg)
+   235→   235→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   236→   236→  Line 60 in GetBranding: FindOne on branding_assets
+   237→   237→    filter_source=inline
+   238→   238→    filter_fields=['key']
+   239→   239→    safe_key=False
+   240→   240→    snippet: if err := h.db.BrandingAssets().FindOne(r.Context(), bson.M{"key": "logo"}).Decode(&logoAsset); err == nil {
+   241→   241→                logoURL =
+   242→   242→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   243→   243→  Line 64 in GetBranding: FindOne on branding_assets
+   244→   244→    filter_source=inline
+   245→   245→    filter_fields=['key']
+   246→   246→    safe_key=False
+   247→   247→    snippet: if err := h.db.BrandingAssets().FindOne(r.Context(), bson.M{"key": "favicon"}).Decode(&favAsset); err == nil {
+   248→   248→                favicon
+   249→   249→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   250→   250→
+   251→   251→### internal/api/handlers/bundles.go (11 violations)
+   252→   252→  Line 60 in ListBundles: Find on credit_bundles
+   253→   253→    filter_source=inline
+   254→   254→    filter_fields=[]
+   255→   255→    safe_key=False
+   256→   256→    snippet: cursor, err := h.db.CreditBundles().Find(r.Context(), bson.M{}, opts)
+   257→   257→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   258→   258→  Line 75 in ListBundles: CountDocuments on credit_bundles
+   259→   259→    filter_source=inline
+   260→   260→    filter_fields=[]
+   261→   261→    safe_key=False
+   262→   262→    snippet: total, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{})
+   263→   263→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   264→   264→  Line 96 in CreateBundle: CountDocuments on credit_bundles
+   265→   265→    filter_source=inline
+   266→   266→    filter_fields=['name']
+   267→   267→    safe_key=True
+   268→   268→    snippet: count, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{"name": req.Name})
+   269→   269→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   270→   270→
+   271→   271→### internal/api/handlers/config.go (3 violations)
+   272→   272→  Line 94 in UpdateConfig: UpdateOne on config_vars
+   273→   273→    filter_source=inline
+   274→   274→    filter_fields=['name']
+   275→   275→    safe_key=True
+   276→   276→    snippet: _, err := h.db.ConfigVars().UpdateOne(r.Context(), bson.M{"name": name}, bson.M{"$set": updateFields})
+   277→   277→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   278→   278→  Line 162 in CreateConfig: InsertOne on config_vars
+   279→   279→    filter_source=struct-var:v:ConfigVar
+   280→   280→    filter_fields=['createdAt', 'description', 'isSystem', 'name', 'options', 'type', 'updatedAt', 'value']
+   281→   281→    safe_key=True
+   282→   282→    snippet: if _, err := h.db.ConfigVars().InsertOne(r.Context(), v); err != nil {
+   283→   283→                respondWithError(w, http.StatusInternalServerEr
+   284→   284→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   285→   285→  Line 192 in DeleteConfig: DeleteOne on config_vars
+   286→   286→    filter_source=inline
+   287→   287→    filter_fields=['name']
+   288→   288→    safe_key=True
+   289→   289→    snippet: if _, err := h.db.ConfigVars().DeleteOne(r.Context(), bson.M{"name": name}); err != nil {
+   290→   290→                respondWithError(w, http.Sta
+   291→   291→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   292→   292→
+   293→   293→### internal/api/handlers/event_definitions.go (16 violations)
+   294→   294→  Line 50 in ListEventDefinitions: Find on event_definitions
+   295→   295→    filter_source=inline
+   296→   296→    filter_fields=[]
+   297→   297→    safe_key=False
+   298→   298→    snippet: cursor, err := h.db.EventDefinitions().Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "name", Value: 1}}))
+   299→   299→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   300→   300→  Line 85 in ListEventDefinitions: Aggregate on telemetry_events
+   301→   301→    filter_source=variable-pipeline:pipeline
+   302→   302→    filter_fields=[]
+   303→   303→    safe_key=False
+   304→   304→    snippet: cur, err := h.db.TelemetryEvents().Aggregate(ctx, pipeline)
+   305→   305→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   306→   306→  Line 135 in CreateEventDefinition: CountDocuments on event_definitions
+   307→   307→    filter_source=inline
+   308→   308→    filter_fields=['name']
+   309→   309→    safe_key=True
+   310→   310→    snippet: count, err := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"name": req.Name})
+   311→   311→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   312→   312→
+   313→   313→### internal/api/handlers/messages.go (3 violations)
+   314→   314→  Line 36 in ListMessages: Find on messages
+   315→   315→    filter_source=inline
+   316→   316→    filter_fields=['userId']
+   317→   317→    safe_key=False
+   318→   318→    snippet: cursor, err := h.db.Messages().Find(r.Context(),
+   319→   319→                bson.M{"userId": user.ID}, opts)
+   320→   320→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   321→   321→  Line 64 in UnreadCount: CountDocuments on messages
+   322→   322→    filter_source=inline
+   323→   323→    filter_fields=['userId', 'read']
+   324→   324→    safe_key=False
+   325→   325→    snippet: count, err := h.db.Messages().CountDocuments(r.Context(),
+   326→   326→                bson.M{"userId": user.ID, "read": false})
+   327→   327→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   328→   328→  Line 88 in MarkRead: UpdateOne on messages
+   329→   329→    filter_source=inline
+   330→   330→    filter_fields=['_id', 'userId']
+   331→   331→    safe_key=True
+   332→   332→    snippet: result, err := h.db.Messages().UpdateOne(r.Context(),
+   333→   333→                bson.M{"_id": msgID, "userId": user.ID},
+   334→   334→                bson.M{"$set": bson.M
+   335→   335→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   336→   336→
+   337→   337→### internal/api/handlers/plans.go (1 violations)
+   338→   338→  Line 368 in UpdatePlan: DeleteMany on stripe_mappings
+   339→   339→    filter_source=inline
+   340→   340→    filter_fields=['entityType']
+   341→   341→    safe_key=False
+   342→   342→    snippet: h.db.StripeMappings().DeleteMany(r.Context(), bson.M{
+   343→   343→                        "entityType": bson.M{"$in": []string{"plan_month", "plan_year",
+   344→   344→    note: DeleteMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belonging
+   345→   345→
+   346→   346→### internal/api/handlers/promotions.go (6 violations)
+   347→   347→  Line 115 in buildProductNameMap: Find on stripe_mappings
+   348→   348→    filter_source=inline
+   349→   349→    filter_fields=[]
+   350→   350→    safe_key=False
+   351→   351→    snippet: cursor, err := h.db.StripeMappings().Find(ctx, bson.M{})
+   352→   352→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   353→   353→  Line 166 in buildProductNameMap: Find on credit_bundles
+   354→   354→    filter_source=inline
+   355→   355→    filter_fields=['_id']
+   356→   356→    safe_key=True
+   357→   357→    snippet: cur, err := h.db.CreditBundles().Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
+   358→   358→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   359→   359→  Line 226 in ListEligibleProducts: Find on credit_bundles
+   360→   360→    filter_source=inline
+   361→   361→    filter_fields=['isActive']
+   362→   362→    safe_key=False
+   363→   363→    snippet: bundleCursor, err := h.db.CreditBundles().Find(ctx, bson.M{"isActive": true})
+   364→   364→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   365→   365→
+   366→   366→### internal/api/handlers/tenant.go (2 violations)
+   367→   367→  Line 252 in InviteMember: DeleteOne on invitations
+   368→   368→    filter_source=inline
+   369→   369→    filter_fields=['_id']
+   370→   370→    safe_key=True
+   371→   371→    snippet: if _, err := h.db.Invitations().DeleteOne(r.Context(), bson.M{"_id": invitation.ID}); err != nil {
+   372→   372→                                slog.Error("Invit
+   373→   373→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   374→   374→  Line 364 in RemoveMember: DeleteOne on tenant_memberships
+   375→   375→    filter_source=inline
+   376→   376→    filter_fields=['_id']
+   377→   377→    safe_key=True
+   378→   378→    snippet: if _, err := h.db.TenantMemberships().DeleteOne(r.Context(), bson.M{"_id": targetMembership.ID}); err != nil {
+   379→   379→                respond
+   380→   380→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   381→   381→
+   382→   382→### internal/api/handlers/webhook.go (5 violations)
+   383→   383→  Line 71 in HandleWebhook: FindOneAndUpdate on webhook_events
+   384→   384→    filter_source=inline
+   385→   385→    filter_fields=['eventId']
+   386→   386→    safe_key=True
+   387→   387→    snippet: idempResult := h.db.WebhookEvents().FindOneAndUpdate(ctx,
+   388→   388→                bson.M{"eventId": event.ID},
+   389→   389→                bson.M{"$setOnInsert": bson.M
+   390→   390→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   391→   391→  Line 132 in HandleWebhook: DeleteOne on webhook_events
+   392→   392→    filter_source=inline
+   393→   393→    filter_fields=['eventId']
+   394→   394→    safe_key=True
+   395→   395→    snippet: h.db.WebhookEvents().DeleteOne(ctx, bson.M{"eventId": event.ID})
+   396→   396→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   397→   397→  Line 138 in HandleWebhook: UpdateOne on webhook_events
+   398→   398→    filter_source=inline
+   399→   399→    filter_fields=['eventId']
+   400→   400→    safe_key=True
+   401→   401→    snippet: h.db.WebhookEvents().UpdateOne(ctx, bson.M{"eventId": event.ID}, bson.M{
+   402→   402→                "$set": bson.M{"status": "completed"},
+   403→   403→        })
+   404→   404→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   405→   405→
+   406→   406→### internal/api/handlers/webhooks.go (12 violations)
+   407→   407→  Line 45 in ListWebhooks: Find on webhooks
+   408→   408→    filter_source=inline
+   409→   409→    filter_fields=['isActive']
+   410→   410→    safe_key=False
+   411→   411→    snippet: cursor, err := h.db.Webhooks().Find(ctx, bson.M{"isActive": true}, opts)
+   412→   412→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   413→   413→  Line 71 in ListWebhooks: CountDocuments on webhook_deliveries
+   414→   414→    filter_source=inline
+   415→   415→    filter_fields=['webhookId', 'createdAt']
+   416→   416→    safe_key=False
+   417→   417→    snippet: count, err := h.db.WebhookDeliveries().CountDocuments(ctx, bson.M{
+   418→   418→                        "webhookId": hook.ID,
+   419→   419→                        "createdAt": bson.M{"$gte
+   420→   420→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   421→   421→  Line 83 in ListWebhooks: FindOne on webhook_deliveries
+   422→   422→    filter_source=inline
+   423→   423→    filter_fields=['webhookId']
+   424→   424→    safe_key=False
+   425→   425→    snippet: if h.db.WebhookDeliveries().FindOne(ctx, bson.M{"webhookId": hook.ID}, lastOpts).Decode(&lastDel) == nil {
+   426→   426→                        result[i].
+   427→   427→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   428→   428→
+   429→   429→### internal/configstore/seed.go (2 violations)
+   430→   430→  Line 380 in Seed: FindOne on config_vars
+   431→   431→    filter_source=inline
+   432→   432→    filter_fields=['name']
+   433→   433→    safe_key=True
+   434→   434→    snippet: err := col.FindOne(ctx, bson.M{"name": def.Name}).Err()
+   435→   435→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   436→   436→  Line 384 in Seed: InsertOne on config_vars
+   437→   437→    filter_source=struct:unknown
+   438→   438→    filter_fields=[]
+   439→   439→    safe_key=False
+   440→   440→    snippet: if _, err := col.InsertOne(ctx, def); err != nil {
+   441→   441→                                return err
+   442→   442→                        }
+   443→   443→    note: InsertOne with an unrecognised struct value; could not statically verify tenantId presence. Manual review required.
+   444→   444→
+   445→   445→### internal/configstore/store.go (3 violations)
+   446→   446→  Line 34 in Load: Find on config_vars
+   447→   447→    filter_source=inline
+   448→   448→    filter_fields=[]
+   449→   449→    safe_key=False
+   450→   450→    snippet: cursor, err := s.db.ConfigVars().Find(ctx, bson.M{})
+   451→   451→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   452→   452→  Line 90 in Set: UpdateOne on config_vars
+   453→   453→    filter_source=inline
+   454→   454→    filter_fields=['name']
+   455→   455→    safe_key=True
+   456→   456→    snippet: result, err := s.db.ConfigVars().UpdateOne(ctx,
+   457→   457→                bson.M{"name": name},
+   458→   458→                bson.M{"$set": bson.M{"value": value, "updated
+   459→   459→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   460→   460→  Line 106 in Reload: FindOne on config_vars
+   461→   461→    filter_source=inline
+   462→   462→    filter_fields=['name']
+   463→   463→    safe_key=True
+   464→   464→    snippet: err := s.db.ConfigVars().FindOne(ctx, bson.M{"name": name}).Decode(&v)
+   465→   465→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   466→   466→
+   467→   467→### internal/health/health.go (3 violations)
+   468→   468→  Line 138 in registerNode: UpdateOne on system_nodes
+   469→   469→    filter_source=inline
+   470→   470→    filter_fields=['machineId']
+   471→   471→    safe_key=True
+   472→   472→    snippet: _, err := s.db.SystemNodes().UpdateOne(ctx,
+   473→   473→                bson.M{"machineId": s.nodeID},
+   474→   474→                bson.M{
+   475→   475→     
+   476→   476→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   477→   477→  Line 165 in heartbeat: UpdateOne on system_nodes
+   478→   478→    filter_source=inline
+   479→   479→    filter_fields=['machineId']
+   480→   480→    safe_key=True
+   481→   481→    snippet: _, err := s.db.SystemNodes().UpdateOne(ctx,
+   482→   482→                bson.M{"machineId": s.nodeID},
+   483→   483→                bson.M{"$set"
+   484→   484→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   485→   485→  Line 300 in collectAndStore: InsertOne on system_metrics
+   486→   486→    filter_source=struct-var:metric:SystemMetric
+   487→   487→    filter_fields=['cpu', 'disk', 'goRuntime', 'http', 'integrations', 'memory', 'mongo', 'network', 'nodeId', 'timestamp']
+   488→   488→    safe_key=False
+   489→   489→    snippet: if _, err := s.db.SystemMetrics().InsertOne(ctx, metric); err != nil {
+   490→   490→                slog.Error("health: failed to sto
+   491→   491→    note: InsertOne with metric (a SystemMetric struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: i
+   492→   492→
+   493→   493→### internal/health/query.go (6 violations)
+   494→   494→  Line 28 in ListNodes: UpdateMany on system_nodes
+   495→   495→    filter_source=inline
+   496→   496→    filter_fields=['lastSeen']
+   497→   497→    safe_key=False
+   498→   498→    snippet: if _, err := s.db.SystemNodes().UpdateMany(ctx,
+   499→   499→                bson.M{"lastSeen": bson.M{"$lt": staleCutoff}, "status":
+   500→   500→    note: UpdateMany on a tenant-scoped collection without tenantId in the filter. CRITICAL: this can modify/delete data belonging
+   501→   501→  Line 35 in ListNodes: Find on system_nodes
+   502→   502→    filter_source=inline
+   503→   503→    filter_fields=[]
+   504→   504→    safe_key=False
+   505→   505→    snippet: cursor, err := s.db.SystemNodes().Find(ctx, bson.M{},
+   506→   506→                options.Find().SetSort(bson.D{{Key: "startedAt", V
+   507→   507→    note: Read operation with an empty filter — returns ALL documents. HIGH: cross-tenant data leakage risk.
+   508→   508→  Line 55 in GetMetrics: Find on system_metrics
+   509→   509→    filter_source=variable:filter
+   510→   510→    filter_fields=['nodeId', 'timestamp']
+   511→   511→    safe_key=False
+   512→   512→    snippet: cursor, err := s.db.SystemMetrics().Find(ctx, filter,
+   513→   513→                options.Find().SetSort(bson.D{{Key: "timestamp", V
+   514→   514→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   515→   515→
+   516→   516→### internal/metrics/metrics.go (5 violations)
+   517→   517→  Line 112 in tryAcquireOrRenew: FindOneAndUpdate on leader_locks
+   518→   518→    filter_source=variable:filter
+   519→   519→    filter_fields=['_id', 'expiresAt', 'holderId']
+   520→   520→    safe_key=True
+   521→   521→    snippet: result := s.db.LeaderLocks().FindOneAndUpdate(ctx, filter, update,
+   522→   522→                options.FindOneAndUpdate().SetUpsert(
+   523→   523→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   524→   524→  Line 148 in isLeader: FindOne on leader_locks
+   525→   525→    filter_source=inline
+   526→   526→    filter_fields=['_id']
+   527→   527→    safe_key=True
+   528→   528→    snippet: err := s.db.LeaderLocks().FindOne(ctx, bson.M{"_id": lockName}).Decode(&doc)
+   529→   529→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   530→   530→  Line 158 in releaseLock: DeleteOne on leader_locks
+   531→   531→    filter_source=inline
+   532→   532→    filter_fields=['_id', 'holderId']
+   533→   533→    safe_key=True
+   534→   534→    snippet: if _, err := s.db.LeaderLocks().DeleteOne(ctx, bson.M{
+   535→   535→                "_id":      lockName,
+   536→   536→                "holderId":
+   537→   537→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   538→   538→
+   539→   539→### internal/middleware/auth.go (3 violations)
+   540→   540→  Line 113 in authenticateAPIKey: FindOne on api_keys
+   541→   541→    filter_source=inline
+   542→   542→    filter_fields=['keyHash', 'isActive']
+   543→   543→    safe_key=True
+   544→   544→    snippet: err := m.db.APIKeys().FindOne(r.Context(), bson.M{
+   545→   545→                "keyHash":  keyHash,
+   546→   546→                "isActive": true
+   547→   547→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   548→   548→  Line 155 in authenticateAPIKey: UpdateByID on api_keys
+   549→   549→    filter_source=by-id
+   550→   550→    filter_fields=['_id']
+   551→   551→    safe_key=True
+   552→   552→    snippet: if _, err := m.db.APIKeys().UpdateByID(ctx, apiKey.ID,
+   553→   553→                        bson.M{"$set": bson.M{"lastUsedAt": now}}
+   554→   554→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   555→   555→  Line 168 in isTokenRevoked: CountDocuments on revoked_tokens
+   556→   556→    filter_source=inline
+   557→   557→    filter_fields=['tokenHash']
+   558→   558→    safe_key=True
+   559→   559→    snippet: count, err := m.db.RevokedTokens().CountDocuments(ctx, bson.M{"tokenHash": tokenHash})
+   560→   560→    note: Read operation without tenantId, but the filter contains a globally-unique key — likely safe, manual review recommended.
+   561→   561→
+   562→   562→### internal/middleware/ratelimit.go (2 violations)
+   563→   563→  Line 156 in allowDistributed: FindOneAndUpdate on <unknown>
+   564→   564→    filter_source=inline
+   565→   565→    filter_fields=['_id', 'windowEnd']
+   566→   566→    safe_key=True
+   567→   567→    snippet: err := rl.collection.FindOneAndUpdate(ctx,
+   568→   568→                bson.M{"_id": key, "windowEnd": bson.M{"$gt": now}},
+   569→   569→        
+   570→   570→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   571→   571→  Line 165 in allowDistributed: FindOneAndUpdate on <unknown>
+   572→   572→    filter_source=inline
+   573→   573→    filter_fields=['_id']
+   574→   574→    safe_key=True
+   575→   575→    snippet: err = rl.collection.FindOneAndUpdate(ctx,
+   576→   576→                                bson.M{"_id": key},
+   577→   577→                          
+   578→   578→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   579→   579→
+   580→   580→### internal/stripe/stripe.go (3 violations)
+   581→   581→  Line 100 in GetOrCreatePrice: FindOne on stripe_mappings
+   582→   582→    filter_source=inline
+   583→   583→    filter_fields=['entityType', 'entityId']
+   584→   584→    safe_key=False
+   585→   585→    snippet: err := s.db.StripeMappings().FindOne(ctx, bson.M{
+   586→   586→                "entityType": entityType,
+   587→   587→                "entityId":   entityID,
+   588→   588→        }).Decode(&mapp
+   589→   589→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   590→   590→  Line 143 in GetOrCreatePrice: InsertOne on stripe_mappings
+   591→   591→    filter_source=struct:StripeMapping
+   592→   592→    filter_fields=['createdAt', 'entityId', 'entityType', 'stripePriceId', 'stripeProductId']
+   593→   593→    safe_key=False
+   594→   594→    snippet: if _, err := s.db.StripeMappings().InsertOne(ctx, models.StripeMapping{
+   595→   595→                EntityType:      entityType,
+   596→   596→                EntityID:      
+   597→   597→    note: InsertOne with a StripeMapping struct value; tenantId presence inferred from the struct definition — verify the value is
+   598→   598→  Line 352 in NextInvoiceNumber: FindOneAndUpdate on counters
+   599→   599→    filter_source=inline
+   600→   600→    filter_fields=['_id']
+   601→   601→    safe_key=True
+   602→   602→    snippet: err := s.db.Counters().FindOneAndUpdate(ctx,
+   603→   603→                bson.M{"_id": "invoice_number"},
+   604→   604→                bson.M{"$inc": bson.M{"value": 1}},
+   605→   605→                
+   606→   606→    note: Write operation on a tenant-scoped collection without tenantId in the filter, but the filter contains a globally-unique 
+   607→   607→
+   608→   608→### internal/telemetry/service.go (18 violations)
+   609→   609→  Line 82 in flushLoop: InsertMany on telemetry_events
+   610→   610→    filter_source=inline-document-slice
+   611→   611→    filter_fields=[]
+   612→   612→    safe_key=False
+   613→   613→    snippet: _, err := s.db.TelemetryEvents().InsertMany(ctx, buf)
+   614→   614→    note: InsertMany inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/modifi
+   615→   615→  Line 188 in TrackBatch: InsertMany on telemetry_events
+   616→   616→    filter_source=inline-document-slice
+   617→   617→    filter_fields=[]
+   618→   618→    safe_key=False
+   619→   619→    snippet: _, err := s.db.TelemetryEvents().InsertMany(ctx, docs)
+   620→   620→    note: InsertMany inserts a document with no tenantId field. CRITICAL: the inserted document will be orphaned — readable/modifi
+   621→   621→  Line 338 in FunnelMetrics: CountDocuments on telemetry_events
+   622→   622→    filter_source=inline
+   623→   623→    filter_fields=['eventName', 'createdAt']
+   624→   624→    safe_key=False
+   625→   625→    snippet: checkouts, err := s.db.TelemetryEvents().CountDocuments(ctx, bson.M{
+   626→   626→                "eventName": models.TelemetryChecko
+   627→   627→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   628→   628→
+   629→   629→### internal/testutil/testutil.go (6 violations)
+   630→   630→  Line 98 in MustConnectTestDB: DeleteMany on <unknown>
+   631→   631→    filter_source=inline
+   632→   632→    filter_fields=[]
+   633→   633→    safe_key=False
+   634→   634→    snippet: if _, err := database.Database.Collection(name).DeleteMany(ctx, bson.M{}); err != nil {
+   635→   635→                                
+   636→   636→    note: DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk.
+   637→   637→  Line 144 in ConnectTestDB: DeleteMany on <unknown>
+   638→   638→    filter_source=inline
+   639→   639→    filter_fields=[]
+   640→   640→    safe_key=False
+   641→   641→    snippet: if _, err := database.Database.Collection(name).DeleteMany(ctx, bson.M{}); err != nil {
+   642→   642→                                
+   643→   643→    note: DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk.
+   644→   644→  Line 227 in CleanupCollections: DeleteMany on <unknown>
+   645→   645→    filter_source=inline
+   646→   646→    filter_fields=[]
+   647→   647→    safe_key=False
+   648→   648→    snippet: if _, err := database.Database.Collection(name).DeleteMany(ctx, bson.M{}); err != nil {
+   649→   649→                        log.Prin
+   650→   650→    note: DeleteMany with an empty filter — affects ALL documents. CRITICAL: cross-tenant data corruption risk.
+   651→   651→
+   652→   652→### internal/version/check.go (1 violations)
+   653→   653→  Line 91 in sendUpgradeMessage: InsertOne on messages
+   654→   654→    filter_source=struct-var:msg:Message
+   655→   655→    filter_fields=['body', 'createdAt', 'isSystem', 'read', 'subject', 'userId']
+   656→   656→    safe_key=False
+   657→   657→    snippet: if _, err := database.Messages().InsertOne(ctx, msg); err != nil {
+   658→   658→                slog.Warn("Failed to send upgrade mes
+   659→   659→    note: InsertOne with msg (a Message struct); the struct definition does NOT declare a tenantId bson field. CRITICAL: inserted 
+   660→   660→
+   661→   661→### internal/webhooks/dispatcher.go (3 violations)
+   662→   662→  Line 194 in dispatch: Find on webhooks
+   663→   663→    filter_source=inline
+   664→   664→    filter_fields=['events', 'isActive']
+   665→   665→    safe_key=False
+   666→   666→    snippet: cursor, err := d.db.Webhooks().Find(ctx, bson.M{
+   667→   667→                "events":   eventType,
+   668→   668→                "isActive": true
+   669→   669→    note: Read operation on a tenant-scoped collection without tenantId in the filter. HIGH: cross-tenant data leakage risk.
+   670→   670→  Line 287 in deliverWithRetry: InsertOne on webhook_deliveries
+   671→   671→    filter_source=struct-var:delivery:WebhookDelivery
+   672→   672→    filter_fields=['createdAt', 'durationMs', 'eventType', 'maxRetries', 'payload', 'responseBody', 'responseCode', 'retryCount', 'success', 'webhookId']
+   673→   673→    safe_key=False
+   674→   674→    snippet: if _, err := d.db.WebhookDeliveries().InsertOne(deliverCtx, delivery); err != nil {
+   675→   675→                slog.Error("webhooks
+   676→   676→    note: InsertOne with delivery (a WebhookDelivery struct); the struct definition does NOT declare a tenantId bson field. CRITIC
+   677→   677→  Line 421 in DeliverTest: InsertOne on webhook_deliveries
+   678→   678→    filter_source=struct-var:delivery:WebhookDelivery
+   679→   679→    filter_fields=['createdAt', 'durationMs', 'eventType', 'maxRetries', 'payload', 'responseBody', 'responseCode', 'retryCount', 'success', 'webhookId']
+   680→   680→    safe_key=False
+   681→   681→    snippet: if _, err := d.db.WebhookDeliveries().InsertOne(ctx, delivery); err != nil {
+   682→   682→                slog.Error("webhooks: faile
+   683→   683→    note: InsertOne with delivery (a WebhookDelivery struct); the struct definition does NOT declare a tenantId bson field. CRITIC

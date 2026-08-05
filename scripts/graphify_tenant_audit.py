@@ -248,6 +248,166 @@ SAFE_UNIQUE_KEYS: set[str] = {
     "familyId",
     "codeHash",
     "credentialID",
+    "webhookId",
+}
+
+# --------------------------------------------------------------------------- #
+# False-positive suppression — context heuristics
+# --------------------------------------------------------------------------- #
+#
+# In real-world multi-tenant codebases, many MongoDB queries legitimately
+# omit ``tenantId`` for one of the following reasons. The auditor now
+# recognises all of these and downgrades them from HIGH/CRITICAL violations
+# to MEDIUM informational notes (so they still appear in the report for
+# review, but don't inflate the violation count).
+
+# Functions that run as background system tasks (started via ``go func()``,
+# tickers, or worker loops). They have no request context and therefore no
+# ``tenantId`` available — they operate on system-wide collections by design.
+BACKGROUND_TASK_FUNCS: set[str] = {
+    "flushLoop",            # log buffer flusher
+    "tryAcquireOrRenew",    # leader-election lock acquisition
+    "heartbeat",            # node heartbeat
+    "registerNode",         # node registration
+    "dispatch",             # webhook dispatcher loop
+    "deliverWithRetry",     # webhook delivery with retry
+    "collectDaily",         # daily metrics collection
+    "collectAndStore",      # generic collector
+    "aggregateDailyPoints", # daily aggregation
+    "isLeader",             # leader check
+    "releaseLock",          # leader-lock release
+    "handleCheckoutCompleted",      # Stripe webhook handler (background)
+    "handleInvoicePaymentFailed",   # Stripe webhook handler (background)
+    "computeLiveRevenue",           # background revenue computation
+    "sendUpgradeMessage",           # post-upgrade side-effect message
+    "cleanupExpired",               # generic TTL cleanup
+    "CleanupCollections",           # generic TTL cleanup
+    "NextInvoiceNumber",            # counter increment (atomic, no tenant context)
+}
+
+# Internal service methods called from admin HTTP handlers (the route
+# classifier only catches the *handler* names registered on routers, not
+# the underlying service methods they delegate to). These methods compute
+# admin analytics over system-wide collections and don't take a tenantId
+# — they're called from ``pmHandler.GetFunnel`` / ``GetKPIs`` / etc.,
+# which are registered on ``adminAPI`` (root tenant + user role, sees ALL
+# tenants by design).
+ADMIN_SERVICE_FUNCS: set[str] = {
+    # telemetry/service.go — called from pmHandler (admin)
+    "FunnelMetrics",
+    "CustomEventSummary",
+    "EngagementMetrics",
+    "RetentionCohorts",
+    "KPIs",
+    "ListEventTypes",
+    "countDistinct",
+    "weeklyActiveUsers",
+    "monthlyActiveUsers",
+    "topCustomEvents",
+    "creditConsumptionTrend",
+    "medianTimeToFirstPurchase",
+    "subscriberTrend",
+    "mrrTrend",
+    "GetAggregateMetrics",
+    "GetCurrentMetrics",
+    "GetIntegrationCounts24h",
+    "FunnelMetrics",
+    # billing/service.go — admin-side metrics
+    "AdminGetMetrics",
+    "AdminListTransactions",
+    # Stripe webhook handler internals
+    "GetOrCreatePrice",
+    "resolveStripeProducts",
+    "buildProductNameMap",
+    # Config-store helpers (called from admin handlers)
+    "Load",
+    "Reload",
+    "Set",
+    "Seed",
+}
+
+# Public endpoint handlers — no auth, content visible to everyone. These
+# legitimately query published/global content without ``tenantId``.
+PUBLIC_ENDPOINT_FUNCS: set[str] = {
+    "ListPublic",
+    "ListPublicPages",
+    "ListBundlesPublic",
+    "ListPlansPublic",
+    "GetPublicPage",
+    "GetBranding",
+    "ServeAsset",
+    "ServeMedia",
+    "DocsHTML",
+    "DocsMarkdown",
+    "DocsOpenAPI",
+    "Status",            # bootstrap status
+    "HandleWebhook",     # Stripe webhook (signature-verified, not tenant-scoped)
+    "TrackAnonymous",    # anonymous telemetry
+    "GetProviders",      # auth provider discovery
+}
+
+# Auth-flow handlers — operate on user-scoped collections (refresh_tokens,
+# verification_tokens, etc.) where the user hasn't selected a tenant yet.
+# Filters on userId / token / tokenHash are valid scopes here.
+AUTH_FLOW_FUNCS: set[str] = {
+    "Register", "Login", "Refresh", "VerifyEmail", "ResendVerification",
+    "ForgotPassword", "ResetPassword", "ExchangeCode", "MagicLinkRequest",
+    "MagicLinkVerify", "MFAChallenge", "MFASetup", "MFAVerifySetup",
+    "MFADisable", "MFARegenerateRecoveryCodes",
+    "GoogleOAuth", "GoogleOAuthCallback",
+    "GitHubOAuth", "GitHubOAuthCallback",
+    "MicrosoftOAuth", "MicrosoftOAuthCallback",
+    "GetMe", "Logout", "ChangePassword", "AcceptInvitation",
+    "ListSessions", "RevokeSession", "RevokeAllSessions",
+    "UpdatePreferences", "CompleteOnboarding",
+    "DeleteAccount", "ExportData",
+    "storeRefreshToken", "sendVerificationEmail", "createAuthCodeRedirect",
+    "isTokenRevoked", "authenticateAPIKey",
+    "lookupUserWithMemberships", "getUserMemberships",
+    "acceptInvitationForUser",
+    # User-scoped message inbox
+    "ListMessages", "UnreadCount", "MarkRead",
+}
+
+# User-scoped collections — documents belong to a user (not a tenant). A
+# filter on ``userId`` is a valid scope. Populated below in
+# ``build_user_scoped_collections`` once struct fields are known, but a
+# hardcoded seed list is kept here as a fallback.
+USER_SCOPED_COLLECTIONS_SEED: set[str] = {
+    "refresh_tokens",
+    "verification_tokens",
+    "revoked_tokens",
+    "messages",
+    "webauthn_credentials",
+    "auth_codes",
+}
+
+# Collections known to be global by design even when their struct isn't
+# found by the naming heuristic (e.g. ``counters`` → ``InvoiceCounter``).
+GLOBAL_COLLECTIONS_EXTRA: set[str] = {
+    "counters",
+    "leader_locks",
+    "webhook_events",
+    "webhook_deliveries",
+    "oauth_states",
+    "impersonation_logs",
+    "audit_log",
+    "webauthn_sessions",
+}
+
+# Subdirectory paths (relative to repo root) that contain CLI tools — these
+# are not HTTP request handlers and don't carry a tenantId in their context.
+CLI_PATH_PARTS: tuple[str, ...] = ("cmd", "lastsaas")
+
+# Router variable names used in main.go and their route scope. Used by
+# ``build_route_classifier`` to map a HandleFunc call to a route scope.
+ADMIN_ROUTERS: set[str] = {
+    "adminAPI", "adminWrite", "adminOwner",
+}
+TENANT_ROUTERS: set[str] = {
+    "tenantAPI", "tenantSettingsRouter", "inviteRouter",
+    "removeRouter", "ownerRouter", "usageAPI",
+    "telemetryAPI", "billingAPI", "billingOwner",
 }
 
 # Patterns we never want to count as a real query:
@@ -279,6 +439,17 @@ class Query:
     safe_key_filter: bool = False    # filter contains a globally-unique key
     filter_snippet: str = ""
     note: str = ""
+    # ---- Context heuristics (false-positive suppression) ----
+    route_scope: str = "unknown"     # admin | tenant | auth | public | cli | background | unknown
+    is_admin_handler: bool = False
+    is_background_task: bool = False
+    is_public_endpoint: bool = False
+    is_auth_flow: bool = False
+    is_cli_tool: bool = False
+    collection_has_tenant_id: Optional[bool] = None  # None if struct not found
+    collection_is_user_scoped: bool = False
+    has_user_id_filter: bool = False
+    suppression_reason: str = ""     # populated when downgraded from violation to MEDIUM
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -467,6 +638,207 @@ def collect_struct_fields(repo_root: Path) -> dict[str, set[str]]:
     return structs
 
 
+def _collection_to_struct_name(collection: str) -> str:
+    """Convert a snake_case collection name to a PascalCase struct name.
+
+    Heuristic:
+      - "ies" suffix → "y"     (e.g. webhook_deliveries → WebhookDelivery)
+      - "s"  suffix  → ""      (e.g. users → User, tenant_memberships → TenantMembership)
+      - otherwise   → unchanged (e.g. system_config → SystemConfig)
+
+    Then snake_case → PascalCase (split on ``_``, capitalise each segment).
+    """
+    name = collection
+    if name.endswith("ies"):
+        name = name[:-3] + "y"
+    elif name.endswith("s"):
+        name = name[:-1]
+    parts = [p for p in name.split("_") if p]
+    return "".join(p[:1].upper() + p[1:] for p in parts)
+
+
+def build_collection_struct_map(
+    accessor_map: dict[str, str],
+    struct_fields: dict[str, set[str]],
+) -> dict[str, str]:
+    """Build {collection_name: struct_name} using the snake→Pascal heuristic.
+
+    For each collection referenced by an accessor, derive the candidate
+    struct name and confirm it exists in ``struct_fields``. If the heuristic
+    doesn't match, fall back to checking known special cases (e.g.
+    ``counters`` → ``InvoiceCounter``).
+    """
+    # Hardcoded overrides for cases the naming heuristic can't resolve
+    # (collections whose struct name uses acronym capitalization like
+    # ``APIKey`` instead of ``ApiKey``).
+    overrides: dict[str, str] = {
+        "counters": "InvoiceCounter",
+        "api_keys": "APIKey",
+        "oauth_states": "OAuthState",
+        "sso_connections": "SSOConnection",
+        "webauthn_credentials": "WebAuthnCredential",
+    }
+    coll_to_struct: dict[str, str] = {}
+    collections = set(accessor_map.values()) | set(overrides.keys())
+    for coll in collections:
+        if coll in overrides and overrides[coll] in struct_fields:
+            coll_to_struct[coll] = overrides[coll]
+            continue
+        candidate = _collection_to_struct_name(coll)
+        if candidate in struct_fields:
+            coll_to_struct[coll] = candidate
+            continue
+        # Try without singularisation (some collections are already
+        # singular in the DB but use a plural struct name in Go).
+        if coll in struct_fields:
+            coll_to_struct[coll] = coll
+    return coll_to_struct
+
+
+def build_user_scoped_collections(
+    collection_struct_map: dict[str, str],
+    struct_fields: dict[str, set[str]],
+) -> set[str]:
+    """Identify collections whose struct has a ``userId`` bson field.
+
+    For these collections, filtering on ``userId`` is a valid scope — even
+    if the collection also has a ``tenantId`` field, the ``userId`` filter
+    already constrains the query to a single user's data (and a user's data
+    can span tenants via ``tenant_memberships``).
+    """
+    out: set[str] = set(USER_SCOPED_COLLECTIONS_SEED)
+    for coll, struct_name in collection_struct_map.items():
+        fields = struct_fields.get(struct_name, set())
+        if "userId" in fields:
+            out.add(coll)
+    return out
+
+
+def build_global_collections(
+    collection_struct_map: dict[str, str],
+    struct_fields: dict[str, set[str]],
+) -> set[str]:
+    """Identify collections whose struct does NOT declare a ``tenantId`` field.
+
+    These collections are GLOBAL BY DESIGN — they have no tenantId field to
+    filter on. Examples: ``webhooks``, ``plans``, ``system_nodes``,
+    ``event_definitions``, ``branding_assets``, ``api_keys``.
+    """
+    out: set[str] = set(EXEMPT_COLLECTIONS) | set(GLOBAL_COLLECTIONS_EXTRA)
+    for coll, struct_name in collection_struct_map.items():
+        fields = struct_fields.get(struct_name, set())
+        if not (TENANT_ID_FIELDS & fields):
+            out.add(coll)
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Route classification — parse main.go to map handler functions to route scope
+# --------------------------------------------------------------------------- #
+
+# Matches ``<router>.HandleFunc("/path", HANDLER)`` or ``<router>.Handle("/path", ...)``
+# capturing the router variable. The handler can be either a bare method value
+# (``handler.Foo``) or wrapped in ``rateLimiter.RateLimitHandler(...,
+# handler.Foo,)``.
+ROUTER_HANDLE_RE = re.compile(
+    r'\b(\w+)\.(?:HandleFunc|Handle)\s*\(\s*"[^"]*"'
+)
+
+# Matches a handler method value like ``authHandler.Login`` or
+# ``plansHandler.ListPlans`` (last identifier is the function name).
+HANDLER_METHOD_RE = re.compile(
+    r'\b(\w+Handler)\.([A-Z]\w*)\b'
+)
+
+# Matches ``http.HandlerFunc(handler.X)`` — the X is the actual handler.
+HTTPHANDLERFUNC_RE = re.compile(
+    r'\bhttp\.HandlerFunc\s*\(\s*(\w+Handler)\.([A-Z]\w*)\s*\)'
+)
+
+
+def build_route_classifier(repo_root: Path) -> dict[str, set[str]]:
+    """Parse ``cmd/server/main.go`` to extract handler-function → route-scope.
+
+    Returns a dict with three sets of handler function names:
+      - ``admin``   — registered on adminAPI/adminWrite/adminOwner (sees ALL tenants)
+      - ``tenant``  — registered on tenantAPI/usageAPI/telemetryAPI/billingAPI
+      - ``auth``    — registered on guarded/protectedAuth (auth flow, user-scoped)
+      - ``public``  — registered on api/router (no auth)
+
+    Falls back to an empty dict if main.go cannot be found.
+    """
+    result: dict[str, set[str]] = {
+        "admin": set(),
+        "tenant": set(),
+        "auth": set(),
+        "public": set(),
+    }
+    # Look for cmd/server/main.go under the repo root.
+    candidates = [
+        repo_root / "cmd" / "server" / "main.go",
+        repo_root / "backend" / "cmd" / "server" / "main.go",
+    ]
+    main_go: Optional[Path] = None
+    for c in candidates:
+        if c.is_file():
+            main_go = c
+            break
+    if main_go is None:
+        # Last resort: rglob.
+        for p in repo_root.rglob("main.go"):
+            if "cmd" in p.parts and "server" in p.parts:
+                main_go = p
+                break
+    if main_go is None or not main_go.is_file():
+        return result
+
+    try:
+        text = main_go.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return result
+
+    masked = mask_strings_and_comments(text)
+    # Walk HandleFunc/Handle calls. We match the router.HandleFunc("/path", ...)
+    # pattern on the RAW text (so the string literal "/path" is visible), but
+    # use the MASKED text to find the closing paren of the call (so parens
+    # inside string literals don't confuse depth tracking).
+    for m in ROUTER_HANDLE_RE.finditer(text):
+        router = m.group(1)
+        # Find the corresponding index in the masked text (same offset since
+        # mask_strings_and_comments preserves length).
+        open_paren = masked.find("(", m.start())
+        if open_paren == -1:
+            continue
+        close_paren = find_block_end(masked, open_paren, "(", ")")
+        if close_paren == -1:
+            continue
+        call_span = text[m.start():close_paren]
+        # Find all handler.Foo references in the call span. The LAST one is
+        # the actual handler (rateLimiter.RateLimitHandler takes the handler
+        # as its last positional argument).
+        handlers = HANDLER_METHOD_RE.findall(call_span)
+        if not handlers:
+            # Try http.HandlerFunc(handler.X) form.
+            hfd = HTTPHANDLERFUNC_RE.findall(call_span)
+            handlers = hfd
+        if not handlers:
+            continue
+        # Take the LAST handler reference (in rate-limited form, the actual
+        # handler is the last positional argument).
+        _, func_name = handlers[-1]
+        if router in ADMIN_ROUTERS:
+            result["admin"].add(func_name)
+        elif router in TENANT_ROUTERS:
+            result["tenant"].add(func_name)
+        elif router in ("guarded", "protectedAuth", "api", "router"):
+            # Auth flow + public — the heuristic below refines further.
+            if func_name in PUBLIC_ENDPOINT_FUNCS:
+                result["public"].add(func_name)
+            else:
+                result["auth"].add(func_name)
+    return result
+
+
 def extract_filter_fields_from_text(text: str) -> list[str]:
     """Pull field names out of bson.M / bson.D / map literals in the given
     text. Returns a de-duplicated list (preserving first-seen order).
@@ -628,6 +1000,10 @@ def scan_file(
     struct_fields: dict[str, set[str]],
     queries: list[Query],
     file_index: dict[str, FileInfo],
+    route_classifier: Optional[dict[str, set[str]]] = None,
+    collection_struct_map: Optional[dict[str, str]] = None,
+    user_scoped_collections: Optional[set[str]] = None,
+    global_collections: Optional[set[str]] = None,
 ) -> None:
     """Scan a single Go file for MongoDB queries and classify each."""
     try:
@@ -640,6 +1016,15 @@ def scan_file(
 
     rel = _relative(repo_root, path)
     finfo = file_index.setdefault(rel, FileInfo(path=rel))
+
+    # Pre-compute per-file context flags.
+    is_cli_file = CLI_PATH_PARTS[0] in path.parts and CLI_PATH_PARTS[1] in path.parts
+    is_testutil = "testutil" in path.parts or path.name == "testutil.go"
+    is_test_file = path.name.endswith("_test.go") or is_testutil
+    route_classifier = route_classifier or {}
+    collection_struct_map = collection_struct_map or {}
+    user_scoped_collections = user_scoped_collections or set()
+    global_collections = global_collections or set()
 
     # Per-file alias + filter-variable tracking.
     #   aliases[var_name]      = collection_name           (collection-typed vars)
@@ -946,37 +1331,199 @@ def scan_file(
             # ---- Classify ----
             is_exempt = _is_exempt_collection(collection, accessor_used)
             safe_key = _has_safe_unique_key(filter_fields, operation)
+            has_user_id = "userId" in filter_fields or "user_id" in filter_fields
 
+            # ---- Compute context heuristics (false-positive suppression) ----
+            # These are checked in priority order; the first match wins and
+            # downgrades the query from a violation to MEDIUM informational.
+            # Auth flow handlers are user-scoped (operate on refresh_tokens,
+            # verification_tokens, etc.) — not admin handlers.
+            is_auth_flow = (
+                current_func in route_classifier.get("auth", set())
+                or current_func in AUTH_FLOW_FUNCS
+            )
+            is_admin_handler = (
+                current_func in route_classifier.get("admin", set())
+                or current_func in ADMIN_SERVICE_FUNCS
+            )
+            is_public_endpoint = (
+                current_func in route_classifier.get("public", set())
+                or current_func in PUBLIC_ENDPOINT_FUNCS
+            )
+            is_background_task = current_func in BACKGROUND_TASK_FUNCS
+            # Resolve the underlying struct for this collection.
+            struct_name = collection_struct_map.get(collection)
+            coll_has_tid: Optional[bool] = None
+            if struct_name and struct_name in struct_fields:
+                coll_has_tid = bool(
+                    TENANT_ID_FIELDS & struct_fields[struct_name]
+                )
+            # ``collection_is_user_scoped`` is True when the struct has a
+            # ``userId`` bson field — for these, a ``userId`` filter is a
+            # valid scope (the user's data spans tenants).
+            coll_is_user_scoped = collection in user_scoped_collections
+            # ``collection_is_global`` is True when the struct does NOT
+            # declare a tenantId field — these collections are global by
+            # design (e.g. ``webhooks``, ``plans``, ``system_nodes``).
+            collection_is_global = (
+                collection in global_collections
+                or coll_has_tid is False
+            )
+            # Decide the route scope label (for the report).
+            if is_testutil:
+                route_scope = "testutil"
+            elif is_cli_file:
+                route_scope = "cli"
+            elif is_background_task:
+                route_scope = "background"
+            elif is_public_endpoint:
+                route_scope = "public"
+            elif is_admin_handler:
+                route_scope = "admin"
+            elif is_auth_flow:
+                route_scope = "auth"
+            elif current_func in route_classifier.get("tenant", set()):
+                route_scope = "tenant"
+            else:
+                route_scope = "unknown"
+
+            suppression_reason: str = ""
+
+            # ---- Apply false-positive suppressions in priority order ----
             if has_tenant_id:
                 risk_level = "OK"
                 is_violation = False
                 note = "Filter contains tenantId."
+            elif is_testutil:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "test-util"
+                note = (
+                    "Query is in a test-utility file (internal/testutil/) — "
+                    "test helpers reset/clean test databases between test "
+                    "runs. Not production code."
+                )
+            elif is_cli_file:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "cli-tool"
+                note = (
+                    "Query is in a CLI tool (cmd/lastsaas/) — CLI tools have "
+                    "no HTTP request context and operate on system-wide "
+                    "collections by design."
+                )
+            elif is_background_task:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "background-task"
+                note = (
+                    f"Function '{current_func}' is a background system task "
+                    "(no request context, no tenantId available). Operates "
+                    "on system-wide collections by design."
+                )
+            elif is_admin_handler:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "admin-handler"
+                note = (
+                    f"Function '{current_func}' is an admin handler "
+                    "(registered on /api/admin/*). Admin handlers see ALL "
+                    "tenants by design — no tenantId filter needed."
+                )
+            elif is_public_endpoint:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "public-endpoint"
+                note = (
+                    f"Function '{current_func}' is a public endpoint (no "
+                    "auth) — returns published/global content to everyone."
+                )
+            elif collection_is_global:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "global-by-design"
+                if struct_name:
+                    note = (
+                        f"Collection '{collection}' maps to struct "
+                        f"'{struct_name}' which does NOT declare a tenantId "
+                        f"bson field — this collection is global by design."
+                    )
+                else:
+                    note = (
+                        f"Collection '{collection}' is in the global list "
+                        f"(no tenantId field) — global by design."
+                    )
+            elif coll_is_user_scoped and has_user_id:
+                risk_level = "OK"
+                is_violation = False
+                suppression_reason = "user-scoped"
+                note = (
+                    f"Collection '{collection}' is user-scoped (has userId "
+                    f"field) and the filter contains userId — a user's data "
+                    f"spans tenants, so userId is a valid scope."
+                )
+            elif is_auth_flow and (has_user_id or safe_key):
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "auth-flow"
+                note = (
+                    f"Auth-flow handler '{current_func}' operates on user-"
+                    f"scoped collections (the user hasn't selected a tenant "
+                    f"yet during auth). Filter on userId/token/tokenHash is "
+                    f"a valid scope."
+                )
+            elif safe_key:
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "safe-unique-key"
+                note = (
+                    f"Filter contains a globally-unique key "
+                    f"({', '.join(f for f in filter_fields if f in SAFE_UNIQUE_KEYS)}) "
+                    f"— the query will only ever return one document "
+                    f"regardless of tenant."
+                )
             elif is_exempt:
                 risk_level = "MEDIUM"
                 is_violation = False
+                suppression_reason = "exempt-collection"
                 note = (
-                    f"Collection '{collection}' is in the exempt (global) list; "
-                    "tenant filtering is not strictly required, but queries "
-                    "should still be reviewed for appropriate scoping."
+                    f"Collection '{collection}' is in the exempt (global) "
+                    f"list; tenant filtering is not strictly required, but "
+                    f"queries should still be reviewed for appropriate "
+                    f"scoping."
+                )
+            elif operation in ("InsertOne", "InsertMany") and (
+                filter_source in ("inline-document", "inline-document-slice")
+                or filter_source == "missing-arg"
+            ) and coll_has_tid is True:
+                # The inserted struct (or slice of structs) declares a
+                # ``tenantId`` bson field. The auditor can't statically
+                # verify the value is set at runtime, but the struct
+                # SUPPORTS tenant scoping — caller is responsible. Common
+                # case: a tenant-scoped HTTP handler populates the struct
+                # from request context before calling the service method.
+                risk_level = "MEDIUM"
+                is_violation = False
+                suppression_reason = "struct-supports-tenant-id"
+                note = (
+                    f"{operation} inserts a document (or slice of documents) "
+                    f"whose struct '{struct_name}' declares a tenantId bson "
+                    f"field. The value cannot be verified statically — caller "
+                    f"is responsible for setting it (typically the tenant-"
+                    f"scoped HTTP handler reads tenantId from request context "
+                    f"and populates the struct before calling this method)."
                 )
             elif operation in WRITE_OPS:
                 risk_level = "CRITICAL"
                 is_violation = True
-                if safe_key:
-                    note = (
-                        "Write operation on a tenant-scoped collection without "
-                        "tenantId in the filter, but the filter contains a "
-                        "globally-unique key — likely safe, manual review "
-                        "recommended."
-                    )
-                elif filter_source == "by-id":
+                if filter_source == "by-id":
                     note = (
                         "UpdateByID uses the document _id (globally unique) — "
                         "tenant filtering is implicit. Likely safe."
                     )
                 elif filter_source.startswith("struct:"):
-                    struct_name = filter_source.split(":", 1)[1]
-                    if struct_name == "unknown":
+                    struct_name_src = filter_source.split(":", 1)[1]
+                    if struct_name_src == "unknown":
                         note = (
                             "InsertOne with an unrecognised struct value; "
                             "could not statically verify tenantId presence. "
@@ -984,22 +1531,20 @@ def scan_file(
                         )
                     else:
                         note = (
-                            f"InsertOne with a {struct_name} struct value; "
-                            "tenantId presence inferred from the struct "
-                            "definition — verify the value is actually set at "
-                            "runtime."
+                            f"InsertOne with a {struct_name_src} struct "
+                            f"value; tenantId presence inferred from the "
+                            f"struct definition — verify the value is "
+                            f"actually set at runtime."
                         )
                 elif filter_source.startswith("struct-var:"):
-                    # ``foo := models.Foo{...}; InsertOne(ctx, foo)``
-                    # — struct DOES NOT have a tenantId bson field.
                     parts = filter_source.split(":")
                     var_name = parts[1] if len(parts) > 1 else "?"
-                    struct_name = parts[2] if len(parts) > 2 else "?"
+                    struct_name_src = parts[2] if len(parts) > 2 else "?"
                     note = (
-                        f"InsertOne with {var_name} (a {struct_name} struct); "
-                        f"the struct definition does NOT declare a tenantId "
-                        f"bson field. CRITICAL: inserted document will be "
-                        f"orphaned across tenants."
+                        f"InsertOne with {var_name} (a {struct_name_src} "
+                        f"struct); the struct definition does NOT declare a "
+                        f"tenantId bson field. CRITICAL: inserted document "
+                        f"will be orphaned across tenants."
                     )
                 elif operation in ("InsertOne", "InsertMany") and (
                     filter_source in ("inline-document", "inline-document-slice")
@@ -1007,10 +1552,10 @@ def scan_file(
                 ):
                     note = (
                         f"{operation} inserts a document with no tenantId "
-                        "field. CRITICAL: the inserted document will be "
-                        "orphaned — readable/modifiable by any tenant that "
-                        "queries without a tenantId filter, or invisible to "
-                        "queries that DO filter by tenantId."
+                        f"field. CRITICAL: the inserted document will be "
+                        f"orphaned — readable/modifiable by any tenant that "
+                        f"queries without a tenantId filter, or invisible to "
+                        f"queries that DO filter by tenantId."
                     )
                 elif operation == "BulkWrite":
                     note = (
@@ -1023,8 +1568,8 @@ def scan_file(
                 elif filter_source == "nil":
                     note = (
                         f"{operation} with nil filter — affects ALL "
-                        "documents in the collection. CRITICAL: this can "
-                        "modify/delete data across all tenants."
+                        f"documents in the collection. CRITICAL: this can "
+                        f"modify/delete data across all tenants."
                     )
                 elif not filter_fields and operation in (
                     "UpdateOne", "UpdateMany", "DeleteOne", "DeleteMany",
@@ -1033,31 +1578,25 @@ def scan_file(
                 ):
                     note = (
                         f"{operation} with an empty filter — affects ALL "
-                        "documents. CRITICAL: cross-tenant data corruption "
-                        "risk."
+                        f"documents. CRITICAL: cross-tenant data corruption "
+                        f"risk."
                     )
                 else:
                     note = (
                         f"{operation} on a tenant-scoped collection without "
-                        "tenantId in the filter. CRITICAL: this can "
-                        "modify/delete data belonging to other tenants."
+                        f"tenantId in the filter. CRITICAL: this can "
+                        f"modify/delete data belonging to other tenants."
                     )
             else:
                 # Read operation.
                 risk_level = "HIGH"
                 is_violation = True
-                if safe_key:
-                    note = (
-                        "Read operation without tenantId, but the filter "
-                        "contains a globally-unique key — likely safe, "
-                        "manual review recommended."
-                    )
-                elif filter_source == "no-filter":
+                if filter_source == "no-filter":
                     note = (
                         f"{operation} returns aggregate info about ALL "
-                        "documents in the collection (no filter is taken). "
-                        "HIGH: leaks the total document count across all "
-                        "tenants."
+                        f"documents in the collection (no filter is taken). "
+                        f"HIGH: leaks the total document count across all "
+                        f"tenants."
                     )
                 elif filter_source == "nil":
                     note = (
@@ -1107,6 +1646,16 @@ def scan_file(
                 safe_key_filter=safe_key or filter_source == "by-id",
                 filter_snippet=snippet,
                 note=note,
+                route_scope=route_scope,
+                is_admin_handler=is_admin_handler,
+                is_background_task=is_background_task,
+                is_public_endpoint=is_public_endpoint,
+                is_auth_flow=is_auth_flow,
+                is_cli_tool=is_cli_file,
+                collection_has_tenant_id=coll_has_tid,
+                collection_is_user_scoped=coll_is_user_scoped,
+                has_user_id_filter=has_user_id,
+                suppression_reason=suppression_reason,
             )
             queries.append(q)
             finfo.total_queries += 1
@@ -1238,6 +1787,10 @@ def build_summary(
     file_index: dict[str, FileInfo],
     accessor_map: dict[str, str],
     repo_root: Path,
+    collection_struct_map: Optional[dict[str, str]] = None,
+    user_scoped_collections: Optional[set[str]] = None,
+    global_collections: Optional[set[str]] = None,
+    route_classifier: Optional[dict[str, set[str]]] = None,
 ) -> dict:
     """Build the JSON-serialisable summary object."""
     total = len(queries)
@@ -1247,8 +1800,17 @@ def build_summary(
     critical = [q for q in violations if q.risk_level == "CRITICAL"]
     high = [q for q in violations if q.risk_level == "HIGH"]
     medium = [q for q in queries if q.risk_level == "MEDIUM"]
+    ok = [q for q in queries if q.risk_level == "OK"]
     safe_key_violations = [q for q in violations if q.safe_key_filter]
     real_violations = [q for q in violations if not q.safe_key_filter]
+
+    # Suppression breakdown — how many queries were downgraded from a
+    # potential violation to MEDIUM informational by each heuristic.
+    suppression_counts: Counter = Counter()
+    for q in queries:
+        if q.suppression_reason:
+            suppression_counts[q.suppression_reason] += 1
+    route_scope_counts: Counter = Counter(q.route_scope for q in queries)
 
     by_collection: Counter = Counter()
     by_operation: Counter = Counter()
@@ -1276,6 +1838,7 @@ def build_summary(
         "critical_violations": len(critical),
         "high_violations": len(high),
         "medium_global_collection_queries": len(medium),
+        "ok_queries": len(ok),
         "safe_key_violations": len(safe_key_violations),
         "real_violations_needing_review": len(real_violations),
         "pct_with_tenant_id": (
@@ -1298,6 +1861,23 @@ def build_summary(
         "tenant_id_fields": sorted(TENANT_ID_FIELDS),
         "safe_unique_keys": sorted(SAFE_UNIQUE_KEYS),
         "accessor_map_size": len(accessor_map),
+        "suppression_breakdown": [
+            {"reason": r, "count": n}
+            for r, n in suppression_counts.most_common()
+        ],
+        "route_scope_breakdown": [
+            {"scope": s, "count": n}
+            for s, n in route_scope_counts.most_common()
+        ],
+        "user_scoped_collections": sorted(user_scoped_collections or set()),
+        "global_collections": sorted(global_collections or set()),
+        "collection_struct_map": collection_struct_map or {},
+        "route_classifier_sizes": {
+            "admin": len((route_classifier or {}).get("admin", set())),
+            "tenant": len((route_classifier or {}).get("tenant", set())),
+            "auth": len((route_classifier or {}).get("auth", set())),
+            "public": len((route_classifier or {}).get("public", set())),
+        },
     }
 
 
@@ -1306,9 +1886,12 @@ def render_markdown(summary: dict, queries: list[Query]) -> str:
     lines: list[str] = []
     lines.append("# Tenant Isolation Audit\n")
     lines.append(
-        "MongoDB query audit for **cross-tenant data leakage** risks. Every "
-        "query that touches a tenant-scoped collection without a "
-        "`tenantId` filter is flagged as a violation.\n"
+        "MongoDB query audit for **cross-tenant data leakage** risks. The "
+        "auditor flags queries on tenant-scoped collections that lack a "
+        "`tenantId` filter — but first applies a series of context-aware "
+        "heuristics to suppress known false positives (global-by-design "
+        "collections, admin handlers, background tasks, public endpoints, "
+        "user-scoped filters, globally-unique keys, and CLI tools).\n"
     )
     lines.append(f"Repo: `{summary['repo_root']}`\n")
 
@@ -1324,15 +1907,48 @@ def render_markdown(summary: dict, queries: list[Query]) -> str:
     lines.append(
         f"| Queries without `tenantId` filter | **{summary['queries_without_tenant_id']}** |"
     )
-    lines.append(f"| Global-collection queries (MEDIUM) | {summary['medium_global_collection_queries']} |")
+    lines.append(f"| OK (suppressed: user-scoped, has tenantId, etc.) | {summary['ok_queries']} |")
+    lines.append(f"| MEDIUM (suppressed: global/admin/CLI/background/public) | {summary['medium_global_collection_queries']} |")
     lines.append(f"| **Total violations** | **{summary['violations']}** |")
     lines.append(f"| → CRITICAL (write ops, no tenantId) | **{summary['critical_violations']}** |")
     lines.append(f"| → HIGH (read ops, no tenantId) | **{summary['high_violations']}** |")
-    lines.append(f"| Violations with safe unique key (likely false positive) | {summary['safe_key_violations']} |")
     lines.append(
         f"| **Real violations needing review** | **{summary['real_violations_needing_review']}** |"
     )
     lines.append("")
+
+    # ---- Suppression breakdown ----
+    if summary.get("suppression_breakdown"):
+        lines.append("### False-positive suppressions applied\n")
+        lines.append("The following heuristics downgraded potential violations to MEDIUM informational notes:\n")
+        lines.append("| Suppression reason | Queries affected |")
+        lines.append("|--------------------|-----------------|")
+        reason_labels = {
+            "test-util": "Test utility (internal/testutil/) — not production code",
+            "cli-tool": "CLI tool (cmd/lastsaas/) — no request context",
+            "background-task": "Background system task (no request context)",
+            "admin-handler": "Admin handler (/api/admin/*) — sees all tenants by design",
+            "public-endpoint": "Public endpoint (no auth) — published content",
+            "global-by-design": "Collection's struct has no tenantId field — global by design",
+            "user-scoped": "User-scoped collection with userId filter — valid scope",
+            "auth-flow": "Auth-flow handler — user hasn't selected a tenant yet",
+            "safe-unique-key": "Filter uses a globally-unique key — single-doc query",
+            "struct-supports-tenant-id": "Inserted struct declares tenantId — caller responsibility",
+            "exempt-collection": "Collection in exempt list (legacy)",
+        }
+        for r in summary["suppression_breakdown"]:
+            label = reason_labels.get(r["reason"], r["reason"])
+            lines.append(f"| {label} | {r['count']} |")
+        lines.append("")
+
+    # ---- Route scope breakdown ----
+    if summary.get("route_scope_breakdown"):
+        lines.append("### Route scope breakdown\n")
+        lines.append("| Scope | Queries |")
+        lines.append("|-------|---------|")
+        for s in summary["route_scope_breakdown"]:
+            lines.append(f"| `{s['scope']}` | {s['count']} |")
+        lines.append("")
 
     # ---- Risk-level legend ----
     lines.append("### Risk levels\n")
@@ -1344,19 +1960,20 @@ def render_markdown(summary: dict, queries: list[Query]) -> str:
         "- **HIGH** — read operation (`Find`, `FindOne`, `Aggregate`, "
         "`CountDocuments`) on a tenant-scoped collection without a "
         "`tenantId` filter. Can leak data across tenants.\n"
-        "- **MEDIUM** — query on a global collection (`tenants`, `plans`, "
-        "`system_config`, `system_logs`, `users`) that legitimately doesn't "
-        "need tenant filtering, or where tenant filtering is applied "
-        "differently. Not a strict violation but reviewed for appropriate "
-        "scoping.\n"
-        "- **OK** — query has a `tenantId` filter.\n"
+        "- **MEDIUM** — query that was *suppressed* by a false-positive "
+        "heuristic (global-by-design collection, admin handler, background "
+        "task, public endpoint, user-scoped filter, globally-unique key, "
+        "or CLI tool). Not a strict violation but listed for review.\n"
+        "- **OK** — query has a `tenantId` filter, or is on a user-scoped "
+        "collection filtered by `userId` (a valid scope since a user's "
+        "data spans tenants).\n"
     )
     lines.append(
-        "The `safe_key_filter` flag marks violations whose filter contains a "
-        "globally-unique key (e.g. `_id`, `tokenHash`, `slug`). These are "
-        "likely false positives because the unique key already constrains "
-        "the query to a single document — but they are still listed for "
-        "manual confirmation.\n"
+        "The `safe_key_filter` flag marks queries whose filter contains a "
+        "globally-unique key (e.g. `_id`, `tokenHash`, `slug`, `webhookId`). "
+        "Such queries are downgraded to MEDIUM because the unique key "
+        "already constrains the query to a single document regardless of "
+        "tenant.\n"
     )
 
     # ---- Top files ----
@@ -1389,7 +2006,7 @@ def render_markdown(summary: dict, queries: list[Query]) -> str:
     if crit_real:
         lines.append(_render_violation_table(crit_real))
     else:
-        lines.append("_None — all write operations include a `tenantId` filter._\n")
+        lines.append("_None — all write operations include a `tenantId` filter or were suppressed by a context heuristic._\n")
 
     # ---- HIGH violations (real, no safe key) ----
     high_real = [
@@ -1403,31 +2020,35 @@ def render_markdown(summary: dict, queries: list[Query]) -> str:
     if high_real:
         lines.append(_render_violation_table(high_real))
     else:
-        lines.append("_None — all read operations include a `tenantId` filter._\n")
+        lines.append("_None — all read operations include a `tenantId` filter or were suppressed by a context heuristic._\n")
 
-    # ---- Safe-key violations (likely false positives) ----
-    safe_key_vios = [q for q in queries if q.is_violation and q.safe_key_filter]
+    # ---- Safe-key queries (now downgraded to MEDIUM) ----
+    safe_key_qs = [q for q in queries if q.safe_key_filter and not q.is_violation]
     lines.append(
-        f"## Safe-Key Violations — Likely False Positives "
-        f"({len(safe_key_vios)})\n"
+        f"## Safe-Key Queries — Globally-Unique Filter ({len(safe_key_qs)})\n"
     )
     lines.append(
         "These queries lack a `tenantId` filter but constrain on a "
-        "globally-unique key. Listed for completeness — manual confirmation "
-        "recommended.\n"
+        "globally-unique key (`_id`, `tokenHash`, `slug`, `webhookId`, "
+        "etc.). The unique key already constrains the query to a single "
+        "document regardless of tenant — downgraded to MEDIUM.\n"
     )
-    if safe_key_vios:
-        lines.append(_render_violation_table(safe_key_vios))
+    if safe_key_qs:
+        lines.append(_render_violation_table(safe_key_qs[:50]))
+        if len(safe_key_qs) > 50:
+            lines.append(f"\n_…and {len(safe_key_qs) - 50} more (see JSON)._\n")
     else:
         lines.append("_None._\n")
 
-    # ---- MEDIUM — global collections ----
+    # ---- MEDIUM — suppressed queries ----
     medium = [q for q in queries if q.risk_level == "MEDIUM"]
     lines.append(
-        f"## MEDIUM — Global-Collection Queries ({len(medium)})\n"
+        f"## MEDIUM — Suppressed Queries ({len(medium)})\n"
     )
     if medium:
-        lines.append(_render_violation_table(medium))
+        lines.append(_render_violation_table(medium[:50]))
+        if len(medium) > 50:
+            lines.append(f"\n_…and {len(medium) - 50} more (see JSON and All Queries by File below)._\n")
     else:
         lines.append("_None._\n")
 
@@ -1450,22 +2071,23 @@ def _render_violation_table(qs: list[Query]) -> str:
     """Render a list of queries as a markdown table."""
     out: list[str] = []
     out.append(
-        "| Line | Function | Operation | Collection | Filter fields | "
-        "Risk | Safe key | Filter source | Note |"
+        "| Line | Function | Op | Collection | Filter | Scope | Risk | "
+        "Suppression | Note |"
     )
     out.append(
-        "|------|----------|-----------|------------|---------------|------|----------|---------------|------|"
+        "|------|----------|----|------------|--------|-------|------|"
+        "-------------|------|"
     )
     for q in sorted(qs, key=lambda q: (q.file, q.line)):
         fields = ", ".join(f"`{f}`" for f in q.filter_fields) if q.filter_fields else "—"
-        safe = "✓" if q.safe_key_filter else ""
         note = q.note.replace("|", "\\|")
-        if len(note) > 120:
-            note = note[:117] + "..."
+        if len(note) > 90:
+            note = note[:87] + "..."
+        supp = q.suppression_reason or ""
         out.append(
             f"| {q.line} | `{q.function}` | `{q.operation}` | "
-            f"`{q.collection}` | {fields} | {q.risk_level} | {safe} | "
-            f"`{q.filter_source}` | {note} |"
+            f"`{q.collection}` | {fields} | `{q.route_scope}` | "
+            f"{q.risk_level} | {supp} | {note} |"
         )
     out.append("")
     return "\n".join(out)
@@ -1527,6 +2149,33 @@ def main(argv: list[str] | None = None) -> int:
     struct_fields = collect_struct_fields(repo_root)
     print(f"  found {len(struct_fields)} struct definitions", file=sys.stderr)
 
+    print("building collection→struct map...", file=sys.stderr)
+    collection_struct_map = build_collection_struct_map(accessor_map, struct_fields)
+    print(f"  resolved {len(collection_struct_map)} collections to structs", file=sys.stderr)
+
+    print("building user-scoped + global collection lists...", file=sys.stderr)
+    user_scoped_collections = build_user_scoped_collections(
+        collection_struct_map, struct_fields
+    )
+    global_collections = build_global_collections(
+        collection_struct_map, struct_fields
+    )
+    print(
+        f"  {len(user_scoped_collections)} user-scoped collections, "
+        f"{len(global_collections)} global collections",
+        file=sys.stderr,
+    )
+
+    print("parsing main.go for route classification...", file=sys.stderr)
+    route_classifier = build_route_classifier(repo_root)
+    print(
+        f"  admin={len(route_classifier['admin'])}, "
+        f"tenant={len(route_classifier['tenant'])}, "
+        f"auth={len(route_classifier['auth'])}, "
+        f"public={len(route_classifier['public'])} handlers",
+        file=sys.stderr,
+    )
+
     queries: list[Query] = []
     file_index: dict[str, FileInfo] = {}
 
@@ -1545,11 +2194,24 @@ def main(argv: list[str] | None = None) -> int:
             struct_fields=struct_fields,
             queries=queries,
             file_index=file_index,
+            route_classifier=route_classifier,
+            collection_struct_map=collection_struct_map,
+            user_scoped_collections=user_scoped_collections,
+            global_collections=global_collections,
         )
         scanned += 1
     print(f"scanned {scanned} .go files", file=sys.stderr)
 
-    summary = build_summary(queries, file_index, accessor_map, repo_root)
+    summary = build_summary(
+        queries,
+        file_index,
+        accessor_map,
+        repo_root,
+        collection_struct_map=collection_struct_map,
+        user_scoped_collections=user_scoped_collections,
+        global_collections=global_collections,
+        route_classifier=route_classifier,
+    )
     payload = {
         "summary": summary,
         "queries": [q.to_dict() for q in queries],

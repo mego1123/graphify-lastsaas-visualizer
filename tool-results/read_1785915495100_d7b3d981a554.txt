@@ -1,0 +1,631 @@
+     1→package db
+     2→
+     3→import (
+     4→        "context"
+     5→        "log/slog"
+     6→        "time"
+     7→
+     8→        "go.mongodb.org/mongo-driver/bson"
+     9→)
+    10→
+    11→// CollectionSchema pairs a collection name with its JSON Schema validator.
+    12→type CollectionSchema struct {
+    13→        Collection string
+    14→        Schema     bson.M
+    15→}
+    16→
+    17→// AllSchemas returns the JSON Schema validators for all 15 validated collections.
+    18→func AllSchemas() []CollectionSchema {
+    19→        return []CollectionSchema{
+    20→                usersSchema(),
+    21→                tenantsSchema(),
+    22→                tenantMembershipsSchema(),
+    23→                invitationsSchema(),
+    24→                plansSchema(),
+    25→                creditBundlesSchema(),
+    26→                financialTransactionsSchema(),
+    27→                webhooksSchema(),
+    28→                apiKeysSchema(),
+    29→                configVarsSchema(),
+    30→                announcementsSchema(),
+    31→                customPagesSchema(),
+    32→                messagesSchema(),
+    33→                usageEventsSchema(),
+    34→                ssoConnectionsSchema(),
+    35→                eventDefinitionsSchema(),
+    36→        }
+    37→}
+    38→
+    39→// EnsureSchemaValidation applies JSON Schema validators to all validated
+    40→// collections using collMod with moderate validation level.
+    41→func (m *MongoDB) EnsureSchemaValidation() {
+    42→        ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+    43→        defer cancel()
+    44→
+    45→        for _, cs := range AllSchemas() {
+    46→                // Ensure the collection exists (ignore "already exists" errors).
+    47→                _ = m.Database.CreateCollection(ctx, cs.Collection)
+    48→
+    49→                cmd := bson.D{
+    50→                        {Key: "collMod", Value: cs.Collection},
+    51→                        {Key: "validator", Value: cs.Schema},
+    52→                        {Key: "validationLevel", Value: "moderate"},
+    53→                        {Key: "validationAction", Value: "error"},
+    54→                }
+    55→
+    56→                if err := m.Database.RunCommand(ctx, cmd).Err(); err != nil {
+    57→                        slog.Warn("failed to apply schema validation", "collection", cs.Collection, "error", err)
+    58→                }
+    59→        }
+    60→}
+    61→
+    62→// ---------------------------------------------------------------------------
+    63→// Individual collection schemas
+    64→// ---------------------------------------------------------------------------
+    65→
+    66→func usersSchema() CollectionSchema {
+    67→        return CollectionSchema{
+    68→                Collection: "users",
+    69→                Schema: bson.M{
+    70→                        "$jsonSchema": bson.M{
+    71→                                "bsonType": "object",
+    72→                                "required": bson.A{"email", "displayName", "authMethods", "createdAt", "updatedAt"},
+    73→                                "properties": bson.M{
+    74→                                        "email": bson.M{
+    75→                                                "bsonType": "string",
+    76→                                        },
+    77→                                        "displayName": bson.M{
+    78→                                                "bsonType":  "string",
+    79→                                                "minLength": 1,
+    80→                                                "maxLength": 200,
+    81→                                        },
+    82→                                        "authMethods": bson.M{
+    83→                                                "bsonType": "array",
+    84→                                                "minItems": 1,
+    85→                                                "items": bson.M{
+    86→                                                        "bsonType": "string",
+    87→                                                        "enum":     bson.A{"password", "google", "github", "microsoft", "magic_link", "passkey"},
+    88→                                                },
+    89→                                        },
+    90→                                        "createdAt": bson.M{
+    91→                                                "bsonType": "date",
+    92→                                        },
+    93→                                        "updatedAt": bson.M{
+    94→                                                "bsonType": "date",
+    95→                                        },
+    96→                                        "emailVerified": bson.M{
+    97→                                                "bsonType": "bool",
+    98→                                        },
+    99→                                        "isActive": bson.M{
+   100→                                                "bsonType": "bool",
+   101→                                        },
+   102→                                        "themePreference": bson.M{
+   103→                                                "bsonType": "string",
+   104→                                                "enum":     bson.A{"light", "dark", "system", ""},
+   105→                                        },
+   106→                                },
+   107→                        },
+   108→                },
+   109→        }
+   110→}
+   111→
+   112→func tenantsSchema() CollectionSchema {
+   113→        return CollectionSchema{
+   114→                Collection: "tenants",
+   115→                Schema: bson.M{
+   116→                        "$jsonSchema": bson.M{
+   117→                                "bsonType": "object",
+   118→                                "required": bson.A{"name", "slug", "createdAt", "updatedAt"},
+   119→                                "properties": bson.M{
+   120→                                        "name": bson.M{
+   121→                                                "bsonType":  "string",
+   122→                                                "minLength": 1,
+   123→                                                "maxLength": 200,
+   124→                                        },
+   125→                                        "slug": bson.M{
+   126→                                                "bsonType":  "string",
+   127→                                                "minLength": 1,
+   128→                                                "maxLength": 100,
+   129→                                        },
+   130→                                        "createdAt": bson.M{
+   131→                                                "bsonType": "date",
+   132→                                        },
+   133→                                        "updatedAt": bson.M{
+   134→                                                "bsonType": "date",
+   135→                                        },
+   136→                                        "isRoot": bson.M{
+   137→                                                "bsonType": "bool",
+   138→                                        },
+   139→                                        "isActive": bson.M{
+   140→                                                "bsonType": "bool",
+   141→                                        },
+   142→                                        "billingStatus": bson.M{
+   143→                                                "bsonType": "string",
+   144→                                                "enum":     bson.A{"none", "active", "past_due", "canceled", ""},
+   145→                                        },
+   146→                                        "seatQuantity": bson.M{
+   147→                                                "bsonType": "int",
+   148→                                        },
+   149→                                },
+   150→                        },
+   151→                },
+   152→        }
+   153→}
+   154→
+   155→func tenantMembershipsSchema() CollectionSchema {
+   156→        return CollectionSchema{
+   157→                Collection: "tenant_memberships",
+   158→                Schema: bson.M{
+   159→                        "$jsonSchema": bson.M{
+   160→                                "bsonType": "object",
+   161→                                "required": bson.A{"userId", "tenantId", "role", "joinedAt", "updatedAt"},
+   162→                                "properties": bson.M{
+   163→                                        "userId": bson.M{
+   164→                                                "bsonType": "objectId",
+   165→                                        },
+   166→                                        "tenantId": bson.M{
+   167→                                                "bsonType": "objectId",
+   168→                                        },
+   169→                                        "role": bson.M{
+   170→                                                "bsonType": "string",
+   171→                                                "enum":     bson.A{"owner", "admin", "user"},
+   172→                                        },
+   173→                                        "joinedAt": bson.M{
+   174→                                                "bsonType": "date",
+   175→                                        },
+   176→                                        "updatedAt": bson.M{
+   177→                                                "bsonType": "date",
+   178→                                        },
+   179→                                },
+   180→                        },
+   181→                },
+   182→        }
+   183→}
+   184→
+   185→func invitationsSchema() CollectionSchema {
+   186→        return CollectionSchema{
+   187→                Collection: "invitations",
+   188→                Schema: bson.M{
+   189→                        "$jsonSchema": bson.M{
+   190→                                "bsonType": "object",
+   191→                                "required": bson.A{"tenantId", "email", "role", "token", "status", "invitedBy", "expiresAt", "createdAt"},
+   192→                                "properties": bson.M{
+   193→                                        "tenantId": bson.M{
+   194→                                                "bsonType": "objectId",
+   195→                                        },
+   196→                                        "email": bson.M{
+   197→                                                "bsonType": "string",
+   198→                                        },
+   199→                                        "role": bson.M{
+   200→                                                "bsonType": "string",
+   201→                                                "enum":     bson.A{"owner", "admin", "user"},
+   202→                                        },
+   203→                                        "token": bson.M{
+   204→                                                "bsonType": "string",
+   205→                                        },
+   206→                                        "status": bson.M{
+   207→                                                "bsonType": "string",
+   208→                                                "enum":     bson.A{"pending", "accepted"},
+   209→                                        },
+   210→                                        "invitedBy": bson.M{
+   211→                                                "bsonType": "objectId",
+   212→                                        },
+   213→                                        "expiresAt": bson.M{
+   214→                                                "bsonType": "date",
+   215→                                        },
+   216→                                        "createdAt": bson.M{
+   217→                                                "bsonType": "date",
+   218→                                        },
+   219→                                },
+   220→                        },
+   221→                },
+   222→        }
+   223→}
+   224→
+   225→func plansSchema() CollectionSchema {
+   226→        return CollectionSchema{
+   227→                Collection: "plans",
+   228→                Schema: bson.M{
+   229→                        "$jsonSchema": bson.M{
+   230→                                "bsonType": "object",
+   231→                                "required": bson.A{"name", "pricingModel", "creditResetPolicy", "createdAt", "updatedAt"},
+   232→                                "properties": bson.M{
+   233→                                        "name": bson.M{
+   234→                                                "bsonType":  "string",
+   235→                                                "minLength": 1,
+   236→                                                "maxLength": 200,
+   237→                                        },
+   238→                                        "pricingModel": bson.M{
+   239→                                                "bsonType": "string",
+   240→                                                "enum":     bson.A{"flat", "per_seat"},
+   241→                                        },
+   242→                                        "creditResetPolicy": bson.M{
+   243→                                                "bsonType": "string",
+   244→                                                "enum":     bson.A{"reset", "accrue"},
+   245→                                        },
+   246→                                        "createdAt": bson.M{
+   247→                                                "bsonType": "date",
+   248→                                        },
+   249→                                        "updatedAt": bson.M{
+   250→                                                "bsonType": "date",
+   251→                                        },
+   252→                                        "monthlyPriceCents": bson.M{
+   253→                                                "bsonType": "long",
+   254→                                                "minimum":  0,
+   255→                                        },
+   256→                                        "annualDiscountPct": bson.M{
+   257→                                                "bsonType": "int",
+   258→                                                "minimum":  0,
+   259→                                                "maximum":  100,
+   260→                                        },
+   261→                                        "trialDays": bson.M{
+   262→                                                "bsonType": "int",
+   263→                                                "minimum":  0,
+   264→                                        },
+   265→                                },
+   266→                        },
+   267→                },
+   268→        }
+   269→}
+   270→
+   271→func creditBundlesSchema() CollectionSchema {
+   272→        return CollectionSchema{
+   273→                Collection: "credit_bundles",
+   274→                Schema: bson.M{
+   275→                        "$jsonSchema": bson.M{
+   276→                                "bsonType": "object",
+   277→                                "required": bson.A{"name", "credits", "priceCents", "createdAt", "updatedAt"},
+   278→                                "properties": bson.M{
+   279→                                        "name": bson.M{
+   280→                                                "bsonType":  "string",
+   281→                                                "minLength": 1,
+   282→                                                "maxLength": 200,
+   283→                                        },
+   284→                                        "credits": bson.M{
+   285→                                                "bsonType": "long",
+   286→                                                "minimum":  1,
+   287→                                        },
+   288→                                        "priceCents": bson.M{
+   289→                                                "bsonType": "long",
+   290→                                                "minimum":  1,
+   291→                                        },
+   292→                                        "createdAt": bson.M{
+   293→                                                "bsonType": "date",
+   294→                                        },
+   295→                                        "updatedAt": bson.M{
+   296→                                                "bsonType": "date",
+   297→                                        },
+   298→                                },
+   299→                        },
+   300→                },
+   301→        }
+   302→}
+   303→
+   304→func financialTransactionsSchema() CollectionSchema {
+   305→        return CollectionSchema{
+   306→                Collection: "financial_transactions",
+   307→                Schema: bson.M{
+   308→                        "$jsonSchema": bson.M{
+   309→                                "bsonType": "object",
+   310→                                "required": bson.A{"tenantId", "userId", "type", "currency", "invoiceNumber", "createdAt"},
+   311→                                "properties": bson.M{
+   312→                                        "tenantId": bson.M{
+   313→                                                "bsonType": "objectId",
+   314→                                        },
+   315→                                        "userId": bson.M{
+   316→                                                "bsonType": "objectId",
+   317→                                        },
+   318→                                        "type": bson.M{
+   319→                                                "bsonType": "string",
+   320→                                                "enum":     bson.A{"subscription", "credit_purchase", "refund"},
+   321→                                        },
+   322→                                        "currency": bson.M{
+   323→                                                "bsonType": "string",
+   324→                                        },
+   325→                                        "invoiceNumber": bson.M{
+   326→                                                "bsonType": "string",
+   327→                                        },
+   328→                                        "createdAt": bson.M{
+   329→                                                "bsonType": "date",
+   330→                                        },
+   331→                                },
+   332→                        },
+   333→                },
+   334→        }
+   335→}
+   336→
+   337→func webhooksSchema() CollectionSchema {
+   338→        return CollectionSchema{
+   339→                Collection: "webhooks",
+   340→                Schema: bson.M{
+   341→                        "$jsonSchema": bson.M{
+   342→                                "bsonType": "object",
+   343→                                "required": bson.A{"name", "url", "secret", "secretPreview", "events", "createdBy", "createdAt", "updatedAt"},
+   344→                                "properties": bson.M{
+   345→                                        "name": bson.M{
+   346→                                                "bsonType":  "string",
+   347→                                                "minLength": 1,
+   348→                                                "maxLength": 100,
+   349→                                        },
+   350→                                        "url": bson.M{
+   351→                                                "bsonType": "string",
+   352→                                        },
+   353→                                        "secret": bson.M{
+   354→                                                "bsonType": "string",
+   355→                                        },
+   356→                                        "secretPreview": bson.M{
+   357→                                                "bsonType": "string",
+   358→                                        },
+   359→                                        "events": bson.M{
+   360→                                                "bsonType": "array",
+   361→                                                "minItems": 1,
+   362→                                        },
+   363→                                        "createdBy": bson.M{
+   364→                                                "bsonType": "objectId",
+   365→                                        },
+   366→                                        "createdAt": bson.M{
+   367→                                                "bsonType": "date",
+   368→                                        },
+   369→                                        "updatedAt": bson.M{
+   370→                                                "bsonType": "date",
+   371→                                        },
+   372→                                },
+   373→                        },
+   374→                },
+   375→        }
+   376→}
+   377→
+   378→func apiKeysSchema() CollectionSchema {
+   379→        return CollectionSchema{
+   380→                Collection: "api_keys",
+   381→                Schema: bson.M{
+   382→                        "$jsonSchema": bson.M{
+   383→                                "bsonType": "object",
+   384→                                "required": bson.A{"name", "keyHash", "keyPreview", "authority", "createdBy", "createdAt"},
+   385→                                "properties": bson.M{
+   386→                                        "name": bson.M{
+   387→                                                "bsonType":  "string",
+   388→                                                "minLength": 1,
+   389→                                                "maxLength": 100,
+   390→                                        },
+   391→                                        "keyHash": bson.M{
+   392→                                                "bsonType": "string",
+   393→                                        },
+   394→                                        "keyPreview": bson.M{
+   395→                                                "bsonType": "string",
+   396→                                        },
+   397→                                        "authority": bson.M{
+   398→                                                "bsonType": "string",
+   399→                                                "enum":     bson.A{"admin", "user"},
+   400→                                        },
+   401→                                        "createdBy": bson.M{
+   402→                                                "bsonType": "objectId",
+   403→                                        },
+   404→                                        "createdAt": bson.M{
+   405→                                                "bsonType": "date",
+   406→                                        },
+   407→                                },
+   408→                        },
+   409→                },
+   410→        }
+   411→}
+   412→
+   413→func configVarsSchema() CollectionSchema {
+   414→        return CollectionSchema{
+   415→                Collection: "config_vars",
+   416→                Schema: bson.M{
+   417→                        "$jsonSchema": bson.M{
+   418→                                "bsonType": "object",
+   419→                                "required": bson.A{"name", "type", "createdAt", "updatedAt"},
+   420→                                "properties": bson.M{
+   421→                                        "name": bson.M{
+   422→                                                "bsonType":  "string",
+   423→                                                "minLength": 1,
+   424→                                                "maxLength": 200,
+   425→                                        },
+   426→                                        "type": bson.M{
+   427→                                                "bsonType": "string",
+   428→                                                "enum":     bson.A{"string", "numeric", "enum", "template"},
+   429→                                        },
+   430→                                        "createdAt": bson.M{
+   431→                                                "bsonType": "date",
+   432→                                        },
+   433→                                        "updatedAt": bson.M{
+   434→                                                "bsonType": "date",
+   435→                                        },
+   436→                                },
+   437→                        },
+   438→                },
+   439→        }
+   440→}
+   441→
+   442→func announcementsSchema() CollectionSchema {
+   443→        return CollectionSchema{
+   444→                Collection: "announcements",
+   445→                Schema: bson.M{
+   446→                        "$jsonSchema": bson.M{
+   447→                                "bsonType": "object",
+   448→                                "required": bson.A{"title", "body", "createdAt", "updatedAt"},
+   449→                                "properties": bson.M{
+   450→                                        "title": bson.M{
+   451→                                                "bsonType":  "string",
+   452→                                                "minLength": 1,
+   453→                                                "maxLength": 200,
+   454→                                        },
+   455→                                        "body": bson.M{
+   456→                                                "bsonType":  "string",
+   457→                                                "minLength": 1,
+   458→                                        },
+   459→                                        "createdAt": bson.M{
+   460→                                                "bsonType": "date",
+   461→                                        },
+   462→                                        "updatedAt": bson.M{
+   463→                                                "bsonType": "date",
+   464→                                        },
+   465→                                },
+   466→                        },
+   467→                },
+   468→        }
+   469→}
+   470→
+   471→func customPagesSchema() CollectionSchema {
+   472→        return CollectionSchema{
+   473→                Collection: "custom_pages",
+   474→                Schema: bson.M{
+   475→                        "$jsonSchema": bson.M{
+   476→                                "bsonType": "object",
+   477→                                "required": bson.A{"slug", "title", "createdAt", "updatedAt"},
+   478→                                "properties": bson.M{
+   479→                                        "slug": bson.M{
+   480→                                                "bsonType":  "string",
+   481→                                                "minLength": 1,
+   482→                                                "maxLength": 200,
+   483→                                        },
+   484→                                        "title": bson.M{
+   485→                                                "bsonType":  "string",
+   486→                                                "minLength": 1,
+   487→                                                "maxLength": 200,
+   488→                                        },
+   489→                                        "createdAt": bson.M{
+   490→                                                "bsonType": "date",
+   491→                                        },
+   492→                                        "updatedAt": bson.M{
+   493→                                                "bsonType": "date",
+   494→                                        },
+   495→                                },
+   496→                        },
+   497→                },
+   498→        }
+   499→}
+   500→
+   501→func messagesSchema() CollectionSchema {
+   502→        return CollectionSchema{
+   503→                Collection: "messages",
+   504→                Schema: bson.M{
+   505→                        "$jsonSchema": bson.M{
+   506→                                "bsonType": "object",
+   507→                                "required": bson.A{"userId", "subject", "body", "createdAt"},
+   508→                                "properties": bson.M{
+   509→                                        "userId": bson.M{
+   510→                                                "bsonType": "objectId",
+   511→                                        },
+   512→                                        "subject": bson.M{
+   513→                                                "bsonType":  "string",
+   514→                                                "minLength": 1,
+   515→                                                "maxLength": 200,
+   516→                                        },
+   517→                                        "body": bson.M{
+   518→                                                "bsonType":  "string",
+   519→                                                "minLength": 1,
+   520→                                        },
+   521→                                        "createdAt": bson.M{
+   522→                                                "bsonType": "date",
+   523→                                        },
+   524→                                },
+   525→                        },
+   526→                },
+   527→        }
+   528→}
+   529→
+   530→func usageEventsSchema() CollectionSchema {
+   531→        return CollectionSchema{
+   532→                Collection: "usage_events",
+   533→                Schema: bson.M{
+   534→                        "$jsonSchema": bson.M{
+   535→                                "bsonType": "object",
+   536→                                "required": bson.A{"tenantId", "userId", "type", "quantity", "createdAt"},
+   537→                                "properties": bson.M{
+   538→                                        "tenantId": bson.M{
+   539→                                                "bsonType": "objectId",
+   540→                                        },
+   541→                                        "userId": bson.M{
+   542→                                                "bsonType": "objectId",
+   543→                                        },
+   544→                                        "type": bson.M{
+   545→                                                "bsonType":  "string",
+   546→                                                "minLength": 1,
+   547→                                                "maxLength": 100,
+   548→                                        },
+   549→                                        "quantity": bson.M{
+   550→                                                "bsonType": "int",
+   551→                                                "minimum":  1,
+   552→                                        },
+   553→                                        "metadata": bson.M{
+   554→                                                "bsonType": "object",
+   555→                                                "additionalProperties": bson.M{
+   556→                                                        "bsonType": "string",
+   557→                                                },
+   558→                                        },
+   559→                                        "createdAt": bson.M{
+   560→                                                "bsonType": "date",
+   561→                                        },
+   562→                                },
+   563→                        },
+   564→                },
+   565→        }
+   566→}
+   567→
+   568→func ssoConnectionsSchema() CollectionSchema {
+   569→        return CollectionSchema{
+   570→                Collection: "sso_connections",
+   571→                Schema: bson.M{
+   572→                        "$jsonSchema": bson.M{
+   573→                                "bsonType": "object",
+   574→                                "required": bson.A{"tenantId", "idpEntityId", "idpSsoUrl", "idpCertificate", "createdAt", "updatedAt"},
+   575→                                "properties": bson.M{
+   576→                                        "tenantId": bson.M{
+   577→                                                "bsonType": "objectId",
+   578→                                        },
+   579→                                        "idpEntityId": bson.M{
+   580→                                                "bsonType": "string",
+   581→                                        },
+   582→                                        "idpSsoUrl": bson.M{
+   583→                                                "bsonType": "string",
+   584→                                        },
+   585→                                        "idpCertificate": bson.M{
+   586→                                                "bsonType": "string",
+   587→                                        },
+   588→                                        "createdAt": bson.M{
+   589→                                                "bsonType": "date",
+   590→                                        },
+   591→                                        "updatedAt": bson.M{
+   592→                                                "bsonType": "date",
+   593→                                        },
+   594→                                },
+   595→                        },
+   596→                },
+   597→        }
+   598→}
+   599→
+   600→func eventDefinitionsSchema() CollectionSchema {
+   601→        return CollectionSchema{
+   602→                Collection: "event_definitions",
+   603→                Schema: bson.M{
+   604→                        "$jsonSchema": bson.M{
+   605→                                "bsonType": "object",
+   606→                                "required": bson.A{"name", "createdAt", "updatedAt"},
+   607→                                "properties": bson.M{
+   608→                                        "name": bson.M{
+   609→                                                "bsonType":  "string",
+   610→                                                "minLength": 1,
+   611→                                                "maxLength": 128,
+   612→                                        },
+   613→                                        "description": bson.M{
+   614→                                                "bsonType":  "string",
+   615→                                                "maxLength": 256,
+   616→                                        },
+   617→                                        "parentId": bson.M{
+   618→                                                "bsonType": "objectId",
+   619→                                        },
+   620→                                        "createdAt": bson.M{
+   621→                                                "bsonType": "date",
+   622→                                        },
+   623→                                        "updatedAt": bson.M{
+   624→                                                "bsonType": "date",
+   625→                                        },
+   626→                                },
+   627→                        },
+   628→                },
+   629→        }
+   630→}
+   631→
