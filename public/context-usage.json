@@ -1,0 +1,289 @@
+[
+  {
+    "name": "ThemeContext",
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "consumer_count": 2,
+    "risk_level": "LOW",
+    "consumers": [
+      {
+        "component": "Layout",
+        "file": "frontend/src/components/Layout.tsx",
+        "hook": "useTheme"
+      },
+      {
+        "component": "getSystemTheme",
+        "file": "frontend/src/contexts/ThemeContext.tsx",
+        "hook": "useContext"
+      }
+    ]
+  },
+  {
+    "name": "BrandingContext",
+    "file": "frontend/src/contexts/BrandingContext.tsx",
+    "consumer_count": 10,
+    "risk_level": "MEDIUM",
+    "consumers": [
+      {
+        "component": "Layout",
+        "file": "frontend/src/components/Layout.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "generatePalette",
+        "file": "frontend/src/components/BrandingThemeInjector.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "BrandingProvider",
+        "file": "frontend/src/contexts/BrandingContext.tsx",
+        "hook": "useContext"
+      },
+      {
+        "component": "BrandingPage",
+        "file": "frontend/src/pages/admin/BrandingPage.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "GoogleIcon",
+        "file": "frontend/src/pages/auth/LoginPage.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "GoogleIcon",
+        "file": "frontend/src/pages/auth/SignupPage.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "SettingsPage",
+        "file": "frontend/src/pages/app/SettingsPage.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "DashboardPage",
+        "file": "frontend/src/pages/app/DashboardPage.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "LandingPage",
+        "file": "frontend/src/pages/public/LandingPage.tsx",
+        "hook": "useBranding"
+      },
+      {
+        "component": "SecurityTab",
+        "file": "frontend/src/pages/app/settings/SecurityTab.tsx",
+        "hook": "useBranding"
+      }
+    ]
+  },
+  {
+    "name": "TenantContext",
+    "file": "frontend/src/contexts/TenantContext.tsx",
+    "consumer_count": 19,
+    "risk_level": "MEDIUM",
+    "consumers": [
+      {
+        "component": "AdminRoute",
+        "file": "frontend/src/components/AdminRoute.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "AdminLayout",
+        "file": "frontend/src/components/AdminLayout.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "Layout",
+        "file": "frontend/src/components/Layout.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "TenantProvider",
+        "file": "frontend/src/contexts/TenantContext.tsx",
+        "hook": "useContext"
+      },
+      {
+        "component": "BrandingPage",
+        "file": "frontend/src/pages/admin/BrandingPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "relativeTime",
+        "file": "frontend/src/pages/admin/UsersPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "formatDate",
+        "file": "frontend/src/pages/admin/APIPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "formatPrice",
+        "file": "frontend/src/pages/admin/PlansPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "uniqueProductNames",
+        "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "RootMembersPage",
+        "file": "frontend/src/pages/admin/RootMembersPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "TenantsPage",
+        "file": "frontend/src/pages/admin/TenantsPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "UserProfilePage",
+        "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "AnnouncementsPage",
+        "file": "frontend/src/pages/admin/AnnouncementsPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "formatPrice",
+        "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "parseEnumOptions",
+        "file": "frontend/src/pages/admin/ConfigPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "renderTemplate",
+        "file": "frontend/src/pages/app/TeamPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "getCurrencySymbol",
+        "file": "frontend/src/pages/app/PlanPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "DashboardPage",
+        "file": "frontend/src/pages/app/DashboardPage.tsx",
+        "hook": "useTenant"
+      },
+      {
+        "component": "renderTemplate",
+        "file": "frontend/src/pages/app/TestEntitlementsPage.tsx",
+        "hook": "useTenant"
+      }
+    ]
+  },
+  {
+    "name": "AuthContext",
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "consumer_count": 21,
+    "risk_level": "MEDIUM",
+    "consumers": [
+      {
+        "component": "ProtectedRoute",
+        "file": "frontend/src/components/ProtectedRoute.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "Layout",
+        "file": "frontend/src/components/Layout.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "ImpersonationBanner",
+        "file": "frontend/src/components/ImpersonationBanner.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "getSystemTheme",
+        "file": "frontend/src/contexts/ThemeContext.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "TenantProvider",
+        "file": "frontend/src/contexts/TenantContext.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "isMfaRequired",
+        "file": "frontend/src/contexts/AuthContext.tsx",
+        "hook": "useContext"
+      },
+      {
+        "component": "relativeTime",
+        "file": "frontend/src/pages/admin/UsersPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "RootMembersPage",
+        "file": "frontend/src/pages/admin/RootMembersPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "UserProfilePage",
+        "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "MagicLinkVerifyPage",
+        "file": "frontend/src/pages/auth/MagicLinkVerifyPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "GoogleIcon",
+        "file": "frontend/src/pages/auth/LoginPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "MFAChallengePage",
+        "file": "frontend/src/pages/auth/MFAChallengePage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "GoogleIcon",
+        "file": "frontend/src/pages/auth/SignupPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "AuthCallbackPage",
+        "file": "frontend/src/pages/auth/AuthCallbackPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "renderTemplate",
+        "file": "frontend/src/pages/app/TeamPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "SettingsPage",
+        "file": "frontend/src/pages/app/SettingsPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "OnboardingPage",
+        "file": "frontend/src/pages/app/OnboardingPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "DashboardPage",
+        "file": "frontend/src/pages/app/DashboardPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "LandingPage",
+        "file": "frontend/src/pages/public/LandingPage.tsx",
+        "hook": "useAuth"
+      },
+      {
+        "component": "PasswordStrength",
+        "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+        "hook": "useAuth"
+      }
+    ]
+  }
+]

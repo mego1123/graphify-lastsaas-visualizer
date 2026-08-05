@@ -1093,6 +1093,482 @@ def emit_prop_drilling_report(drilling: list[PropFlow], repo: Path) -> str:
 
 
 # ============================================================
+# Feature 5: Hook Dependency Analyzer
+# ============================================================
+
+@dataclass
+class HookIssue:
+    file: str
+    component: str
+    hook_type: str       # useEffect, useMemo, useCallback
+    line: int
+    issue_type: str      # missing_dep, unnecessary_dep, empty_deps, no_deps_array
+    description: str
+    missing_vars: list[str] = field(default_factory=list)
+    unnecessary_vars: list[str] = field(default_factory=list)
+
+
+def analyze_hook_dependencies(repo: Path) -> list[HookIssue]:
+    """Analyze React hook dependency arrays for common bugs.
+
+    Checks:
+    1. Missing dependencies — variables used in the hook body but not in the dep array
+    2. Unnecessary dependencies — variables in the dep array but not used in the body
+    3. Empty dep array — hook runs once, but uses variables that may change
+    4. No dep array — hook runs on every render (usually a bug)
+    """
+    src_dirs = detect_src_dirs(repo)
+    issues: list[HookIssue] = []
+
+    # Regex to find hooks: useEffect(() => { ... }, [deps]) or useEffect(callback, [deps])
+    # We need to match the hook call, the body, and the dependency array
+    hook_pattern = re.compile(
+        r'(use(Effect|Memo|Callback|LayoutEffect))\s*\(\s*'  # hook name
+        r'(?:'                                                    # callback can be:
+        r'\(\s*\)\s*=>\s*\{'                                      #   () => {
+        r'|'                                                      # or
+        r'\([^)]*\)\s*=>\s*\{'                                    #   (args) => {
+        r'|'                                                      # or
+        r'(?:async\s+)?\([^)]*\)\s*=>\s*\{'                       #   async (args) => {
+        r')',
+        re.DOTALL,
+    )
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                rel = str(f.relative_to(repo))
+                lines = content.split("\n")
+
+                # Find component name (for reporting)
+                comp_name = ""
+                for line in lines:
+                    m = re.match(r'(?:export\s+)?(?:default\s+)?function\s+(\w+)', line)
+                    if m:
+                        comp_name = m.group(1)
+                        break
+
+                # Find each hook call
+                for m in hook_pattern.finditer(content):
+                    hook_name = m.group(1)
+                    hook_type = m.group(2)  # Effect, Memo, Callback, LayoutEffect
+
+                    # Get line number
+                    line_num = content[:m.start()].count("\n") + 1
+
+                    # Find the hook body (from the { after the arrow to the matching })
+                    body_start = m.end() - 1  # position of {
+                    depth = 0
+                    body_end = body_start
+                    for i in range(body_start, len(content)):
+                        if content[i] == '{':
+                            depth += 1
+                        elif content[i] == '}':
+                            depth -= 1
+                            if depth == 0:
+                                body_end = i
+                                break
+                    body = content[body_start:body_end+1]
+
+                    # Find the dependency array after the body
+                    after_body = content[body_end+1:]
+                    # Skip whitespace, then look for , [deps]
+                    deps_match = re.match(r'\s*,\s*\[([^\]]*)\]', after_body)
+                    deps_str = ""
+                    if deps_match:
+                        deps_str = deps_match.group(1)
+                        deps = [d.strip() for d in deps_str.split(",") if d.strip()]
+                    else:
+                        # Check if there's no deps array at all
+                        # (just a closing paren after the body)
+                        deps = None  # no dependency array
+
+                    # Extract variables referenced in the hook body
+                    # Look for identifiers that are likely variables (not keywords, not strings)
+                    body_vars: set[str] = set()
+                    # Match identifiers that aren't in strings or comments
+                    # Simple heuristic: find all word-boundary identifiers
+                    for var_match in re.finditer(r'\b([a-zA-Z_$][a-zA-Z0-9_$]*)\b', body):
+                        var = var_match.group(1)
+                        # Skip JavaScript/React keywords and built-ins
+                        if var in ("if", "else", "return", "const", "let", "var", "function",
+                                   "true", "false", "null", "undefined", "new", "typeof",
+                                   "await", "async", "try", "catch", "finally", "throw",
+                                   "for", "while", "do", "switch", "case", "break", "continue",
+                                   "this", "class", "extends", "import", "export", "default",
+                                   "from", "as", "in", "of", "instanceof", "void", "delete",
+                                   "yield", "debugger", "with", "implements", "interface",
+                                   "package", "private", "protected", "public", "static",
+                                   "console", "window", "document", "Math", "JSON", "Object",
+                                   "Array", "String", "Number", "Boolean", "Date", "Promise",
+                                   "Set", "Map", "Symbol", "Error", "RegExp", "Number",
+                                   "parseInt", "parseFloat", "isNaN", "isFinite",
+                                   "setTimeout", "setInterval", "clearTimeout", "clearInterval",
+                                   "fetch", "alert", "confirm", "prompt"):
+                            continue
+                        # Skip function parameter names (common patterns)
+                        if var.startswith("set"):  # setState functions
+                            body_vars.add(var)
+                        elif var[0].isupper():  # component names
+                            body_vars.add(var)
+                        elif var[0].islower():
+                            body_vars.add(var)
+
+                    # Determine issues
+                    if deps is None:
+                        # No dependency array
+                        issues.append(HookIssue(
+                            file=rel,
+                            component=comp_name,
+                            hook_type=hook_name,
+                            line=line_num,
+                            issue_type="no_deps_array",
+                            description=f"{hook_name} has no dependency array — runs on every render",
+                        ))
+                    elif len(deps) == 0:
+                        # Empty dependency array
+                        # Check if the body uses external variables
+                        external_vars = {v for v in body_vars if not v.startswith("set")}
+                        if external_vars:
+                            issues.append(HookIssue(
+                                file=rel,
+                                component=comp_name,
+                                hook_type=hook_name,
+                                line=line_num,
+                                issue_type="empty_deps",
+                                description=f"{hook_name} has empty deps [] but uses external variables: {', '.join(sorted(external_vars)[:5])}",
+                                missing_vars=sorted(external_vars)[:5],
+                            ))
+                    else:
+                        # Check for missing deps
+                        dep_set = set(deps)
+                        missing = body_vars - dep_set
+                        # Filter out likely-false-positives: setState functions are usually safe to omit
+                        missing = {v for v in missing if not v.startswith("set")}
+                        # Filter out variables that are likely defined inside the hook body
+                        # (we'd need proper scope analysis for this, but as a heuristic,
+                        # skip single-letter vars and common loop variables)
+                        missing = {v for v in missing if len(v) > 1}
+
+                        if missing:
+                            issues.append(HookIssue(
+                                file=rel,
+                                component=comp_name,
+                                hook_type=hook_name,
+                                line=line_num,
+                                issue_type="missing_dep",
+                                description=f"{hook_name} uses variables not in dependency array: {', '.join(sorted(missing)[:5])}",
+                                missing_vars=sorted(missing)[:5],
+                            ))
+
+                        # Check for unnecessary deps
+                        unnecessary = dep_set - body_vars
+                        unnecessary = {v for v in unnecessary if len(v) > 1}
+                        if unnecessary:
+                            issues.append(HookIssue(
+                                file=rel,
+                                component=comp_name,
+                                hook_type=hook_name,
+                                line=line_num,
+                                issue_type="unnecessary_dep",
+                                description=f"{hook_name} has dependencies not used in the body: {', '.join(sorted(unnecessary)[:5])}",
+                                unnecessary_vars=sorted(unnecessary)[:5],
+                            ))
+
+    return issues
+
+
+def emit_hook_report(issues: list[HookIssue], repo: Path) -> str:
+    """Emit markdown report for hook dependency issues."""
+    lines = [
+        f"# 🪝 Hook Dependency Report — {repo.name}",
+        "",
+        f"**Found {len(issues)} potential hook dependency issue(s).**",
+        "",
+    ]
+
+    if not issues:
+        lines.append("✅ No hook dependency issues found. All hooks have correct dependency arrays.")
+        return "\n".join(lines)
+
+    # Summary by issue type
+    by_type: dict[str, int] = defaultdict(int)
+    for issue in issues:
+        by_type[issue.issue_type] += 1
+
+    lines.append("## Summary")
+    lines.append("")
+    lines.append("| Issue Type | Count | Severity |")
+    lines.append("|-----------|-------|----------|")
+    severity = {
+        "missing_dep": "🔴 High — can cause stale closures and bugs",
+        "no_deps_array": "🟡 Medium — hook runs on every render (performance)",
+        "empty_deps": "🟡 Medium — may miss needed re-runs",
+        "unnecessary_dep": "🟢 Low — unnecessary re-runs (minor perf)",
+    }
+    for itype, count in sorted(by_type.items(), key=lambda x: -x[1]):
+        lines.append(f"| {itype} | {count} | {severity.get(itype, '?')} |")
+    lines.append("")
+
+    # Detailed issues
+    lines.append("## Issues")
+    lines.append("")
+
+    # Sort by severity (missing_dep first)
+    severity_order = {"missing_dep": 0, "no_deps_array": 1, "empty_deps": 2, "unnecessary_dep": 3}
+    issues_sorted = sorted(issues, key=lambda x: severity_order.get(x.issue_type, 99))
+
+    for issue in issues_sorted[:30]:  # cap at 30
+        icon = {"missing_dep": "🔴", "no_deps_array": "🟡", "empty_deps": "🟡", "unnecessary_dep": "🟢"}[issue.issue_type]
+        lines.append(f"### {icon} {issue.hook_type} — {issue.issue_type}")
+        lines.append("")
+        lines.append(f"- **File:** `{issue.file}:{issue.line}`")
+        lines.append(f"- **Component:** `{issue.component}`")
+        lines.append(f"- **Issue:** {issue.description}")
+        if issue.missing_vars:
+            lines.append(f"- **Missing:** `{', '.join(issue.missing_vars)}`")
+        if issue.unnecessary_vars:
+            lines.append(f"- **Unnecessary:** `{', '.join(issue.unnecessary_vars)}`")
+        lines.append("")
+
+    if len(issues_sorted) > 30:
+        lines.append(f"_... and {len(issues_sorted) - 30} more issues_")
+        lines.append("")
+
+    lines.append("## How to Fix")
+    lines.append("")
+    lines.append("- **Missing deps:** Add the variable to the dependency array, or wrap it in a `useRef` if it shouldn't trigger re-runs")
+    lines.append("- **No deps array:** Add `[]` for run-once, or `[dep1, dep2]` for specific triggers")
+    lines.append("- **Empty deps:** If the hook uses external variables, add them to the array")
+    lines.append("- **Unnecessary deps:** Remove unused entries from the dependency array")
+    lines.append("")
+    lines.append("> ⚠️ These are heuristic checks. Some missing deps are intentional (e.g., `eslint-disable` comments). Always review context.")
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# Feature 6: Context Usage Map
+# ============================================================
+
+@dataclass
+class ContextInfo:
+    name: str              # e.g., "AuthContext"
+    file: str              # where the Context is defined
+    provider_component: str  # component that wraps children in <Provider>
+    consumers: list[dict]  # [{component, file, hook: useAuth}]
+    consumer_count: int
+    risk_level: str        # LOW, MEDIUM, HIGH
+
+
+def find_contexts(repo: Path) -> list[ContextInfo]:
+    """Find all React Context definitions and their consumers.
+
+    Looks for:
+    1. Context creation: const XContext = createContext(...)
+    2. Provider usage: <XContext.Provider> or <Provider>
+    3. Consumer hooks: const { ... } = useContext(XContext) or custom hooks like useAuth()
+    """
+    src_dirs = detect_src_dirs(repo)
+    contexts: list[ContextInfo] = []
+
+    # Map: context_name → {file, provider_component}
+    context_defs: dict[str, dict] = {}
+    # Map: hook_name → context_name (e.g., useAuth → AuthContext)
+    hook_to_context: dict[str, str] = {}
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.ts", "*.jsx", "*.js"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                rel = str(f.relative_to(repo))
+
+                # Find Context creation: const XContext = createContext(...)
+                for m in re.finditer(r'(?:const|let)\s+(\w+Context)\s*=\s*createContext', content):
+                    ctx_name = m.group(1)
+                    context_defs[ctx_name] = {"file": rel, "provider_component": ""}
+
+                # Find custom hooks that wrap useContext: const useX = () => useContext(XContext)
+                # or: export function useX() { return useContext(XContext) }
+                for m in re.finditer(r'(?:const|let)\s+(use\w+)\s*=\s*\(\s*\)\s*=>\s*useContext\s*\(\s*(\w+Context)\s*\)', content):
+                    hook_name = m.group(1)
+                    ctx_name = m.group(2)
+                    hook_to_context[hook_name] = ctx_name
+
+                for m in re.finditer(r'(?:export\s+)?function\s+(use\w+)\s*\(\s*\)\s*\{[^}]*useContext\s*\(\s*(\w+Context)\s*\)', content, re.DOTALL):
+                    hook_name = m.group(1)
+                    ctx_name = m.group(2)
+                    hook_to_context[hook_name] = ctx_name
+
+    # Now find consumers of each context
+    for ctx_name, info in context_defs.items():
+        consumers: list[dict] = []
+
+        # Find direct useContext calls
+        for src_dir in src_dirs:
+            full_src = repo / src_dir
+            if not full_src.exists():
+                continue
+
+            for ext in ["*.tsx", "*.ts", "*.jsx"]:
+                for f in full_src.rglob(ext):
+                    if "node_modules" in str(f) or str(f) == info["file"]:
+                        continue
+                    try:
+                        content = f.read_text(encoding="utf-8", errors="ignore")
+                    except Exception:
+                        continue
+
+                    rel = str(f.relative_to(repo))
+
+                    # Check for useContext(XContext)
+                    if re.search(rf'useContext\s*\(\s*{re.escape(ctx_name)}\s*\)', content):
+                        # Find component name
+                        comp_name = ""
+                        for line in content.split("\n"):
+                            m2 = re.match(r'(?:export\s+)?(?:default\s+)?function\s+(\w+)', line)
+                            if m2:
+                                comp_name = m2.group(1)
+                                break
+                        consumers.append({
+                            "component": comp_name or f.stem,
+                            "file": rel,
+                            "hook": "useContext",
+                        })
+
+                    # Check for custom hook usage (useAuth, useTenant, etc.)
+                    for hook_name, ctx in hook_to_context.items():
+                        if ctx == ctx_name and re.search(rf'\b{re.escape(hook_name)}\s*\(', content):
+                            comp_name = ""
+                            for line in content.split("\n"):
+                                m2 = re.match(r'(?:export\s+)?(?:default\s+)?function\s+(\w+)', line)
+                                if m2:
+                                    comp_name = m2.group(1)
+                                    break
+                            # Avoid duplicate entries
+                            if not any(c["file"] == rel for c in consumers):
+                                consumers.append({
+                                    "component": comp_name or f.stem,
+                                    "file": rel,
+                                    "hook": hook_name,
+                                })
+
+        # Risk assessment
+        count = len(consumers)
+        if count >= 30:
+            risk = "HIGH"
+        elif count >= 10:
+            risk = "MEDIUM"
+        else:
+            risk = "LOW"
+
+        contexts.append(ContextInfo(
+            name=ctx_name,
+            file=info["file"],
+            provider_component=info["provider_component"],
+            consumers=consumers,
+            consumer_count=count,
+            risk_level=risk,
+        ))
+
+    return contexts
+
+
+def emit_context_report(contexts: list[ContextInfo], repo: Path) -> str:
+    """Emit markdown report for Context usage."""
+    lines = [
+        f"# 🌐 Context Usage Map — {repo.name}",
+        "",
+        f"**Found {len(contexts)} Context(s).**",
+        "",
+    ]
+
+    if not contexts:
+        lines.append("No React Contexts found. The app may be using prop drilling instead.")
+        return "\n".join(lines)
+
+    # Summary
+    lines.append("## Summary")
+    lines.append("")
+    lines.append("| Context | Consumers | Risk | File |")
+    lines.append("|---------|-----------|------|------|")
+    for ctx in sorted(contexts, key=lambda x: -x.consumer_count):
+        risk_icon = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠"}[ctx.risk_level]
+        lines.append(f"| `{ctx.name}` | {ctx.consumer_count} | {risk_icon} {ctx.risk_level} | `{ctx.file}` |")
+    lines.append("")
+
+    # Detailed consumers
+    lines.append("## Consumer Details")
+    lines.append("")
+
+    for ctx in sorted(contexts, key=lambda x: -x.consumer_count):
+        risk_icon = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🟠"}[ctx.risk_level]
+        lines.append(f"### {risk_icon} `{ctx.name}` — {ctx.consumer_count} consumer(s)")
+        lines.append("")
+        lines.append(f"**Defined in:** `{ctx.file}`")
+        lines.append("")
+
+        if ctx.consumers:
+            lines.append("| Component | File | Hook |")
+            lines.append("|-----------|------|------|")
+            for c in ctx.consumers[:20]:
+                lines.append(f"| `{c['component']}` | `{c['file']}` | `{c['hook']}` |")
+            if len(ctx.consumers) > 20:
+                lines.append(f"| _... and {len(ctx.consumers) - 20} more_ | | |")
+            lines.append("")
+
+        if ctx.risk_level == "HIGH":
+            lines.append(f"⚠️ **HIGH risk:** {ctx.consumer_count} components consume this Context. ")
+            lines.append(f"Any state change causes ALL of them to re-render. Consider splitting into smaller Contexts.")
+            lines.append("")
+        elif ctx.risk_level == "MEDIUM":
+            lines.append(f"💡 **MEDIUM:** {ctx.consumer_count} consumers — monitor for performance if state changes frequently.")
+            lines.append("")
+
+    # Insights
+    lines.append("## Insights")
+    lines.append("")
+    total_consumers = sum(c.consumer_count for c in contexts)
+    if contexts:
+        avg = total_consumers / len(contexts)
+        lines.append(f"- **Average consumers per Context:** {avg:.0f}")
+    high_risk = [c for c in contexts if c.risk_level == "HIGH"]
+    if high_risk:
+        lines.append(f"- 🔴 **{len(high_risk)} HIGH-risk Context(s)** — consider splitting:")
+        for c in high_risk:
+            lines.append(f"  - `{c.name}` ({c.consumer_count} consumers)")
+    low_consumers = [c for c in contexts if c.consumer_count <= 1]
+    if low_consumers:
+        lines.append(f"- 🟢 **{len(low_consumers)} Context(s) with ≤1 consumer** — may be over-engineered:")
+        for c in low_consumers:
+            lines.append(f"  - `{c.name}` ({c.consumer_count} consumer)")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ============================================================
 # CLI
 # ============================================================
 
@@ -1130,6 +1606,18 @@ def main():
     pd.add_argument("--min-depth", "-d", type=int, default=3, help="Minimum depth to report (default: 3)")
     pd.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
     pd.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # hook-dependencies
+    hd = sub.add_parser("hook-deps", help="Analyze React hook dependency arrays for bugs")
+    hd.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    hd.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    hd.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # context-usage
+    cu = sub.add_parser("context-usage", help="Map React Context consumers and flag performance risks")
+    cu.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    cu.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    cu.add_argument("--out", "-o", help="Output file (default: stdout)")
 
     args = ap.parse_args()
     repo = Path(args.path).resolve()
@@ -1255,6 +1743,57 @@ def main():
 
         print(f"\n{len(drilling)} prop(s) drilled through {args.min_depth}+ layers.", file=sys.stderr)
         sys.exit(1 if drilling else 0)
+
+    elif args.command == "hook-deps":
+        print(f"graphify frontend hook-deps — scanning {repo}...", file=sys.stderr)
+        issues = analyze_hook_dependencies(repo)
+
+        if args.format == "json":
+            output = json.dumps([{
+                "file": i.file,
+                "component": i.component,
+                "hook_type": i.hook_type,
+                "line": i.line,
+                "issue_type": i.issue_type,
+                "description": i.description,
+                "missing_vars": i.missing_vars,
+                "unnecessary_vars": i.unnecessary_vars,
+            } for i in issues], indent=2)
+        else:
+            output = emit_hook_report(issues, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\n{len(issues)} hook dependency issue(s) found.", file=sys.stderr)
+        sys.exit(1 if issues else 0)
+
+    elif args.command == "context-usage":
+        print(f"graphify frontend context-usage — scanning {repo}...", file=sys.stderr)
+        contexts = find_contexts(repo)
+
+        if args.format == "json":
+            output = json.dumps([{
+                "name": c.name,
+                "file": c.file,
+                "consumer_count": c.consumer_count,
+                "risk_level": c.risk_level,
+                "consumers": c.consumers[:20],
+            } for c in contexts], indent=2)
+        else:
+            output = emit_context_report(contexts, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\n{len(contexts)} Context(s) found.", file=sys.stderr)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

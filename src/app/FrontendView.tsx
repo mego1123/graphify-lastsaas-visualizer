@@ -33,11 +33,32 @@ type PropDrilling = Array<{
   chain: Array<{ component: string; file: string; uses_prop: boolean }>
 }>
 
+type HookIssue = {
+  file: string
+  component: string
+  hook_type: string
+  line: number
+  issue_type: string
+  description: string
+  missing_vars: string[]
+  unnecessary_vars: string[]
+}
+
+type ContextInfo = {
+  name: string
+  file: string
+  consumer_count: number
+  risk_level: string
+  consumers: Array<{ component: string; file: string; hook: string }>
+}
+
 export default function FrontendView() {
   const [deadComponents, setDeadComponents] = useState<DeadComponent[]>([])
   const [routes, setRoutes] = useState<RouteNode[]>([])
   const [bundleImpact, setBundleImpact] = useState<BundleImpact | null>(null)
   const [propDrilling, setPropDrilling] = useState<PropDrilling>([])
+  const [hookIssues, setHookIssues] = useState<HookIssue[]>([])
+  const [contexts, setContexts] = useState<ContextInfo[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -46,11 +67,15 @@ export default function FrontendView() {
       fetch('/route-tree.json').then(r => r.json()).catch(() => []),
       fetch('/bundle-impact.json').then(r => r.json()).catch(() => null),
       fetch('/prop-drilling.json').then(r => r.json()).catch(() => []),
-    ]).then(([dead, rts, bi, pd]: [DeadComponent[], RouteNode[], BundleImpact | null, PropDrilling]) => {
+      fetch('/hook-deps.json').then(r => r.json()).catch(() => []),
+      fetch('/context-usage.json').then(r => r.json()).catch(() => []),
+    ]).then(([dead, rts, bi, pd, hd, cu]: [DeadComponent[], RouteNode[], BundleImpact | null, PropDrilling, HookIssue[], ContextInfo[]]) => {
       setDeadComponents(dead)
       setRoutes(rts)
       setBundleImpact(bi)
       setPropDrilling(pd)
+      setHookIssues(hd)
+      setContexts(cu)
       setLoading(false)
     })
   }, [])
@@ -165,6 +190,88 @@ export default function FrontendView() {
                 </div>
               </div>
             ))
+          )}
+        </div>
+
+        {/* Hook Dependencies */}
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>🪝 Hook Dependencies</h2>
+          <span style={styles.sectionMeta}>{hookIssues.length} issues</span>
+        </div>
+        <div style={styles.panel}>
+          {hookIssues.length === 0 ? (
+            <p style={styles.successMsg}>✅ No hook dependency issues found.</p>
+          ) : (
+            <>
+              <div style={styles.hookStats}>
+                {['missing_dep', 'empty_deps', 'unnecessary_dep'].map(t => {
+                  const count = hookIssues.filter(h => h.issue_type === t).length
+                  if (count === 0) return null
+                  return (
+                    <div key={t} style={styles.hookStat(t)}>
+                      <span style={styles.hookStatCount}>{count}</span>
+                      <span style={styles.hookStatLabel}>{t.replace('_', ' ')}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={styles.hookList}>
+                {hookIssues.slice(0, 8).map((h, i) => (
+                  <div key={i} style={styles.hookRow}>
+                    <span style={styles.hookIcon(h.issue_type)}>
+                      {h.issue_type === 'missing_dep' ? '🔴' : h.issue_type === 'empty_deps' ? '🟡' : '🟢'}
+                    </span>
+                    <div style={styles.hookInfo}>
+                      <span style={styles.hookType}>{h.hook_type}</span>
+                      <span style={styles.hookFile}>{h.file}:{h.line}</span>
+                    </div>
+                    <span style={styles.hookDesc}>{h.description}</span>
+                  </div>
+                ))}
+                {hookIssues.length > 8 && (
+                  <span style={styles.moreRoutes}>+ {hookIssues.length - 8} more issues</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Context Usage */}
+        <div style={styles.sectionHeader}>
+          <h2 style={styles.sectionTitle}>🌐 Context Usage</h2>
+          <span style={styles.sectionMeta}>{contexts.length} Contexts</span>
+        </div>
+        <div style={styles.panel}>
+          {contexts.length === 0 ? (
+            <p style={styles.empty}>No Contexts found.</p>
+          ) : (
+            <div style={styles.contextList}>
+              {contexts.sort((a, b) => b.consumer_count - a.consumer_count).map((ctx, i) => (
+                <div key={i} style={styles.contextRow}>
+                  <span style={{ ...styles.contextRisk, background: riskColor(ctx.risk_level) }}>
+                    {ctx.risk_level}
+                  </span>
+                  <div style={styles.contextInfo}>
+                    <span style={styles.contextName}>{ctx.name}</span>
+                    <span style={styles.contextFile}>{ctx.file}</span>
+                  </div>
+                  <div style={styles.contextConsumers}>
+                    <span style={styles.consumerCount}>{ctx.consumer_count}</span>
+                    <span style={styles.consumerLabel}>consumers</span>
+                  </div>
+                  {/* Mini bar showing consumer distribution */}
+                  <div style={styles.consumerBar}>
+                    <div
+                      style={{
+                        ...styles.consumerBarFill,
+                        width: `${Math.min(100, (ctx.consumer_count / Math.max(...contexts.map(c => c.consumer_count))) * 100)}%`,
+                        background: riskColor(ctx.risk_level),
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -291,4 +398,27 @@ const styles: Record<string, React.CSSProperties> = {
   routeArrow: { color: '#666' },
   routeComponent: { color: '#e0e0e0' },
   routeFile: { color: '#555', fontSize: 10, marginLeft: 'auto' },
+  hookStats: { display: 'flex', gap: 8, marginBottom: 10 },
+  hookStat: (itype: string) => ({ flex: 1, background: '#0f0f1a', borderRadius: 4, padding: 8, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', borderLeft: `3px solid ${itype === 'missing_dep' ? '#F44336' : itype === 'empty_deps' ? '#FF9800' : '#4CAF50'}` }),
+  hookStatCount: { fontSize: 18, fontWeight: 700, color: '#fff' },
+  hookStatLabel: { fontSize: 9, color: '#888', textTransform: 'uppercase' },
+  hookList: { display: 'flex', flexDirection: 'column', gap: 2 },
+  hookRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: '#0f0f1a', borderRadius: 4, fontSize: 11 },
+  hookIcon: (itype: string) => ({ fontSize: 12 }),
+  hookInfo: { display: 'flex', flexDirection: 'column', minWidth: 120 },
+  hookType: { color: '#4E79A7', fontWeight: 600, fontSize: 11 },
+  hookFile: { color: '#555', fontSize: 9, fontFamily: 'ui-monospace, monospace' },
+  hookDesc: { color: '#aaa', fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  empty: { fontSize: 12, color: '#555', fontStyle: 'italic', padding: 8 },
+  contextList: { display: 'flex', flexDirection: 'column', gap: 4 },
+  contextRow: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', background: '#0f0f1a', borderRadius: 4, fontSize: 11 },
+  contextRisk: { padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700, color: '#fff', minWidth: 50, textAlign: 'center' },
+  contextInfo: { flex: 1, display: 'flex', flexDirection: 'column' },
+  contextName: { color: '#e0e0e0', fontWeight: 600 },
+  contextFile: { color: '#555', fontSize: 9, fontFamily: 'ui-monospace, monospace' },
+  contextConsumers: { display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 50 },
+  consumerCount: { fontSize: 16, fontWeight: 700, color: '#fff' },
+  consumerLabel: { fontSize: 8, color: '#888', textTransform: 'uppercase' },
+  consumerBar: { flex: '0 0 80px', height: 6, background: '#0f0f1a', borderRadius: 3, overflow: 'hidden' },
+  consumerBarFill: { height: '100%', borderRadius: 3, transition: 'width 0.3s' },
 }

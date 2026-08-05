@@ -1,0 +1,1511 @@
+[
+  {
+    "file": "frontend/src/App.tsx",
+    "component": "LazyFallback",
+    "hook_type": "useEffect",
+    "line": 83,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: scrollTo",
+    "missing_vars": [
+      "scrollTo"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/App.tsx",
+    "component": "LazyFallback",
+    "hook_type": "useEffect",
+    "line": 83,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: pathname",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "pathname"
+    ]
+  },
+  {
+    "file": "frontend/src/App.tsx",
+    "component": "LazyFallback",
+    "hook_type": "useEffect",
+    "line": 92,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: If, assume, bootstrap, bootstrapApi, data",
+    "missing_vars": [
+      "If",
+      "assume",
+      "bootstrap",
+      "bootstrapApi",
+      "data"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/AdminLayout.tsx",
+    "component": "AdminLayout",
+    "hook_type": "useEffect",
+    "line": 33,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: badge, count, critical, data, just",
+    "missing_vars": [
+      "badge",
+      "count",
+      "critical",
+      "data",
+      "just"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/Layout.tsx",
+    "component": "Layout",
+    "hook_type": "useEffect",
+    "line": 40,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: allSettled, announcements, announcementsApi, announcementsResult, anns",
+    "missing_vars": [
+      "allSettled",
+      "announcements",
+      "announcementsApi",
+      "announcementsResult",
+      "anns"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/Layout.tsx",
+    "component": "Layout",
+    "hook_type": "useEffect",
+    "line": 71,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: MouseEvent, Node, addEventListener, contains, current",
+    "missing_vars": [
+      "MouseEvent",
+      "Node",
+      "addEventListener",
+      "contains",
+      "current"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 67,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: Cleanup, apple, branding, color, custom",
+    "missing_vars": [
+      "Cleanup",
+      "apple",
+      "branding",
+      "color",
+      "custom"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 67,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.fontFamily, branding.headingFont, branding.primaryColor",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.fontFamily",
+      "branding.headingFont",
+      "branding.primaryColor"
+    ]
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 96,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: appName, branding, title",
+    "missing_vars": [
+      "appName",
+      "branding",
+      "title"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 96,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.appName",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.appName"
+    ]
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 103,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: HTMLLinkElement, branding, faviconUrl, href, icon",
+    "missing_vars": [
+      "HTMLLinkElement",
+      "branding",
+      "faviconUrl",
+      "href",
+      "icon"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 103,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.faviconUrl",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.faviconUrl"
+    ]
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 112,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: ADD_ATTR, ADD_TAGS, Also, DOM, DOMPurify",
+    "missing_vars": [
+      "ADD_ATTR",
+      "ADD_TAGS",
+      "Also",
+      "DOM",
+      "DOMPurify"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 112,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.analyticsSnippet",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.analyticsSnippet"
+    ]
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 154,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: HTMLStyleElement, appendChild, branding, createElement, css",
+    "missing_vars": [
+      "HTMLStyleElement",
+      "appendChild",
+      "branding",
+      "createElement",
+      "css"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 154,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.customCss",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.customCss"
+    ]
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 175,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: ADD_ATTR, ADD_TAGS, DOMPurify, appendChild, branding",
+    "missing_vars": [
+      "ADD_ATTR",
+      "ADD_TAGS",
+      "DOMPurify",
+      "appendChild",
+      "branding"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "component": "generatePalette",
+    "hook_type": "useEffect",
+    "line": 175,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.headHtml",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.headHtml"
+    ]
+  },
+  {
+    "file": "frontend/src/components/ConfirmModal.tsx",
+    "component": "ConfirmModal",
+    "hook_type": "useEffect",
+    "line": 28,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: Escape, HTMLElement, KeyboardEvent, Tab, activeElement",
+    "missing_vars": [
+      "Escape",
+      "HTMLElement",
+      "KeyboardEvent",
+      "Tab",
+      "activeElement"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "component": "getSystemTheme",
+    "hook_type": "useEffect",
+    "line": 43,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: themePreference, user",
+    "missing_vars": [
+      "themePreference",
+      "user"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "component": "getSystemTheme",
+    "hook_type": "useEffect",
+    "line": 43,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: user?.themePreference",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "user?.themePreference"
+    ]
+  },
+  {
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "component": "getSystemTheme",
+    "hook_type": "useEffect",
+    "line": 50,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: THEME_KEY, data, documentElement, localStorage, resolveTheme",
+    "missing_vars": [
+      "THEME_KEY",
+      "data",
+      "documentElement",
+      "localStorage",
+      "resolveTheme"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "component": "getSystemTheme",
+    "hook_type": "useEffect",
+    "line": 58,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: addEventListener, change, color, getSystemTheme, handler",
+    "missing_vars": [
+      "addEventListener",
+      "change",
+      "color",
+      "getSystemTheme",
+      "handler"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "component": "getSystemTheme",
+    "hook_type": "useCallback",
+    "line": 66,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: also, authApi, best, effort, is",
+    "missing_vars": [
+      "also",
+      "authApi",
+      "best",
+      "effort",
+      "is"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/BrandingContext.tsx",
+    "component": "BrandingProvider",
+    "hook_type": "useEffect",
+    "line": 61,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: load",
+    "missing_vars": [
+      "load"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/TenantContext.tsx",
+    "component": "TenantProvider",
+    "hook_type": "useCallback",
+    "line": 21,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: ACTIVE_TENANT_KEY, localStorage, membership, tenantId",
+    "missing_vars": [
+      "ACTIVE_TENANT_KEY",
+      "localStorage",
+      "membership",
+      "tenantId"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/TenantContext.tsx",
+    "component": "TenantProvider",
+    "hook_type": "useEffect",
+    "line": 28,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: ACTIVE_TENANT_KEY, Default, available, find, first",
+    "missing_vars": [
+      "ACTIVE_TENANT_KEY",
+      "Default",
+      "available",
+      "find",
+      "first"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 46,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, lastsaas_impersonating, localStorage, removeItem",
+    "missing_vars": [
+      "ACCESS_TOKEN_KEY",
+      "REFRESH_TOKEN_KEY",
+      "lastsaas_impersonating",
+      "localStorage",
+      "removeItem"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 55,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: authApi, data, getMe, memberships, user",
+    "missing_vars": [
+      "authApi",
+      "data",
+      "getMe",
+      "memberships",
+      "user"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 65,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, accessToken, data, localStorage",
+    "missing_vars": [
+      "ACCESS_TOKEN_KEY",
+      "REFRESH_TOKEN_KEY",
+      "accessToken",
+      "data",
+      "localStorage"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 74,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, accessToken, localStorage, refreshToken",
+    "missing_vars": [
+      "ACCESS_TOKEN_KEY",
+      "REFRESH_TOKEN_KEY",
+      "accessToken",
+      "localStorage",
+      "refreshToken"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 81,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: AuthResponse, authApi, data, email, isMfaRequired",
+    "missing_vars": [
+      "AuthResponse",
+      "authApi",
+      "data",
+      "email",
+      "isMfaRequired"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 90,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: authApi, code, data, mfaChallenge, mfaToken",
+    "missing_vars": [
+      "authApi",
+      "code",
+      "data",
+      "mfaChallenge",
+      "mfaToken"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 99,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, accessToken, authApi, data",
+    "missing_vars": [
+      "ACCESS_TOKEN_KEY",
+      "REFRESH_TOKEN_KEY",
+      "accessToken",
+      "authApi",
+      "data"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useCallback",
+    "line": 108,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: REFRESH_TOKEN_KEY, authApi, errors, getItem, ignore",
+    "missing_vars": [
+      "REFRESH_TOKEN_KEY",
+      "authApi",
+      "errors",
+      "getItem",
+      "ignore"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "component": "isMfaRequired",
+    "hook_type": "useEffect",
+    "line": 121,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: ACCESS_TOKEN_KEY, getItem, localStorage, token",
+    "missing_vars": [
+      "ACCESS_TOKEN_KEY",
+      "getItem",
+      "localStorage",
+      "token"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "component": "BrandingPage",
+    "hook_type": "useEffect",
+    "line": 35,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: brandingApi, data, err, error, get",
+    "missing_vars": [
+      "brandingApi",
+      "data",
+      "err",
+      "error",
+      "get"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "component": "BrandingPage",
+    "hook_type": "useEffect",
+    "line": 42,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: loadMedia, loadPages, media, pages",
+    "missing_vars": [
+      "loadMedia",
+      "loadPages",
+      "media",
+      "pages"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/UsersPage.tsx",
+    "component": "relativeTime",
+    "hook_type": "useCallback",
+    "line": 51,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: PAGE_SIZE, adminApi, data, err, error",
+    "missing_vars": [
+      "PAGE_SIZE",
+      "adminApi",
+      "data",
+      "err",
+      "error"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/UsersPage.tsx",
+    "component": "relativeTime",
+    "hook_type": "useEffect",
+    "line": 65,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: Record, createdAt, params, replace, string",
+    "missing_vars": [
+      "Record",
+      "createdAt",
+      "params",
+      "replace",
+      "string"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/UsersPage.tsx",
+    "component": "relativeTime",
+    "hook_type": "useEffect",
+    "line": 75,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: search",
+    "missing_vars": [
+      "search"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useCallback",
+    "line": 231,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: adminApi, apiKeys, data, ignore, listAPIKeys",
+    "missing_vars": [
+      "adminApi",
+      "apiKeys",
+      "data",
+      "ignore",
+      "listAPIKeys"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useEffect",
+    "line": 240,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: AbortController, abort, aborted, adminApi, apiKeys",
+    "missing_vars": [
+      "AbortController",
+      "abort",
+      "aborted",
+      "adminApi",
+      "apiKeys"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useEffect",
+    "line": 479,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: Auto, add, adminApi, any, categories",
+    "missing_vars": [
+      "Auto",
+      "add",
+      "adminApi",
+      "any",
+      "categories"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useCallback",
+    "line": 680,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: adminApi, data, deliveries, getWebhook, ignore",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "deliveries",
+      "getWebhook",
+      "ignore"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useEffect",
+    "line": 690,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: AbortController, abort, aborted, adminApi, controller",
+    "missing_vars": [
+      "AbortController",
+      "abort",
+      "aborted",
+      "adminApi",
+      "controller"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useCallback",
+    "line": 947,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: adminApi, data, ignore, listWebhooks, webhooks",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "ignore",
+      "listWebhooks",
+      "webhooks"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "component": "formatDate",
+    "hook_type": "useEffect",
+    "line": 956,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: AbortController, abort, aborted, adminApi, controller",
+    "missing_vars": [
+      "AbortController",
+      "abort",
+      "aborted",
+      "adminApi",
+      "controller"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "component": "RangeSelector",
+    "hook_type": "useCallback",
+    "line": 27,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: current, debounce, feedback, immediate, the",
+    "missing_vars": [
+      "current",
+      "debounce",
+      "feedback",
+      "immediate",
+      "the"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "component": "RangeSelector",
+    "hook_type": "useEffect",
+    "line": 676,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: flow, graph",
+    "missing_vars": [
+      "flow",
+      "graph"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "component": "formatPrice",
+    "hook_type": "useCallback",
+    "line": 39,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: adminApi, data, err, error, getErrorMessage",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "err",
+      "error",
+      "getErrorMessage"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "component": "formatPrice",
+    "hook_type": "useCallback",
+    "line": 50,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: adminApi, bundles, data, err, error",
+    "missing_vars": [
+      "adminApi",
+      "bundles",
+      "data",
+      "err",
+      "error"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "component": "formatPrice",
+    "hook_type": "useEffect",
+    "line": 59,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: AbortController, abort, aborted, adminApi, all",
+    "missing_vars": [
+      "AbortController",
+      "abort",
+      "aborted",
+      "adminApi",
+      "all"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "component": "formatPrice",
+    "hook_type": "useEffect",
+    "line": 535,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: adminApi, are, critical, data, entitlement",
+    "missing_vars": [
+      "adminApi",
+      "are",
+      "critical",
+      "data",
+      "entitlement"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "component": "uniqueProductNames",
+    "hook_type": "useCallback",
+    "line": 37,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: adminApi, data, err, error, getErrorMessage",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "err",
+      "error",
+      "getErrorMessage"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "component": "uniqueProductNames",
+    "hook_type": "useEffect",
+    "line": 49,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: AbortController, abort, aborted, adminApi, controller",
+    "missing_vars": [
+      "AbortController",
+      "abort",
+      "aborted",
+      "adminApi",
+      "controller"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "component": "uniqueProductNames",
+    "hook_type": "useEffect",
+    "line": 425,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: adminApi, data, eligibleProducts, err, error",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "eligibleProducts",
+      "err",
+      "error"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "component": "uniqueProductNames",
+    "hook_type": "useEffect",
+    "line": 425,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: eligibleProducts.length",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "eligibleProducts.length"
+    ]
+  },
+  {
+    "file": "frontend/src/pages/admin/RootMembersPage.tsx",
+    "component": "RootMembersPage",
+    "hook_type": "useEffect",
+    "line": 45,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: AbortController, abort, aborted, adminApi, controller",
+    "missing_vars": [
+      "AbortController",
+      "abort",
+      "aborted",
+      "adminApi",
+      "controller"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantsPage.tsx",
+    "component": "TenantsPage",
+    "hook_type": "useCallback",
+    "line": 32,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: PAGE_SIZE, adminApi, billingStatus, bs, data",
+    "missing_vars": [
+      "PAGE_SIZE",
+      "adminApi",
+      "billingStatus",
+      "bs",
+      "data"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantsPage.tsx",
+    "component": "TenantsPage",
+    "hook_type": "useEffect",
+    "line": 46,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: Record, createdAt, params, replace, string",
+    "missing_vars": [
+      "Record",
+      "createdAt",
+      "params",
+      "replace",
+      "string"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantsPage.tsx",
+    "component": "TenantsPage",
+    "hook_type": "useEffect",
+    "line": 57,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: search",
+    "missing_vars": [
+      "search"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "component": "HealthPage",
+    "hook_type": "useCallback",
+    "line": 22,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: adminApi, all, currentData, getHealthCurrent, getHealthIntegrations",
+    "missing_vars": [
+      "adminApi",
+      "all",
+      "currentData",
+      "getHealthCurrent",
+      "getHealthIntegrations"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "component": "HealthPage",
+    "hook_type": "useCallback",
+    "line": 40,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: adminApi, data, getHealthMetrics, ignore, metrics",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "getHealthMetrics",
+      "ignore",
+      "metrics"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "component": "HealthPage",
+    "hook_type": "useEffect",
+    "line": 54,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: all, fetchCurrent, fetchHistorical",
+    "missing_vars": [
+      "all",
+      "fetchCurrent",
+      "fetchHistorical"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "component": "HealthPage",
+    "hook_type": "useEffect",
+    "line": 59,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: fetchHistorical, loading",
+    "missing_vars": [
+      "fetchHistorical",
+      "loading"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "component": "HealthPage",
+    "hook_type": "useEffect",
+    "line": 59,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: filterMode, selectedNode, timeRange",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "filterMode",
+      "selectedNode",
+      "timeRange"
+    ]
+  },
+  {
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "component": "HealthPage",
+    "hook_type": "useEffect",
+    "line": 64,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: interval, visibilityState, visible",
+    "missing_vars": [
+      "interval",
+      "visibilityState",
+      "visible"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "component": "UserProfilePage",
+    "hook_type": "useCallback",
+    "line": 40,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: adminApi, data, displayName, email, err",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "displayName",
+      "email",
+      "err"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "component": "UserProfilePage",
+    "hook_type": "useCallback",
+    "line": 40,
+    "issue_type": "unnecessary_dep",
+    "description": "useCallback has dependencies not used in the body: navigate",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "navigate"
+    ]
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "component": "formatPrice",
+    "hook_type": "useCallback",
+    "line": 51,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: Failed, adminApi, all, billingWaived, getTenant",
+    "missing_vars": [
+      "Failed",
+      "adminApi",
+      "all",
+      "billingWaived",
+      "getTenant"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/MessagesPage.tsx",
+    "component": "MessagesPage",
+    "hook_type": "useEffect",
+    "line": 15,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: data, err, error, getErrorMessage, list",
+    "missing_vars": [
+      "data",
+      "err",
+      "error",
+      "getErrorMessage",
+      "list"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/FinancialPage.tsx",
+    "component": "AdminFinancialPage",
+    "hook_type": "useCallback",
+    "line": 18,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: adminApi, data, err, error, getErrorMessage",
+    "missing_vars": [
+      "adminApi",
+      "data",
+      "err",
+      "error",
+      "getErrorMessage"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/AboutPage.tsx",
+    "component": "AboutPage",
+    "hook_type": "useEffect",
+    "line": 13,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: adminApi, err, error, getAbout, getErrorMessage",
+    "missing_vars": [
+      "adminApi",
+      "err",
+      "error",
+      "getAbout",
+      "getErrorMessage"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "component": "LogsPage",
+    "hook_type": "useCallback",
+    "line": 57,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: AbortController, Record, abort, abortRef, aborted",
+    "missing_vars": [
+      "AbortController",
+      "Record",
+      "abort",
+      "abortRef",
+      "aborted"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "component": "LogsPage",
+    "hook_type": "useCallback",
+    "line": 84,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: Record, adminApi, counts, data, ignore",
+    "missing_vars": [
+      "Record",
+      "adminApi",
+      "counts",
+      "data",
+      "ignore"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "component": "LogsPage",
+    "hook_type": "useEffect",
+    "line": 101,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: autoRefreshRef, current, tick, visibilityState, visible",
+    "missing_vars": [
+      "autoRefreshRef",
+      "current",
+      "tick",
+      "visibilityState",
+      "visible"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/EventDefinitionModal.tsx",
+    "component": "EventDefinitionModal",
+    "hook_type": "useEffect",
+    "line": 35,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: description, name, parentId",
+    "missing_vars": [
+      "description",
+      "name",
+      "parentId"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "component": "parseEnumOptions",
+    "hook_type": "useCallback",
+    "line": 50,
+    "issue_type": "empty_deps",
+    "description": "useCallback has empty deps [] but uses external variables: adminApi, configs, data, ignore, listConfig",
+    "missing_vars": [
+      "adminApi",
+      "configs",
+      "data",
+      "ignore",
+      "listConfig"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/auth/VerifyEmailPage.tsx",
+    "component": "VerifyEmailPage",
+    "hook_type": "useEffect",
+    "line": 12,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: Missing, The, Verification, Your, authApi",
+    "missing_vars": [
+      "Missing",
+      "The",
+      "Verification",
+      "Your",
+      "authApi"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/auth/MagicLinkVerifyPage.tsx",
+    "component": "MagicLinkVerifyPage",
+    "hook_type": "useEffect",
+    "line": 14,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: AuthResponse, Invalid, Missing, accessToken, auth",
+    "missing_vars": [
+      "AuthResponse",
+      "Invalid",
+      "Missing",
+      "accessToken",
+      "auth"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/auth/AuthCallbackPage.tsx",
+    "component": "AuthCallbackPage",
+    "hook_type": "useEffect",
+    "line": 13,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: Failed, Invalid, Missing, accessToken, auth",
+    "missing_vars": [
+      "Failed",
+      "Invalid",
+      "Missing",
+      "accessToken",
+      "auth"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/TeamPage.tsx",
+    "component": "renderTemplate",
+    "hook_type": "useEffect",
+    "line": 59,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: fetchMembers",
+    "missing_vars": [
+      "fetchMembers"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/TeamPage.tsx",
+    "component": "renderTemplate",
+    "hook_type": "useEffect",
+    "line": 61,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: currentPlanId, currentPlanUserLimit, data, err, error",
+    "missing_vars": [
+      "currentPlanId",
+      "currentPlanUserLimit",
+      "data",
+      "err",
+      "error"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/BillingSuccessPage.tsx",
+    "component": "BillingSuccessPage",
+    "hook_type": "useEffect",
+    "line": 8,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: plan, timer",
+    "missing_vars": [
+      "plan",
+      "timer"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/PlanPage.tsx",
+    "component": "getCurrencySymbol",
+    "hook_type": "useEffect",
+    "line": 38,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: plan",
+    "missing_vars": [
+      "plan"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/PlanPage.tsx",
+    "component": "getCurrencySymbol",
+    "hook_type": "useEffect",
+    "line": 62,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: billingInterval, billingStatus, billingWaived, canceledAt, currency",
+    "missing_vars": [
+      "billingInterval",
+      "billingStatus",
+      "billingWaived",
+      "canceledAt",
+      "currency"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/PlanPage.tsx",
+    "component": "getCurrencySymbol",
+    "hook_type": "useEffect",
+    "line": 83,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: behavior, block, cardRefs, center, current",
+    "missing_vars": [
+      "behavior",
+      "block",
+      "cardRefs",
+      "center",
+      "current"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/ActivityPage.tsx",
+    "component": "ActivityPage",
+    "hook_type": "useCallback",
+    "line": 28,
+    "issue_type": "missing_dep",
+    "description": "useCallback uses variables not in dependency array: PAGE_SIZE, Record, data, err, error",
+    "missing_vars": [
+      "PAGE_SIZE",
+      "Record",
+      "data",
+      "err",
+      "error"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/BuyCreditsPage.tsx",
+    "component": "formatPrice",
+    "hook_type": "useEffect",
+    "line": 19,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: all, bundleData, bundles, bundlesApi, err",
+    "missing_vars": [
+      "all",
+      "bundleData",
+      "bundles",
+      "bundlesApi",
+      "err"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/TestEntitlementsPage.tsx",
+    "component": "renderTemplate",
+    "hook_type": "useEffect",
+    "line": 44,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: Upgrade, currentPlanId, data, entitlementUpgradePromptBody, entitlementUpgradePromptNumericBody",
+    "missing_vars": [
+      "Upgrade",
+      "currentPlanId",
+      "data",
+      "entitlementUpgradePromptBody",
+      "entitlementUpgradePromptNumericBody"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/public/CustomPage.tsx",
+    "component": "CustomPage",
+    "hook_type": "useEffect",
+    "line": 14,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: brandingApi, getPublicPage, then",
+    "missing_vars": [
+      "brandingApi",
+      "getPublicPage",
+      "then"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/public/CustomPage.tsx",
+    "component": "CustomPage",
+    "hook_type": "useEffect",
+    "line": 23,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: HTMLMetaElement, appendChild, content, createElement, description",
+    "missing_vars": [
+      "HTMLMetaElement",
+      "appendChild",
+      "content",
+      "createElement",
+      "description"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/public/LandingPage.tsx",
+    "component": "LandingPage",
+    "hook_type": "useEffect",
+    "line": 11,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: HTMLMetaElement, appendChild, branding, content, createElement",
+    "missing_vars": [
+      "HTMLMetaElement",
+      "appendChild",
+      "branding",
+      "content",
+      "createElement"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/public/LandingPage.tsx",
+    "component": "LandingPage",
+    "hook_type": "useEffect",
+    "line": 11,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: branding.landingEnabled, branding.landingMeta, branding.landingTitle",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "branding.landingEnabled",
+      "branding.landingMeta",
+      "branding.landingTitle"
+    ]
+  },
+  {
+    "file": "frontend/src/pages/admin/health/MetricsCharts.tsx",
+    "component": "formatTime",
+    "hook_type": "useMemo",
+    "line": 112,
+    "issue_type": "missing_dep",
+    "description": "useMemo uses variables not in dependency array: aggregateByTimestamp, all, any, cpu, cpu_",
+    "missing_vars": [
+      "aggregateByTimestamp",
+      "all",
+      "any",
+      "cpu",
+      "cpu_"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/settings/MFASetupModal.tsx",
+    "component": "MFASetupModal",
+    "hook_type": "useEffect",
+    "line": 20,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: Failed, MFA, authApi, data, initialize",
+    "missing_vars": [
+      "Failed",
+      "MFA",
+      "authApi",
+      "data",
+      "initialize"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/settings/SessionsTab.tsx",
+    "component": "SessionsTab",
+    "hook_type": "useEffect",
+    "line": 25,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: loadSessions",
+    "missing_vars": [
+      "loadSessions"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/settings/SecurityTab.tsx",
+    "component": "SecurityTab",
+    "hook_type": "useEffect",
+    "line": 44,
+    "issue_type": "empty_deps",
+    "description": "useEffect has empty deps [] but uses external variables: loadPasskeys",
+    "missing_vars": [
+      "loadPasskeys"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/settings/BillingTab.tsx",
+    "component": "BillingTab",
+    "hook_type": "useEffect",
+    "line": 42,
+    "issue_type": "missing_dep",
+    "description": "useEffect uses variables not in dependency array: loadBillingData",
+    "missing_vars": [
+      "loadBillingData"
+    ],
+    "unnecessary_vars": []
+  },
+  {
+    "file": "frontend/src/pages/app/settings/BillingTab.tsx",
+    "component": "BillingTab",
+    "hook_type": "useEffect",
+    "line": 42,
+    "issue_type": "unnecessary_dep",
+    "description": "useEffect has dependencies not used in the body: txPage",
+    "missing_vars": [],
+    "unnecessary_vars": [
+      "txPage"
+    ]
+  }
+]
