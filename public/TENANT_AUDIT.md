@@ -147,11 +147,11 @@ _…and 218 more (see JSON)._
 | 193 | `logsFollow` | `Find` | `system_logs` | `createdAt` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 | 23 | `cmdStats` | `EstimatedDocumentCount` | `users` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 | 27 | `cmdStats` | `EstimatedDocumentCount` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 31 | `cmdStats` | `CountDocuments` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 37 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 51 | `cmdStats` | `Aggregate` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 71 | `cmdStats` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 33 | `cmdStats` | `CountDocuments` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 39 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 53 | `cmdStats` | `Aggregate` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 73 | `cmdStats` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 81 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 | 61 | `cmdTenantsList` | `Find` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 | 160 | `cmdTenantsGet` | `FindOne` | `tenants` | `_id` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 | 166 | `cmdTenantsGet` | `FindOne` | `tenants` | `slug` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
@@ -233,11 +233,11 @@ _…and 411 more (see JSON and All Queries by File below)._
 |------|----------|----|------------|--------|-------|------|-------------|------|
 | 23 | `cmdStats` | `EstimatedDocumentCount` | `users` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 | 27 | `cmdStats` | `EstimatedDocumentCount` | `tenants` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 31 | `cmdStats` | `CountDocuments` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 37 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 51 | `cmdStats` | `Aggregate` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 71 | `cmdStats` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
-| 79 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 33 | `cmdStats` | `CountDocuments` | `users` | `isActive` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 39 | `cmdStats` | `CountDocuments` | `tenants` | `billingStatus` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 53 | `cmdStats` | `Aggregate` | `system_logs` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 73 | `cmdStats` | `FindOne` | `daily_metrics` | — | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
+| 81 | `cmdStats` | `Aggregate` | `financial_transactions` | `type` | `cli` | MEDIUM | cli-tool | Query is in a CLI tool (cmd/lastsaas/) — CLI tools have no HTTP request context and ope... |
 
 
 ### `backend/cmd/lastsaas/cmd_tenants.go`
@@ -591,7 +591,7 @@ _…and 411 more (see JSON and All Queries by File below)._
 | 196 | `UpdateBundle` | `FindOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'UpdateBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
 | 212 | `DeleteBundle` | `FindOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
 | 221 | `DeleteBundle` | `DeleteOne` | `credit_bundles` | `_id` | `admin` | MEDIUM | admin-handler | Function 'DeleteBundle' is an admin handler (registered on /api/admin/*). Admin handler... |
-| 236 | `ListBundlesPublic` | `Find` | `credit_bundles` | `isActive` | `public` | MEDIUM | public-endpoint | Function 'ListBundlesPublic' is a public endpoint (no auth) — returns published/global ... |
+| 237 | `ListBundlesPublic` | `Find` | `credit_bundles` | `isActive` | `public` | MEDIUM | public-endpoint | Function 'ListBundlesPublic' is a public endpoint (no auth) — returns published/global ... |
 
 
 ### `backend/internal/api/handlers/config.go`

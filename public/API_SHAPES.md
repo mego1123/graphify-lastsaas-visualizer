@@ -19,10 +19,10 @@ matched endpoint is checked for:
 - TS endpoints scanned: **153**
 - Go endpoints scanned: **163**
 - Matched endpoints: **122**
-- ✅ OK: **57**
+- ✅ OK: **59**
 - ⚪ Unknown Go shape: **12**
 - ⚫ No Go handler: **0**
-- 🔴 Missing-in-Go fields: **2**
+- 🔴 Missing-in-Go fields: **0**
 - 🟡 Extra-in-Go fields: **58**
 - 🟠 Type mismatches: **4**
 - Unmatched TS endpoints: **31**
@@ -43,7 +43,7 @@ matched endpoint is checked for:
 | `POST /api/admin/branding/asset` | `BrandingHandler.UploadAsset` | (map) | `(unknown)` | — | `key`, `filename`, `contentType`, `size`, `url` | — | 🟡 extra in Go |
 | `DELETE /api/admin/branding/asset/{key}` | `BrandingHandler.DeleteAsset` | (map) | `(unknown)` | — | `status` | — | 🟡 extra in Go |
 | `GET /api/admin/branding/media` | `BrandingHandler.ListMedia` | (map) | `{ media: MediaItem[] }` | — | — | — | ✅ ok |
-| `POST /api/admin/branding/media` | `BrandingHandler.UploadMedia` | (map) | `MediaItem` | `createdAt` | — | — | 🔴 missing in Go |
+| `POST /api/admin/branding/media` | `BrandingHandler.UploadMedia` | (map) | `MediaItem` | — | — | — | ✅ ok |
 | `GET /api/admin/branding/pages` | `BrandingHandler.AdminListPages` | (map) | `{ pages: CustomPage[] }` | — | — | — | ✅ ok |
 | `POST /api/admin/branding/pages` | `BrandingHandler.CreatePage` | `CustomPage` | `CustomPage` | — | — | — | ✅ ok |
 | `DELETE /api/admin/branding/pages/{id}` | `BrandingHandler.DeletePage` | (map) | `(unknown)` | — | `status` | — | 🟡 extra in Go |
@@ -141,7 +141,7 @@ matched endpoint is checked for:
 | `GET /api/credit-bundles` | `BundlesHandler.ListBundlesPublic` | (map) | `{ bundles: CreditBundle[] }` | — | — | — | ✅ ok |
 | `GET /api/messages` | `MessageHandler.ListMessages` | (map) | `{ messages: Message[] }` | — | — | — | ✅ ok |
 | `GET /api/messages/unread-count` | `MessageHandler.UnreadCount` | (map) | `{ count: number }` | — | — | — | ✅ ok |
-| `GET /api/plans` | `PlansHandler.ListPlansPublic` | (map) | `PublicPlansResponse` | `seatQuantity` | — | — | 🔴 missing in Go |
+| `GET /api/plans` | `PlansHandler.ListPlansPublic` | (map) | `PublicPlansResponse` | — | — | — | ✅ ok |
 | `POST /api/telemetry/events` | `TelemetryHandler.TrackAuthenticated` | (map) | `(unknown)` | — | `status` | — | 🟡 extra in Go |
 | `POST /api/telemetry/events/batch` | `TelemetryHandler.TrackBatch` | (map) | `(unknown)` | — | `status`, `tracked` | — | 🟡 extra in Go |
 | `POST /api/telemetry/track` | `TelemetryHandler.TrackAnonymous` | (map) | `(unknown)` | — | `status` | — | 🟡 extra in Go |
@@ -691,51 +691,6 @@ matched endpoint is checked for:
 |------|---------|---------|-------|
 | `message` | `string` | `_(missing)_` | 🟡 extra in Go |
 
-### `POST /api/admin/branding/media`
-
-- **Status**: 🔴 missing in Go
-- **Go handler**: `BrandingHandler.UploadMedia` (`backend/internal/api/handlers/branding.go`)
-- **Go response**: anonymous `map[string]interface{}` literal
-- **TS response type**: `MediaItem`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `contentType` | `unknown` | `string` |  |
-| `createdAt` | `_(missing)_` | `string` | 🔴 missing in Go |
-| `filename` | `unknown` | `string` |  |
-| `id` | `unknown` | `string` |  |
-| `key` | `unknown` | `string` |  |
-| `size` | `unknown` | `number` |  |
-| `url` | `unknown` | `string` |  |
-
-### `GET /api/plans`
-
-- **Status**: 🔴 missing in Go
-- **Go handler**: `PlansHandler.ListPlansPublic` (`backend/internal/api/handlers/plans.go`)
-- **Go response**: anonymous `map[string]interface{}` literal
-- **TS response type**: `PublicPlansResponse`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `billingInterval` | `unknown` | `string` |  |
-| `billingStatus` | `unknown` | `BillingStatus` |  |
-| `billingWaived` | `unknown` | `boolean` |  |
-| `canceledAt` | `unknown` | `string` |  |
-| `currency` | `unknown` | `string` |  |
-| `currentPeriodEnd` | `unknown` | `string` |  |
-| `currentPlanId` | `unknown` | `string` |  |
-| `currentPlanUserLimit` | `unknown` | `number` |  |
-| `entitlementUpgradePromptBody` | `unknown` | `string` |  |
-| `entitlementUpgradePromptNumericBody` | `unknown` | `string` |  |
-| `entitlementUpgradePromptTitle` | `unknown` | `string` |  |
-| `maxPlanUserLimit` | `unknown` | `number` |  |
-| `plans` | `[]models.Plan` | `Plan[]` |  |
-| `seatQuantity` | `_(missing)_` | `number` | 🔴 missing in Go |
-| `tenantPurchasedCredits` | `unknown` | `number` |  |
-| `tenantSubscriptionCredits` | `unknown` | `number` |  |
-| `upgradePromptBody` | `unknown` | `string` |  |
-| `upgradePromptTitle` | `unknown` | `string` |  |
-
 ### `GET /api/admin/financial/metrics`
 
 - **Status**: 🟠 type mismatch
@@ -1053,7 +1008,6 @@ frontend may call them with a different URL/method.
 
 ## Recommendations
 
-- 🔴 **2 missing-in-Go field(s)** — the frontend reads data the backend doesn't send. Either add the field to the Go response struct, or remove the field from the TS type if it's no longer needed. Start with the endpoints flagged `missing in Go` above.
 - 🟡 **58 extra-in-Go field(s)** — the backend sends data the frontend ignores. Consider trimming the Go response struct to reduce payload size and avoid leaking internal fields. Note that some extra fields (e.g. audit metadata) may be intentional.
 - 🟠 **4 type mismatch(es)** — pay special attention to `int64` vs `string` mismatches on ID fields: JavaScript cannot represent integers > 2^53 precisely, so any ObjectID or 64-bit ID must be serialised as a string on the Go side (which `primitive.ObjectID.Hex()` does correctly).
 - ⚪ **12 endpoint(s) with unparseable Go response** — the handler returns a value via a function call or complex expression the auditor can't statically resolve. Review these manually.

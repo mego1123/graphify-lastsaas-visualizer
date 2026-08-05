@@ -24,10 +24,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -335,10 +337,91 @@ def main():
     if run_ssa:
         graph["graph"]["enrichment_passes"].append("go_ssa")
 
+    # Staleness detection: hash all Go source files and store in graph metadata
+    source_hash = _compute_source_hash(backend_dir)
+    graph["graph"]["enrichment_source_hash"] = source_hash
+    graph["graph"]["enrichment_timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    graph["graph"]["enrichment_file_count"] = source_hash.get("_file_count", 0)
+
     # Save the enriched graph
     graph_path.write_text(json.dumps(graph), encoding="utf-8")
     print(f"\n  Enriched graph: {len(graph['nodes'])} nodes, {len(graph['links'])} links", file=sys.stderr)
+    print(f"  Source hash: {source_hash.get('_combined', 'unknown')[:16]}...", file=sys.stderr)
     print(f"  Written to {graph_path}", file=sys.stderr)
+
+
+def _compute_source_hash(backend_dir: Path) -> dict:
+    """Hash all .go source files for staleness detection.
+
+    Returns a dict with:
+    - _combined: combined hash of all files
+    - _file_count: number of files hashed
+    - per-file hashes (for granular staleness checking)
+    """
+    hashes = {}
+    combined = hashlib.sha256()
+
+    for go_file in sorted(backend_dir.rglob("*.go")):
+        if "node_modules" in str(go_file) or "vendor" in str(go_file):
+            continue
+        if "graphify-out" in str(go_file):
+            continue
+        try:
+            content = go_file.read_bytes()
+            file_hash = hashlib.sha256(content).hexdigest()[:16]
+            rel = str(go_file.relative_to(backend_dir))
+            hashes[rel] = file_hash
+            combined.update(content)
+        except Exception:
+            continue
+
+    hashes["_combined"] = combined.hexdigest()[:32]
+    hashes["_file_count"] = len(hashes) - 2  # exclude the two _ keys
+    return hashes
+
+
+def check_staleness(repo: Path) -> bool:
+    """Check if the enriched graph is stale (source files changed since enrichment).
+
+    Returns True if stale, False if up-to-date.
+    Prints a warning if stale.
+    """
+    graph_path = repo / "graphify-out" / "graph.json"
+    if not graph_path.exists():
+        return False
+
+    graph = json.loads(graph_path.read_text(encoding="utf-8"))
+    stored_hash = graph.get("graph", {}).get("enrichment_source_hash")
+    if not stored_hash:
+        return False  # Not enriched yet
+
+    backend_dir = repo / "backend" if (repo / "backend").exists() else repo
+    current_hash = _compute_source_hash(backend_dir)
+
+    stored_combined = stored_hash.get("_combined", "")
+    current_combined = current_hash.get("_combined", "")
+
+    if stored_combined != current_combined:
+        # Find which files changed
+        changed = []
+        for f, h in current_hash.items():
+            if f.startswith("_"):
+                continue
+            if stored_hash.get(f) != h:
+                changed.append(f)
+        removed = [f for f in stored_hash if f not in current_hash and not f.startswith("_")]
+
+        print(f"⚠️  ENRICHED GRAPH IS STALE — {len(changed)} file(s) changed, {len(removed)} removed since last enrichment", file=sys.stderr)
+        for f in changed[:5]:
+            print(f"  changed: {f}", file=sys.stderr)
+        if len(changed) > 5:
+            print(f"  ... and {len(changed) - 5} more", file=sys.stderr)
+        for f in removed[:3]:
+            print(f"  removed: {f}", file=sys.stderr)
+        print(f"  Run: python scripts/graphify_enrich.py . --all", file=sys.stderr)
+        return True
+
+    return False
 
 
 if __name__ == "__main__":

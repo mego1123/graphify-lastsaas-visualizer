@@ -8,12 +8,45 @@ from pathlib import Path
 from typing import Optional
 
 
-def load_graph(repo: Path) -> dict:
-    """Load the enriched graph.json."""
+def load_graph(repo: Path, warn_stale: bool = True) -> dict:
+    """Load the enriched graph.json.
+    
+    If warn_stale is True, checks if the graph is stale (source files changed
+    since enrichment) and prints a warning to stderr.
+    """
     graph_path = repo / "graphify-out" / "graph.json"
     if not graph_path.exists():
         return {"nodes": [], "links": []}
-    return json.loads(graph_path.read_text(encoding="utf-8"))
+    
+    graph = json.loads(graph_path.read_text(encoding="utf-8"))
+    
+    # Staleness check
+    if warn_stale and is_graph_enriched(graph):
+        import sys
+        import hashlib
+        
+        stored_hash = graph.get("graph", {}).get("enrichment_source_hash", {})
+        stored_combined = stored_hash.get("_combined", "")
+        
+        if stored_combined:
+            backend_dir = repo / "backend" if (repo / "backend").exists() else repo
+            combined = hashlib.sha256()
+            for go_file in sorted(backend_dir.rglob("*.go")):
+                if "node_modules" in str(go_file) or "vendor" in str(go_file):
+                    continue
+                if "graphify-out" in str(go_file):
+                    continue
+                try:
+                    combined.update(go_file.read_bytes())
+                except Exception:
+                    continue
+            
+            current_combined = combined.hexdigest()[:32]
+            if stored_combined != current_combined:
+                print(f"⚠️  WARNING: Enriched graph is STALE — source files changed since last enrichment.", file=sys.stderr)
+                print(f"   Run: python scripts/graphify_enrich.py . --all", file=sys.stderr)
+    
+    return graph
 
 
 def get_struct_fields(graph: dict, struct_name: str) -> set[str]:
@@ -108,3 +141,44 @@ def get_all_struct_names(graph: dict) -> list[str]:
         if n.get("id") in struct_ids:
             names.append(n.get("label", ""))
     return sorted(set(names))
+
+
+def get_function_filter_fields_with_confidence(graph: dict, function_name: str) -> dict[str, str]:
+    """Get filter field names with their method/confidence level.
+    
+    Returns: {field_name: method} where method is:
+    - "literal": static bson.M{"field": value} — high confidence
+    - "map_update": dynamic filter["field"] = value — medium confidence
+    - "struct_type": InsertOne(ctx, struct) — inferred from struct type
+    """
+    func_node = None
+    for n in graph.get("nodes", []):
+        label = n.get("label", "")
+        if label == function_name or label == function_name + "()":
+            func_node = n
+            break
+    
+    if not func_node:
+        return {}
+    
+    func_id = func_node["id"]
+    fields = {}
+    for edge in graph.get("links", []):
+        if edge.get("source") == func_id and edge.get("relation") == "filter_writes_field":
+            field_node = next((n for n in graph["nodes"] if n["id"] == edge["target"]), None)
+            if field_node:
+                field_name = field_node.get("label", "")
+                method = edge.get("method", "unknown")
+                if field_name and field_name != "?":
+                    fields[field_name] = method
+    
+    return fields
+
+
+def is_filter_field_static(graph: dict, function_name: str, field_name: str) -> bool:
+    """Check if a filter field is written via a static literal (high confidence)
+    vs dynamic map_update (medium confidence).
+    """
+    fields = get_function_filter_fields_with_confidence(graph, function_name)
+    method = fields.get(field_name, "")
+    return method == "literal"
