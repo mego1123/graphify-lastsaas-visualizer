@@ -5,8 +5,9 @@ import GraphView from './GraphView'
 import ArchitectureView from './ArchitectureView'
 import VerifyView from './VerifyView'
 import AuditView from './AuditView'
+import FrontendView from './FrontendView'
 
-type Tab = 'graph' | 'architecture' | 'verify' | 'audit'
+type Tab = 'graph' | 'architecture' | 'verify' | 'audit' | 'frontend'
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('graph')
@@ -65,6 +66,15 @@ export default function Home() {
           >
             Audit
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(tab === 'frontend' ? styles.tabActive : {}),
+            }}
+            onClick={() => setTab('frontend')}
+          >
+            Frontend
+          </button>
         </nav>
         <div style={styles.headerRight}>
           <a
@@ -116,6 +126,9 @@ export default function Home() {
         </div>
         <div style={{ display: tab === 'audit' ? 'block' : 'none', height: '100%' }}>
           <AuditView />
+        </div>
+        <div style={{ display: tab === 'frontend' ? 'block' : 'none', height: '100%' }}>
+          <FrontendView />
         </div>
       </main>
     </div>

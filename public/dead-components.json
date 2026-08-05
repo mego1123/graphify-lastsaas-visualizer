@@ -1,0 +1,7 @@
+[
+  {
+    "name": "AdminRoute",
+    "file": "frontend/src/components/AdminRoute.tsx",
+    "export_type": "default"
+  }
+]

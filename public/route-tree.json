@@ -1,0 +1,346 @@
+[
+  {
+    "path": "/setup",
+    "component": "BootstrapPage",
+    "file": "./pages/BootstrapPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "*",
+    "component": "Navigate",
+    "file": "",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/",
+    "component": "LandingPage",
+    "file": "./pages/public/LandingPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/p/:slug",
+    "component": "CustomPage",
+    "file": "./pages/public/CustomPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/login",
+    "component": "LoginPage",
+    "file": "./pages/auth/LoginPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/signup",
+    "component": "SignupPage",
+    "file": "./pages/auth/SignupPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/verify-email",
+    "component": "VerifyEmailPage",
+    "file": "./pages/auth/VerifyEmailPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/forgot-password",
+    "component": "ForgotPasswordPage",
+    "file": "./pages/auth/ForgotPasswordPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/reset-password",
+    "component": "ResetPasswordPage",
+    "file": "./pages/auth/ResetPasswordPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/auth/callback",
+    "component": "AuthCallbackPage",
+    "file": "./pages/auth/AuthCallbackPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/auth/mfa",
+    "component": "MFAChallengePage",
+    "file": "./pages/auth/MFAChallengePage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/auth/magic-link",
+    "component": "MagicLinkVerifyPage",
+    "file": "./pages/auth/MagicLinkVerifyPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/onboarding",
+    "component": "OnboardingPage",
+    "file": "./pages/app/OnboardingPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/dashboard",
+    "component": "DashboardPage",
+    "file": "./pages/app/DashboardPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/team",
+    "component": "TeamPage",
+    "file": "./pages/app/TeamPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/plan",
+    "component": "PlanPage",
+    "file": "./pages/app/PlanPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/buy-credits",
+    "component": "BuyCreditsPage",
+    "file": "./pages/app/BuyCreditsPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/billing/success",
+    "component": "BillingSuccessPage",
+    "file": "./pages/app/BillingSuccessPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/billing/cancel",
+    "component": "BillingCancelPage",
+    "file": "./pages/app/BillingCancelPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/settings",
+    "component": "SettingsPage",
+    "file": "./pages/app/SettingsPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/activity",
+    "component": "ActivityPage",
+    "file": "./pages/app/ActivityPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/test-entitlements",
+    "component": "TestEntitlementsPage",
+    "file": "./pages/app/TestEntitlementsPage",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/messages",
+    "component": "AdminMessagesPage",
+    "file": "./pages/admin/MessagesPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "/last",
+    "component": "AdminLayout",
+    "file": "./components/AdminLayout",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "",
+    "component": "AdminDashboardPage",
+    "file": "./pages/admin/DashboardPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "messages",
+    "component": "AdminMessagesPage",
+    "file": "./pages/admin/MessagesPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "users",
+    "component": "AdminUsersPage",
+    "file": "./pages/admin/UsersPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "users/:userId",
+    "component": "AdminUserProfilePage",
+    "file": "./pages/admin/UserProfilePage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "tenants",
+    "component": "AdminTenantsPage",
+    "file": "./pages/admin/TenantsPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "tenants/:tenantId",
+    "component": "AdminTenantProfilePage",
+    "file": "./pages/admin/TenantProfilePage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "members",
+    "component": "AdminRootMembersPage",
+    "file": "./pages/admin/RootMembersPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "plans",
+    "component": "AdminPlansPage",
+    "file": "./pages/admin/PlansPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "financial",
+    "component": "AdminFinancialPage",
+    "file": "./pages/admin/FinancialPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "pm",
+    "component": "AdminPMPage",
+    "file": "./pages/admin/PMPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "promotions",
+    "component": "AdminPromotionsPage",
+    "file": "./pages/admin/PromotionsPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "announcements",
+    "component": "AdminAnnouncementsPage",
+    "file": "./pages/admin/AnnouncementsPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "health",
+    "component": "AdminHealthPage",
+    "file": "./pages/admin/HealthPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "logs",
+    "component": "AdminLogsPage",
+    "file": "./pages/admin/LogsPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "config",
+    "component": "AdminConfigPage",
+    "file": "./pages/admin/ConfigPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "api",
+    "component": "AdminAPIPage",
+    "file": "./pages/admin/APIPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "branding",
+    "component": "AdminBrandingPage",
+    "file": "./pages/admin/BrandingPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "about",
+    "component": "AdminAboutPage",
+    "file": "./pages/admin/AboutPage",
+    "is_lazy": true,
+    "is_protected": false,
+    "children": []
+  },
+  {
+    "path": "*",
+    "component": "Navigate",
+    "file": "",
+    "is_lazy": false,
+    "is_protected": false,
+    "children": []
+  }
+]
