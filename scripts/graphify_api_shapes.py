@@ -312,6 +312,7 @@ class GoField:
     is_omitempty: bool = False
     is_skipped: bool = False    # json:"-"
     is_optional: bool = False   # pointer type OR omitempty
+    is_inline_embed: bool = False  # embedded struct with `json:",inline"`
 
 
 @dataclass
@@ -508,8 +509,33 @@ def _parse_struct_field_line(line: str) -> Optional[GoField]:
     s = line.strip()
     if not s or s.startswith('//'):
         return None
-    # Embedded field (just a type name, no field name) — skip; we don't
-    # need to flatten embeddings for response-shape comparison.
+    # Inline-embedded struct: `models.EventDefinition `json:",inline"``
+    # or `EventDefinition `json:",inline"``. The embedded struct's
+    # fields are serialized as if they were declared on the outer
+    # struct (Go's standard JSON marshalling behaviour for embedded
+    # structs without an explicit json tag — and the explicit
+    # `,inline` form is a project convention that signals the same
+    # intent).
+    inline_m = re.match(
+        r'^(?P<type>(?:[a-z]\w*\.)?[A-Z]\w*)\s+`(?P<tag>[^`]*)`\s*$',
+        s,
+    )
+    if inline_m:
+        tag_str = inline_m.group('tag')
+        jm = RE_JSON_TAG.search(tag_str)
+        if jm and (jm.group('val') == ',inline' or
+                   jm.group('val').startswith(',inline')):
+            return GoField(
+                name=inline_m.group('type'),
+                json_name='',     # inline — no wire name of its own
+                go_type=inline_m.group('type'),
+                is_inline_embed=True,
+            )
+    # Embedded field (just a type name, no field name, no tag) — Go's
+    # default JSON marshalling flattens these, but we conservatively
+    # skip them since they may be interface embeddings or non-data
+    # behaviour mixins. Tagged inline-embedded fields above ARE
+    # flattened.
     if '`' not in s and re.match(r'^[A-Z]\w*\.?[A-Z]\w*$', s):
         return None
     # Comment-only or brace-only line.
@@ -1729,6 +1755,58 @@ GO_STRING_TYPES = {
     'json.RawMessage',
 }
 
+# Set of Go named types that are aliases for a primitive (e.g.
+# ``type MemberRole string``). Populated at parse time by scanning
+# every Go file for ``type X <primitive>`` declarations. Used by
+# ``normalise_go_type`` to treat these aliases as their underlying
+# primitive (so ``MemberRole`` matches TS ``string``).
+GO_PRIMITIVE_ALIASES: Dict[str, str] = {}
+
+# Map of TS type-alias names to their normalised underlying type
+# (e.g. ``ConfigVarType`` -> ``string`` when the alias is
+# ``'string' | 'numeric' | 'enum' | 'template'``). Populated at parse
+# time from ``type X = ...`` declarations whose RHS is a primitive
+# literal union. Used by ``normalise_ts_type`` to collapse named
+# aliases to their underlying primitive (mirroring Go's primitive
+# alias handling).
+TS_PRIMITIVE_ALIASES: Dict[str, str] = {}
+
+
+def _scan_primitive_aliases(repo: Path) -> None:
+    """Populate ``GO_PRIMITIVE_ALIASES`` by scanning every Go file for
+    ``type X string`` / ``type X int`` / etc. declarations.
+    """
+    GO_PRIMITIVE_ALIASES.clear()
+    alias_re = re.compile(
+        r'\btype\s+(?P<name>[A-Z]\w*)\s+(?P<underlying>string|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|byte|rune|bool)\b'
+    )
+    for f in find_go_files(repo):
+        try:
+            text = f.read_text(encoding='utf-8', errors='replace')
+        except Exception:
+            continue
+        for m in alias_re.finditer(text):
+            GO_PRIMITIVE_ALIASES.setdefault(m.group('name'), m.group('underlying'))
+
+
+def _scan_ts_primitive_aliases(ts_types: List['TSType']) -> None:
+    """Populate ``TS_PRIMITIVE_ALIASES`` from parsed TS type aliases.
+
+    A TS alias is considered a "primitive alias" if its raw value is a
+    union of string/number/boolean literals (e.g. ``'a' | 'b'``) or a
+    single primitive. The alias name maps to its normalised primitive.
+    """
+    TS_PRIMITIVE_ALIASES.clear()
+    for t in ts_types:
+        if t.kind != 'type_alias' or not t.raw:
+            continue
+        # Try to normalise the raw value. If it resolves to a primitive
+        # (string/number/boolean), record the alias.
+        normalised = normalise_ts_type(t.raw)
+        base = normalised.rstrip('?')
+        if base in {'string', 'number', 'boolean'}:
+            TS_PRIMITIVE_ALIASES.setdefault(t.name, base)
+
 
 def normalise_go_type(go_type: str) -> str:
     """Normalise a Go type to a canonical form for comparison with TS.
@@ -1743,6 +1821,8 @@ def normalise_go_type(go_type: str) -> str:
       ``[]string``         -> ``string[]``
       ``[]models.User``    -> ``User[]``
       ``map[string]X``     -> ``Record<string, X>``
+      ``MemberRole``       -> ``string`` (if ``type MemberRole string``
+      was found in the codebase)
     """
     t = go_type.strip()
     # Strip a leading `*` (pointer).
@@ -1768,7 +1848,16 @@ def normalise_go_type(go_type: str) -> str:
         return 'string' + ('?' if optional else '')
     # Package-qualified type.
     if '.' in t:
-        return t.rsplit('.', 1)[-1] + ('?' if optional else '')
+        base = t.rsplit('.', 1)[-1]
+        # Check if the base is a known primitive alias.
+        if base in GO_PRIMITIVE_ALIASES:
+            underlying = GO_PRIMITIVE_ALIASES[base]
+            return normalise_go_type(underlying) + ('?' if optional else '')
+        return base + ('?' if optional else '')
+    # Primitive alias (e.g. ``MemberRole`` -> ``string``).
+    if t in GO_PRIMITIVE_ALIASES:
+        underlying = GO_PRIMITIVE_ALIASES[t]
+        return normalise_go_type(underlying) + ('?' if optional else '')
     # Primitive mappings.
     if t in GO_NUMERIC_TYPES:
         return 'number' + ('?' if optional else '')
@@ -1790,11 +1879,17 @@ def normalise_ts_type(ts_type: str) -> str:
       ``User[]``           -> ``User[]``
       ``'a' | 'b'``        -> ``string``  (literal union collapses to string)
       ``Record<string, X>`` -> ``Record<string, X>``
+      ``ConfigVarType``    -> ``string``  (if the alias resolves to a
+      string literal union)
     """
     t = ts_type.strip()
     # Strip parens.
     while t.startswith('(') and t.endswith(')'):
         t = t[1:-1].strip()
+    # Named alias that resolves to a primitive (e.g. ``ConfigVarType``
+    # whose definition is ``'string' | 'numeric' | 'enum' | 'template'``).
+    if re.match(r'^[A-Z]\w*$', t) and t in TS_PRIMITIVE_ALIASES:
+        return TS_PRIMITIVE_ALIASES[t]
     # Union with undefined/null -> optional.
     optional = False
     if '|' in t:
@@ -1948,36 +2043,72 @@ def resolve_go_shape_fields(
     the struct name for nested comparison).
 
     For a ``map_literal`` shape, return the parsed fields directly.
+
+    Inline-embedded struct fields (``models.EventDefinition
+    `json:",inline"` ``) are recursively flattened: the embedded
+    struct's fields are spliced into the output at the position of the
+    embedding. This matches Go's standard JSON marshalling behaviour
+    for embedded structs.
     """
     if shape.kind == 'struct_literal' and shape.struct_name:
         s = structs_by_name.get(shape.struct_name)
         if not s:
             return []
-        out: List[GoResponseField] = []
-        for f in s.fields:
-            if f.is_skipped:
-                continue
-            base_type = f.go_type
-            is_array = base_type.startswith('[]')
-            if is_array:
-                base_type = base_type[2:]
-            struct_ref = _strip_package(base_type)
-            # Heuristic: only treat as a struct reference if the name
-            # starts with an uppercase letter and isn't a primitive.
-            if struct_ref and not struct_ref[0].isupper():
-                struct_ref = None
-            elif struct_ref and struct_ref in GO_NUMERIC_TYPES | GO_STRING_TYPES | {'bool', 'interface{}', 'any'}:
-                struct_ref = None
-            out.append(GoResponseField(
-                name=f.json_name,
-                go_type=f.go_type,
-                struct_ref=struct_ref,
-                is_array=is_array,
-            ))
-        return out
+        return _flatten_struct_fields(s, structs_by_name, set())
     if shape.kind == 'map_literal':
         return shape.fields
     return []
+
+
+def _flatten_struct_fields(
+    struct: GoStruct,
+    structs_by_name: Dict[str, GoStruct],
+    visited: Set[str],
+) -> List[GoResponseField]:
+    """Return the struct's fields as GoResponseField entries, recursing
+    into inline-embedded struct fields.
+
+    ``visited`` is the set of struct names already being expanded —
+    prevents infinite recursion on cyclic embeddings (which shouldn't
+    exist but are guarded against defensively).
+    """
+    if struct.name in visited:
+        return []
+    visited = visited | {struct.name}
+    out: List[GoResponseField] = []
+    for f in struct.fields:
+        if f.is_skipped:
+            continue
+        if f.is_inline_embed:
+            # Recurse into the embedded struct.
+            embedded_name = _strip_package(f.go_type)
+            embedded_struct = structs_by_name.get(embedded_name)
+            if embedded_struct:
+                out.extend(_flatten_struct_fields(
+                    embedded_struct, structs_by_name, visited,
+                ))
+            # If we couldn't resolve the embedded struct, the fields
+            # are silently dropped (best-effort — the report will
+            # note the shape as incomplete via the missing-in-go check).
+            continue
+        base_type = f.go_type
+        is_array = base_type.startswith('[]')
+        if is_array:
+            base_type = base_type[2:]
+        struct_ref = _strip_package(base_type)
+        # Heuristic: only treat as a struct reference if the name
+        # starts with an uppercase letter and isn't a primitive.
+        if struct_ref and not struct_ref[0].isupper():
+            struct_ref = None
+        elif struct_ref and struct_ref in GO_NUMERIC_TYPES | GO_STRING_TYPES | {'bool', 'interface{}', 'any'}:
+            struct_ref = None
+        out.append(GoResponseField(
+            name=f.json_name,
+            go_type=f.go_type,
+            struct_ref=struct_ref,
+            is_array=is_array,
+        ))
+    return out
 
 
 def resolve_ts_response_fields(
@@ -2077,6 +2208,7 @@ def compare_endpoint(
     # Try each (Go shape, TS candidate) pair and pick the best match.
     best: Optional[Comparison] = None
     best_score = -1
+    alias_cache: Set[Tuple[str, str]] = set()
     for go_shape in go_shapes:
         go_fields = resolve_go_shape_fields(go_shape, structs_by_name)
         # If we couldn't resolve any Go fields, treat the shape as unknown.
@@ -2112,6 +2244,9 @@ def compare_endpoint(
                 ts_ep=ts_ep, ts_fields=ts_fields,
                 go_shape=go_shape, go_handler=go_handler,
                 go_fields=go_fields,
+                structs_by_name=structs_by_name,
+                ts_types_by_name=ts_types_by_name,
+                _alias_cache=alias_cache,
             )
             score = {
                 'ok': 5,
@@ -2151,6 +2286,9 @@ def compare_endpoint(
                     ts_ep=ts_ep, ts_fields=ts_fields,
                     go_shape=merged_shape, go_handler=go_handler,
                     go_fields=merged_go_fields,
+                    structs_by_name=structs_by_name,
+                    ts_types_by_name=ts_types_by_name,
+                    _alias_cache=alias_cache,
                 )
                 score = {
                     'ok': 5,
@@ -2188,25 +2326,58 @@ def _compare_fields(
     go_shape: GoResponseShape,
     go_handler: Optional[GoHandler],
     go_fields: List[GoResponseField],
+    structs_by_name: Optional[Dict[str, GoStruct]] = None,
+    ts_types_by_name: Optional[Dict[str, TSType]] = None,
+    _alias_cache: Optional[Set[Tuple[str, str]]] = None,
 ) -> Comparison:
-    """Compare a specific TS field set against the Go fields."""
+    """Compare a specific TS field set against the Go fields.
+
+    ``structs_by_name`` and ``ts_types_by_name`` are optional — when
+    provided, struct-name mismatches (e.g. Go ``MemberResponse`` vs TS
+    ``TenantMember``) are checked recursively: if both structs have
+    field-compatible shapes, the names are treated as aliases and the
+    mismatch is suppressed. This eliminates false positives where the
+    Go and TS codebases use different names for the same shape.
+    """
     go_field_map: Dict[str, GoResponseField] = {f.name: f for f in go_fields if f.name}
     ts_field_map: Dict[str, TSField] = {f.name: f for f in ts_fields if f.name}
-    missing = [n for n in ts_field_map if n not in go_field_map]
+    # A TS field marked optional (`field?: type`) does NOT need to be
+    # sent by Go — the frontend tolerates its absence. Only flag a TS
+    # field as "missing in Go" if it's required (non-optional).
+    missing = [
+        n for n, ts_f in ts_field_map.items()
+        if n not in go_field_map and not ts_f.is_optional
+    ]
     extra = [n for n in go_field_map if n not in ts_field_map]
     mismatches: List[Dict[str, str]] = []
+    if _alias_cache is None:
+        _alias_cache = set()
     for name, ts_f in ts_field_map.items():
         go_f = go_field_map.get(name)
         if not go_f:
             continue
         ok, note = types_compatible(go_f.go_type, ts_f.ts_type)
         if not ok:
-            mismatches.append({
-                'field': name,
-                'go_type': go_f.go_type,
-                'ts_type': ts_f.ts_type,
-                'note': note,
-            })
+            # Try struct-alias reconciliation: if Go and TS both
+            # reference struct types whose fields are recursively
+            # compatible, treat them as aliases (e.g. Go
+            # ``MemberResponse`` vs TS ``TenantMember`` — same shape,
+            # different names).
+            if structs_by_name and ts_types_by_name:
+                if _is_struct_alias(
+                    go_f.go_type, ts_f.ts_type,
+                    structs_by_name, ts_types_by_name,
+                    _alias_cache,
+                ):
+                    ok = True
+                    note = f'struct alias: Go {go_f.go_type} ≡ TS {ts_f.ts_type} (same field shapes)'
+            if not ok:
+                mismatches.append({
+                    'field': name,
+                    'go_type': go_f.go_type,
+                    'ts_type': ts_f.ts_type,
+                    'note': note,
+                })
     if mismatches:
         status = 'type_mismatch'
     elif missing:
@@ -2229,6 +2400,94 @@ def _compare_fields(
         type_mismatches=mismatches,
         status=status,
     )
+
+
+def _is_struct_alias(
+    go_type: str,
+    ts_type: str,
+    structs_by_name: Dict[str, GoStruct],
+    ts_types_by_name: Dict[str, TSType],
+    alias_cache: Set[Tuple[str, str]],
+    _depth: int = 0,
+) -> bool:
+    """Return True if ``go_type`` and ``ts_type`` are struct references
+    whose field shapes are recursively compatible (i.e. they're the
+    same shape under different names — a common pattern when the Go
+    backend uses an internal response struct and the TS frontend uses
+    a domain-named interface).
+
+    Cycle-safe via ``alias_cache`` and a depth guard.
+    """
+    if _depth > 5:
+        return False
+    # Strip array markers from both sides.
+    g = go_type.strip()
+    t = ts_type.strip()
+    while g.startswith('[]'):
+        g = g[2:].strip()
+    while t.endswith('[]'):
+        t = t[:-2].strip()
+    # Strip pointer.
+    if g.startswith('*'):
+        g = g[1:].strip()
+    # Strip package prefix from Go side.
+    g_name = _strip_package(g)
+    # Strip TS parens / unions / generics (best-effort).
+    t_name = t.strip()
+    while t_name.startswith('(') and t_name.endswith(')'):
+        t_name = t_name[1:-1].strip()
+    # Only attempt reconciliation if both look like named struct refs.
+    if not (g_name and t_name and
+            g_name[0].isupper() and t_name[0].isupper()):
+        return False
+    # Only single-token TS names (no unions / generics).
+    if not re.match(r'^[A-Z]\w*$', t_name):
+        return False
+    cache_key = (g_name, t_name)
+    if cache_key in alias_cache:
+        return True
+    # Look up the structs.
+    go_struct = structs_by_name.get(g_name)
+    ts_struct = ts_types_by_name.get(t_name)
+    if not go_struct or not ts_struct:
+        return False
+    # Compare field shapes (best-effort: only top-level field names +
+    # type compatibility, without recursing into nested struct refs
+    # beyond the alias check).
+    go_fields = _flatten_struct_fields(go_struct, structs_by_name, set())
+    ts_fields = ts_struct.fields
+    go_map = {f.name: f for f in go_fields if f.name}
+    ts_map = {f.name: f for f in ts_fields if f.name}
+    # All TS fields must be present in Go (TS optionality tolerated).
+    for ts_n, ts_f in ts_map.items():
+        if ts_n not in go_map:
+            if ts_f.is_optional:
+                continue
+            return False
+    # All Go fields must be present in TS (Go extras tolerated only if
+    # they're optional; otherwise the shapes differ enough that we
+    # shouldn't claim aliasing).
+    for go_n in go_map:
+        if go_n not in ts_map:
+            return False
+    # Field types must be compatible (recursively, via alias check).
+    for ts_n, ts_f in ts_map.items():
+        go_f = go_map.get(ts_n)
+        if not go_f:
+            continue
+        ok, _ = types_compatible(go_f.go_type, ts_f.ts_type)
+        if ok:
+            continue
+        # Try nested alias reconciliation.
+        if _is_struct_alias(
+            go_f.go_type, ts_f.ts_type,
+            structs_by_name, ts_types_by_name,
+            alias_cache, _depth + 1,
+        ):
+            continue
+        return False
+    alias_cache.add(cache_key)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -2591,6 +2850,16 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
     go_files = find_go_files(repo, include_tests=include_tests)
     print(f'  Scanning {len(go_files)} .go files', file=sys.stderr)
 
+    # Build the primitive-alias map (e.g. ``type MemberRole string`` ->
+    # treat ``MemberRole`` as ``string`` for shape comparison).
+    _scan_primitive_aliases(repo)
+    if GO_PRIMITIVE_ALIASES:
+        print(
+            f'  Found {len(GO_PRIMITIVE_ALIASES)} Go primitive aliases '
+            f'(e.g. MemberRole -> string)',
+            file=sys.stderr,
+        )
+
     go_structs: List[GoStruct] = []
     handlers: List[GoHandler] = []
     routes: List[GoRoute] = []
@@ -2661,6 +2930,16 @@ def analyze(repo: Path, include_tests: bool = False) -> Tuple[
             ts_endpoints.extend(parse_ts_client(masked, rel))
 
     ts_types_by_name: Dict[str, TSType] = {t.name: t for t in ts_types}
+
+    # Build the TS primitive-alias map (e.g. ``ConfigVarType`` ->
+    # ``string`` when defined as ``'string' | 'numeric' | ...``).
+    _scan_ts_primitive_aliases(ts_types)
+    if TS_PRIMITIVE_ALIASES:
+        print(
+            f'  Found {len(TS_PRIMITIVE_ALIASES)} TS primitive aliases '
+            f'(e.g. ConfigVarType -> string)',
+            file=sys.stderr,
+        )
 
     print(
         f'  Found {len(ts_types)} TS types, {len(ts_endpoints)} TS endpoints',

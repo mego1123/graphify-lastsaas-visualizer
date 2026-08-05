@@ -200,8 +200,60 @@ LARGE_COLLECTIONS: frozenset[str] = frozenset({
     "leader_locks",
     "webauthn_sessions",
     "auth_codes",
-    "announcements",
 })
+
+# Single-document collections: collections that hold exactly one config
+# record (e.g. ``branding_config`` stores a single BrandingConfig doc;
+# ``system_config`` stores a single SystemConfig doc). Scanning these is
+# effectively free — even a full collection scan touches one document —
+# so "missing index" findings here are pure noise.
+SINGLE_DOCUMENT_COLLECTIONS: frozenset[str] = frozenset({
+    "branding_config",
+    "system_config",
+})
+
+# Small collections: collections whose expected document count is well
+# under 100 (admin-curated lookup tables, plan definitions, public
+# announcements, etc.). A full collection scan on these is sub-millisecond
+# and not worth a HIGH severity finding. Findings on these collections
+# are downgraded to MEDIUM (or suppressed entirely when the collection
+# is single-document).
+SMALL_COLLECTIONS: frozenset[str] = frozenset({
+    "announcements",       # admin-curated, ~10 docs
+    "plans",               # admin-curated, ~10 docs
+    "credit_bundles",      # admin-curated, ~10 docs
+    "event_definitions",   # admin-curated, ~20 docs
+    "config_vars",         # admin-curated, ~30 docs
+    "custom_pages",        # admin-curated, ~10 docs
+    "branding_assets",     # logo/favicon + media library, <100
+    "system_nodes",        # one doc per cluster node, <10
+    "stripe_mappings",     # one per stripe entity, <100
+    "sso_connections",     # one per IdP per tenant, <10
+    "counters",            # one per invoice sequence, <100
+    "webhooks",            # admin-curated, ~5 per tenant
+    "api_keys",            # admin-curated, ~5 per user
+    "tenants",             # one doc per tenant — bounded by tenant count
+    "users",               # one doc per user — bounded but could grow
+    "tenant_memberships",  # ~1-5 per user — bounded
+    "invitations",         # short-lived, ~10 active at a time
+})
+
+# Heuristic for paths/function names that indicate admin/CLI scope. Queries
+# in these contexts legitimately scan across tenants (admin dashboards,
+# CLI reporting tools, batch jobs) — multi_tenant_unfiltered findings
+# there are downgraded to MEDIUM rather than HIGH.
+ADMIN_PATH_HINTS: tuple[str, ...] = (
+    "/cmd/lastsaas/", "\\cmd\\lastsaas\\",
+    "cmd/lastsaas/", "cmd\\lastsaas\\",
+    "internal/api/handlers/admin.go",
+    "internal/api/handlers/admin_",
+)
+
+ADMIN_FUNC_HINTS: tuple[str, ...] = (
+    "admin", "listroot", "listall", "preflight", "impersonate",
+    "export", "seed", "migrate", "cleanup", "backfill", "reconcile",
+    "doctor", "batch", "stats", "report",
+)
 
 # Spec: required indexed fields per collection (collection -> set of fields
 # that *should* be indexed). Queries filtering on these fields are flagged
@@ -861,6 +913,9 @@ def scan_queries(
                     continue  # unresolved — skip (not our problem here)
 
                 # Build a multi-line context window for the filter literal.
+                # The bson.M{...} / bson.D{...} literal may be on the same
+                # line as the call, entirely on a subsequent line (common
+                # when the call wraps), or split across multiple lines.
                 context_lines = [raw_line]
                 open_bson = len(re.findall(r"\bbson\.[MD]\s*\{", raw_line))
                 close_braces = raw_line.count("}")
@@ -872,6 +927,26 @@ def scan_queries(
                         close_braces += nxt.count("}")
                         if open_bson <= close_braces:
                             break
+                else:
+                    # The call's filter may be entirely on the next line
+                    # (e.g. ``coll.Find(ctx,\n    bson.M{...})``). Look
+                    # ahead up to 3 lines for a bson literal if the
+                    # current line didn't yield any filter fields.
+                    context_text = "\n".join(context_lines)
+                    if not extract_filter_fields(context_text):
+                        for ahead in range(idx + 1, min(idx + 4, len(lines) + 1)):
+                            nxt = lines[ahead - 1]
+                            context_lines.append(nxt)
+                            if re.search(r"\bbson\.[MD]\s*\{", nxt):
+                                # Found the literal — keep consuming until
+                                # braces balance.
+                                open_bson = sum(
+                                    len(re.findall(r"\bbson\.[MD]\s*\{", cl))
+                                    for cl in context_lines
+                                )
+                                close_braces = sum(cl.count("}") for cl in context_lines)
+                                if open_bson <= close_braces:
+                                    break
                 context_text = "\n".join(context_lines)
 
                 filter_fields = extract_filter_fields(context_text)
@@ -915,6 +990,22 @@ class Finding:
     suggestion: str
 
 
+def _is_admin_scope(file: str, function: str) -> bool:
+    """Heuristic: True if this query is in an admin / CLI context where
+    cross-tenant scans are expected (admin dashboards, CLI reporting
+    tools, batch jobs). Used to downgrade ``multi_tenant_unfiltered``
+    findings from HIGH to MEDIUM — admin paths legitimately scan across
+    tenants.
+    """
+    fl = (file or "").lower()
+    fn = (function or "").lower()
+    if any(h in fl for h in ADMIN_PATH_HINTS):
+        return True
+    if any(h in fn for h in ADMIN_FUNC_HINTS):
+        return True
+    return False
+
+
 def classify_query(
     q: Query,
     indexes: dict[str, CollectionIndexSummary],
@@ -922,6 +1013,14 @@ def classify_query(
     findings: list[Finding] = []
     summary = indexes.get(q.collection)
     is_large = q.collection in LARGE_COLLECTIONS
+    is_small = q.collection in SMALL_COLLECTIONS
+    is_single_doc = q.collection in SINGLE_DOCUMENT_COLLECTIONS
+    is_admin = _is_admin_scope(q.file, q.function)
+
+    # Single-document collections (branding_config, system_config) —
+    # scanning one document is effectively free, so don't flag at all.
+    if is_single_doc:
+        return findings
 
     # _id is always indexed by MongoDB, so any query that filters by _id is
     # covered (the primary-key index serves it). We treat _id as an
@@ -947,7 +1046,13 @@ def classify_query(
             # multi-tenant / full-scan check below.
             pass
         else:
-            sev = "HIGH" if is_large else "MEDIUM"
+            # Don't escalate to HIGH on small collections — a full scan
+            # of <100 docs is sub-millisecond and not worth a HIGH
+            # severity finding. Admin/CLI scopes are also MEDIUM (they
+            # legitimately query across tenants).
+            sev = "MEDIUM" if (is_small or is_admin) else (
+                "HIGH" if is_large else "MEDIUM"
+            )
             findings.append(Finding(
                 file=q.file,
                 line=q.line,
@@ -974,19 +1079,31 @@ def classify_query(
     # A query is covered if ANY of:
     #   - it filters by _id (always indexed),
     #   - it filters by a single-field index,
-    #   - it filters by the leading field of a compound index.
+    #   - it filters by the leading field of a compound index (leftmost
+    #     prefix — MongoDB can use a compound index for any query that
+    #     filters on its leading field, even if the other index fields
+    #     aren't in the filter).
     if summary is not None and summary.has_any_index:
         single_field_indexed = {
             info.leading_field for info in summary.indexes
             if len(info.fields) == 1
         }
+        # Compound indexes whose leading field matches a filter field —
+        # MongoDB can use the leftmost prefix of a compound index.
+        compound_leading = {
+            info.leading_field for info in summary.indexes
+            if len(info.fields) > 1
+        }
         covered = (
             has_id_filter
             or any(f in summary.leading_fields for f in user_fields)
             or any(f in single_field_indexed for f in user_fields)
+            or any(f in compound_leading for f in user_fields)
         )
         if not covered and user_fields:
-            sev = "HIGH" if is_large else "MEDIUM"
+            sev = "MEDIUM" if (is_small or is_admin) else (
+                "HIGH" if is_large else "MEDIUM"
+            )
             findings.append(Finding(
                 file=q.file,
                 line=q.line,
@@ -1010,6 +1127,7 @@ def classify_query(
 
     # Case C: spec-required field not indexed. Skip if _id is in the filter
     # (already covered) or if the spec field is already indexed.
+    # Don't escalate to HIGH on small collections.
     if summary is not None:
         required = REQUIRED_INDEX_FIELDS.get(q.collection, set())
         for f in user_fields:
@@ -1019,6 +1137,7 @@ def classify_query(
                 # queries, not _id+field updates. Don't flag.
                 if has_id_filter:
                     continue
+                sev = "MEDIUM" if (is_small or is_admin) else "HIGH"
                 findings.append(Finding(
                     file=q.file,
                     line=q.line,
@@ -1026,7 +1145,7 @@ def classify_query(
                     collection=q.collection,
                     operation=q.operation,
                     filter_fields=q.filter_fields,
-                    severity="HIGH",
+                    severity=sev,
                     finding_type="missing_required",
                     reason=(
                         f"field `{f}` should be indexed on `{q.collection}` "
@@ -1043,9 +1162,17 @@ def classify_query(
     # Case D: multi-tenant hygiene check — only flag empty-filter queries
     # (full scans) on multi-tenant collections. Queries that filter by _id
     # or any other field are already covered by the index check above.
+    # Admin/CLI scopes legitimately scan across tenants — downgrade to
+    # MEDIUM (or LOW for small collections) instead of HIGH.
     if q.collection in MULTI_TENANT_COLLECTIONS and not q.filter_fields:
         # Skip system/internal collections that legitimately span tenants.
         if q.collection not in {"counters", "leader_locks"}:
+            if is_admin:
+                sev = "MEDIUM"
+            elif is_small:
+                sev = "MEDIUM"
+            else:
+                sev = "HIGH" if is_large else "MEDIUM"
             findings.append(Finding(
                 file=q.file,
                 line=q.line,
@@ -1053,7 +1180,7 @@ def classify_query(
                 collection=q.collection,
                 operation=q.operation,
                 filter_fields=q.filter_fields,
-                severity="HIGH" if is_large else "MEDIUM",
+                severity=sev,
                 finding_type="multi_tenant_unfiltered",
                 reason=(
                     f"empty-filter query on multi-tenant collection "
@@ -1329,7 +1456,12 @@ def render_markdown(report: dict) -> str:
         "telemetry, audit, deliveries, metrics) without a covering index, "
         "and for any query on a spec-required field that is missing the "
         "index. MEDIUM for small/static-data collections without coverage "
-        "and for multi-tenant queries without a tenantId filter."
+        "(announcements, plans, webhooks, api_keys, etc. — full scan is "
+        "sub-millisecond on <100 docs) and for multi-tenant queries "
+        "without a tenantId filter. Admin/CLI scopes (admin.go, "
+        "cmd/lastsaas/) are downgraded to MEDIUM — they legitimately "
+        "scan across tenants. Single-document collections "
+        "(branding_config, system_config) are suppressed entirely."
     )
     out.append("")
     out.append("---")

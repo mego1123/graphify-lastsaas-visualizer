@@ -4,10 +4,10 @@
     "ts_endpoints": 153,
     "go_endpoints": 163,
     "matched_endpoints": 122,
-    "ok_endpoints": 51,
-    "missing_in_go": 5,
-    "extra_in_go": 59,
-    "type_mismatches": 7,
+    "ok_endpoints": 57,
+    "missing_in_go": 2,
+    "extra_in_go": 58,
+    "type_mismatches": 4,
     "unknown_go_shape": 12,
     "no_go_handler": 0
   },
@@ -543,18 +543,6 @@
           "go_type": "unknown",
           "struct_ref": null,
           "is_array": false
-        },
-        {
-          "name": "accessToken",
-          "go_type": "unknown",
-          "struct_ref": null,
-          "is_array": false
-        },
-        {
-          "name": "refreshToken",
-          "go_type": "unknown",
-          "struct_ref": null,
-          "is_array": false
         }
       ],
       "ts_response_type": "{ accessToken?: string; refreshToken?: string; mfaRequired?: boolean; mfaToken?: string }",
@@ -675,7 +663,7 @@
           "is_array": false
         },
         {
-          "name": "qrUrl",
+          "name": "qrCodeUrl",
           "go_type": "unknown",
           "struct_ref": null,
           "is_array": false
@@ -698,14 +686,10 @@
           "is_array": false
         }
       ],
-      "missing_in_go": [
-        "qrCodeUrl"
-      ],
-      "extra_in_go": [
-        "qrUrl"
-      ],
+      "missing_in_go": [],
+      "extra_in_go": [],
       "type_mismatches": [],
-      "status": "missing_in_go"
+      "status": "ok"
     },
     {
       "endpoint": "POST /api/auth/mfa/verify-setup",
@@ -1141,15 +1125,8 @@
       ],
       "missing_in_go": [],
       "extra_in_go": [],
-      "type_mismatches": [
-        {
-          "field": "members",
-          "go_type": "[]MemberResponse",
-          "ts_type": "TenantMember[]",
-          "note": "struct name mismatch: Go MemberResponse[] vs TS TenantMember[]"
-        }
-      ],
-      "status": "type_mismatch"
+      "type_mismatches": [],
+      "status": "ok"
     },
     {
       "endpoint": "POST /api/tenant/members/invite",
@@ -2441,12 +2418,10 @@
           "is_array": false
         }
       ],
-      "missing_in_go": [
-        "subscriberCount"
-      ],
+      "missing_in_go": [],
       "extra_in_go": [],
       "type_mismatches": [],
-      "status": "missing_in_go"
+      "status": "ok"
     },
     {
       "endpoint": "GET /api/admin/entitlement-keys",
@@ -2476,15 +2451,8 @@
       ],
       "missing_in_go": [],
       "extra_in_go": [],
-      "type_mismatches": [
-        {
-          "field": "keys",
-          "go_type": "[]KeyInfo",
-          "ts_type": "EntitlementKeyInfo[]",
-          "note": "struct name mismatch: Go KeyInfo[] vs TS EntitlementKeyInfo[]"
-        }
-      ],
-      "status": "type_mismatch"
+      "type_mismatches": [],
+      "status": "ok"
     },
     {
       "endpoint": "PATCH /api/admin/tenants/{tenantId}/plan",
@@ -3641,15 +3609,8 @@
       ],
       "missing_in_go": [],
       "extra_in_go": [],
-      "type_mismatches": [
-        {
-          "field": "members",
-          "go_type": "[]MemberResponse",
-          "ts_type": "TenantMember[]",
-          "note": "struct name mismatch: Go MemberResponse[] vs TS TenantMember[]"
-        }
-      ],
-      "status": "type_mismatch"
+      "type_mismatches": [],
+      "status": "ok"
     },
     {
       "endpoint": "POST /api/admin/members/invite",
@@ -4219,12 +4180,6 @@
       "go_fields": [
         {
           "name": "waived",
-          "go_type": "unknown",
-          "struct_ref": null,
-          "is_array": false
-        },
-        {
-          "name": "checkoutUrl",
           "go_type": "unknown",
           "struct_ref": null,
           "is_array": false
@@ -5985,12 +5940,10 @@
           "is_array": false
         }
       ],
-      "missing_in_go": [
-        "count"
-      ],
+      "missing_in_go": [],
       "extra_in_go": [],
       "type_mismatches": [],
-      "status": "missing_in_go"
+      "status": "ok"
     },
     {
       "endpoint": "GET /api/admin/pm/event-definitions/sankey",
@@ -8352,7 +8305,7 @@
     {
       "name": "exportMembership",
       "file": "backend/internal/api/handlers/auth.go",
-      "line": 2348,
+      "line": 2373,
       "package": "handlers",
       "fields": [
         {
@@ -8384,7 +8337,7 @@
     {
       "name": "exportMessage",
       "file": "backend/internal/api/handlers/auth.go",
-      "line": 2370,
+      "line": 2395,
       "package": "handlers",
       "fields": [
         {
@@ -8821,6 +8774,14 @@
       "line": 100,
       "package": "handlers",
       "fields": [
+        {
+          "name": "models.EventDefinition",
+          "json_name": "",
+          "go_type": "models.EventDefinition",
+          "is_omitempty": false,
+          "is_skipped": false,
+          "is_optional": false
+        },
         {
           "name": "Count",
           "json_name": "count",

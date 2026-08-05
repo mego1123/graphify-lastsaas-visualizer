@@ -7,20 +7,20 @@
 | Metric | Value |
 | --- | ---: |
 | Files scanned | 101 |
-| Total lines | 28,969 |
+| Total lines | 28,996 |
 | MongoDB queries scanned | **598** |
 | Total findings | 147 |
-| Risky findings (CRITICAL/HIGH/MEDIUM) | **32** |
-| Sanitized (LOW) | 115 |
+| Risky findings (CRITICAL/HIGH/MEDIUM) | **25** |
+| Sanitized (LOW) | 122 |
 
 ### Findings by risk
 
 | Risk | Count | Meaning |
 | --- | ---: | --- |
 | CRITICAL | 0 | `$where` with user input — JS injection |
-| HIGH | 32 | Direct user input in filter / `$regex` injection |
+| HIGH | 25 | Direct user input in filter / `$regex` injection |
 | MEDIUM | 0 | User input in `$or`/`$and`/`$nor` arrays |
-| LOW | 115 | User input was sanitized before query |
+| LOW | 122 | User input was sanitized before query |
 
 ### Findings by user-input source
 
@@ -36,16 +36,16 @@
 
 | File | Queries | Findings | CRITICAL | HIGH | MEDIUM | LOW |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `backend/internal/api/handlers/auth.go` | 97 | 13 | 0 | 10 | 0 | 3 |
+| `backend/internal/api/handlers/auth.go` | 97 | 13 | 0 | 9 | 0 | 4 |
 | `backend/internal/api/handlers/branding.go` | 20 | 7 | 0 | 6 | 0 | 1 |
 | `backend/internal/api/handlers/usage.go` | 5 | 4 | 0 | 4 | 0 | 0 |
 | `backend/internal/api/handlers/admin.go` | 78 | 40 | 0 | 2 | 0 | 38 |
-| `backend/internal/api/handlers/plans.go` | 31 | 18 | 0 | 2 | 0 | 16 |
 | `backend/internal/api/handlers/tenant.go` | 26 | 14 | 0 | 2 | 0 | 12 |
-| `backend/internal/api/handlers/event_definitions.go` | 17 | 12 | 0 | 2 | 0 | 10 |
-| `backend/internal/api/handlers/bundles.go` | 13 | 8 | 0 | 2 | 0 | 6 |
 | `backend/internal/api/handlers/config.go` | 3 | 2 | 0 | 2 | 0 | 0 |
+| `backend/internal/api/handlers/plans.go` | 31 | 18 | 0 | 0 | 0 | 18 |
+| `backend/internal/api/handlers/event_definitions.go` | 17 | 12 | 0 | 0 | 0 | 12 |
 | `backend/internal/api/handlers/billing.go` | 22 | 9 | 0 | 0 | 0 | 9 |
+| `backend/internal/api/handlers/bundles.go` | 13 | 8 | 0 | 0 | 0 | 8 |
 | `backend/internal/api/handlers/webhook.go` | 35 | 8 | 0 | 0 | 0 | 8 |
 | `backend/internal/api/handlers/webhooks.go` | 15 | 4 | 0 | 0 | 0 | 4 |
 | `backend/internal/api/handlers/announcements.go` | 7 | 2 | 0 | 0 | 0 | 2 |
@@ -474,14 +474,6 @@
 
 ### `backend/internal/api/handlers/auth.go`
 
-- **[HIGH] FindOne** — `backend/internal/api/handlers/auth.go:223` in `Register`
-  - **Field:** `email`
-  - **Source:** `json-body:req.Email` (var `req.Email`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
-  ```go
-          if err := h.db.Users().FindOne(r.Context(), bson.M{"email": req.Email}).Decode(&existing); err == nil {
-  ```
 - **[HIGH] FindOne** — `backend/internal/api/handlers/auth.go:330` in `Login`
   - **Field:** `email`
   - **Source:** `json-body:req.Email` (var `req.Email`)
@@ -573,6 +565,14 @@
                   "state":     state,
                   "expiresAt": bson.M{"$gt": time.Now()},
           })
+  ```
+- **[LOW] FindOne** — `backend/internal/api/handlers/auth.go:223` in `Register`
+  - **Field:** `email`
+  - **Source:** `json-body:req.Email` (var `req.Email`)
+  - **Sanitized:** yes, via `custom-validator:isValidEmail`
+  - _value passed through sanitizer 'custom-validator:isValidEmail' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  ```go
+          if err := h.db.Users().FindOne(r.Context(), bson.M{"email": req.Email}).Decode(&existing); err == nil {
   ```
 - **[LOW] FindOne** — `backend/internal/api/handlers/auth.go:537` in `Refresh`
   - **Field:** `_id`
@@ -738,21 +738,13 @@
 
 ### `backend/internal/api/handlers/bundles.go`
 
-- **[HIGH] CountDocuments** — `backend/internal/api/handlers/bundles.go:96` in `CreateBundle`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/bundles.go:96` in `CreateBundle`
   - **Field:** `name`
   - **Source:** `json-body:req.Name` (var `req.Name`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  - **Sanitized:** yes, via `custom-validator:validateBundleRequest`
+  - _value passed through sanitizer 'custom-validator:validateBundleRequest' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
   	count, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{"name": req.Name})
-  ```
-- **[HIGH] CountDocuments** — `backend/internal/api/handlers/bundles.go:166` in `UpdateBundle`
-  - **Field:** `name`
-  - **Source:** `json-body:req.Name` (var `req.Name`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
-  ```go
-  		count, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{"name": req.Name, "_id": bson.M{"$ne": bundleID}})
   ```
 - **[LOW] FindOne** — `backend/internal/api/handlers/bundles.go:145` in `UpdateBundle`
   - **Field:** `_id`
@@ -761,6 +753,14 @@
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
   	if err := h.db.CreditBundles().FindOne(r.Context(), bson.M{"_id": bundleID}).Decode(&existing); err != nil {
+  ```
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/bundles.go:166` in `UpdateBundle`
+  - **Field:** `name`
+  - **Source:** `json-body:req.Name` (var `req.Name`)
+  - **Sanitized:** yes, via `custom-validator:validateBundleRequest`
+  - _value passed through sanitizer 'custom-validator:validateBundleRequest' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  ```go
+  		count, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{"name": req.Name, "_id": bson.M{"$ne": bundleID}})
   ```
 - **[LOW] CountDocuments** — `backend/internal/api/handlers/bundles.go:166` in `UpdateBundle`
   - **Field:** `_id.$ne`
@@ -824,21 +824,13 @@
 
 ### `backend/internal/api/handlers/event_definitions.go`
 
-- **[HIGH] CountDocuments** — `backend/internal/api/handlers/event_definitions.go:135` in `CreateEventDefinition`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/event_definitions.go:135` in `CreateEventDefinition`
   - **Field:** `name`
   - **Source:** `json-body:req.Name` (var `req.Name`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  - **Sanitized:** yes, via `regex-validator:validDefName.MatchString`
+  - _value passed through sanitizer 'regex-validator:validDefName.MatchString' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
   	count, err := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"name": req.Name})
-  ```
-- **[HIGH] CountDocuments** — `backend/internal/api/handlers/event_definitions.go:219` in `UpdateEventDefinition`
-  - **Field:** `name`
-  - **Source:** `json-body:req.Name` (var `req.Name`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
-  ```go
-  		count, err := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"name": req.Name, "_id": bson.M{"$ne": defID}})
   ```
 - **[LOW] CountDocuments** — `backend/internal/api/handlers/event_definitions.go:161` in `CreateEventDefinition`
   - **Field:** `_id`
@@ -855,6 +847,14 @@
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
   	if err := h.db.EventDefinitions().FindOne(ctx, bson.M{"_id": defID}).Decode(&existing); err != nil {
+  ```
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/event_definitions.go:219` in `UpdateEventDefinition`
+  - **Field:** `name`
+  - **Source:** `json-body:req.Name` (var `req.Name`)
+  - **Sanitized:** yes, via `regex-validator:validDefName.MatchString`
+  - _value passed through sanitizer 'regex-validator:validDefName.MatchString' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  ```go
+  		count, err := h.db.EventDefinitions().CountDocuments(ctx, bson.M{"name": req.Name, "_id": bson.M{"$ne": defID}})
   ```
 - **[LOW] CountDocuments** — `backend/internal/api/handlers/event_definitions.go:219` in `UpdateEventDefinition`
   - **Field:** `_id.$ne`
@@ -939,22 +939,6 @@
 
 ### `backend/internal/api/handlers/plans.go`
 
-- **[HIGH] CountDocuments** — `backend/internal/api/handlers/plans.go:253` in `CreatePlan`
-  - **Field:** `name`
-  - **Source:** `json-body:req.Name` (var `req.Name`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
-  ```go
-  	count, err := h.db.Plans().CountDocuments(r.Context(), bson.M{"name": req.Name})
-  ```
-- **[HIGH] CountDocuments** — `backend/internal/api/handlers/plans.go:350` in `UpdatePlan`
-  - **Field:** `name`
-  - **Source:** `json-body:req.Name` (var `req.Name`)
-  - **Sanitized:** no
-  - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
-  ```go
-  		count, err := h.db.Plans().CountDocuments(r.Context(), bson.M{"name": req.Name, "_id": bson.M{"$ne": planID}})
-  ```
 - **[LOW] FindOne** — `backend/internal/api/handlers/plans.go:110` in `GetPlan`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["planId"])` (var `planID`)
@@ -963,6 +947,14 @@
   ```go
   	if err := h.db.Plans().FindOne(r.Context(), bson.M{"_id": planID}).Decode(&plan); err != nil {
   ```
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/plans.go:253` in `CreatePlan`
+  - **Field:** `name`
+  - **Source:** `json-body:req.Name` (var `req.Name`)
+  - **Sanitized:** yes, via `custom-validator:validatePlanRequest`
+  - _value passed through sanitizer 'custom-validator:validatePlanRequest' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  ```go
+  	count, err := h.db.Plans().CountDocuments(r.Context(), bson.M{"name": req.Name})
+  ```
 - **[LOW] FindOne** — `backend/internal/api/handlers/plans.go:323` in `UpdatePlan`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["planId"])` (var `planID`)
@@ -970,6 +962,14 @@
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
   	if err := h.db.Plans().FindOne(r.Context(), bson.M{"_id": planID}).Decode(&existing); err != nil {
+  ```
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/plans.go:350` in `UpdatePlan`
+  - **Field:** `name`
+  - **Source:** `json-body:req.Name` (var `req.Name`)
+  - **Sanitized:** yes, via `custom-validator:validatePlanRequest`
+  - _value passed through sanitizer 'custom-validator:validatePlanRequest' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
+  ```go
+  		count, err := h.db.Plans().CountDocuments(r.Context(), bson.M{"name": req.Name, "_id": bson.M{"$ne": planID}})
   ```
 - **[LOW] CountDocuments** — `backend/internal/api/handlers/plans.go:350` in `UpdatePlan`
   - **Field:** `_id.$ne`
@@ -1423,7 +1423,7 @@
 The scanner walks every `.go` file (excluding `vendor/`, `node_modules/`, `.git/`, `graphify-out/`, `testdata/`) and applies these heuristics:
 
 1. **Function-level user input tracking.** For each top-level function/method, build a map of variables that hold user input. Sources recognized: `r.URL.Query().Get(...)`, `q.Get(...)` (where `q := r.URL.Query()`), `r.FormValue(...)`, `chi.URLParam(...)`, `mux.Vars(r)[...]`, and JSON-body struct fields (`req.Field` where `req` was decoded from `r.Body`). String literals are preserved during pattern matching (only comments are stripped).
-2. **Sanitizer tracking.** Variables assigned from `primitive.ObjectIDFromHex(...)`, `escapeRegexInput(...)`, `strconv.Atoi/ParseInt/...`, `time.Parse(...)`, or `primitive.Regex{Pattern: ...escapeRegexInput(...)...}` are marked sanitized. `switch X { case ... }` allowlist validation is also recognized when the case body assigns a literal (not `X`) to the filter.
+2. **Sanitizer tracking.** Variables assigned from `primitive.ObjectIDFromHex(...)`, `escapeRegexInput(...)`, `strconv.Atoi/ParseInt/ParseFloat/ParseBool(...)`, `time.Parse(...)`, `url.PathEscape/QueryEscape(...)`, `regexp.MustCompile(...)`, `uuid.Parse(...)`, or `primitive.Regex{Pattern: ...escapeRegexInput(...)...}` are marked sanitized. `switch X { case ... }` allowlist validation is also recognized when the case body assigns a literal (not `X`) to the filter. Struct-level validation via `validator.Struct(&req)` or the project's `validation.Validate(&req)` wrapper marks every `req.*` field as sanitized (when the validation call occurs BEFORE the query). Per-field custom validators (`if !isValidEmail(req.Email) { return ... }`) are recognized by function-name prefix (`is*`/`valid*`/`validate*`/`check*`) and mark their argument as sanitized.
 3. **MongoDB query detection.** Every call to a known mongo-driver method (`Find`, `FindOne`, `InsertOne`, `UpdateOne`, `DeleteOne`, `Aggregate`, `CountDocuments`, etc.) is located via paren matching on a masked source (strings/comments blanked out).
 4. **Filter analysis.** The filter argument (positional after `ctx`) is parsed. If it's a `bson.M{...}` / `bson.D{...}` literal, every key/value pair is extracted via balanced-brace matching on the masked source, then re-read from the original source to preserve string-literal field names; nested literals (e.g. inside `$or` arrays) are recursed. If the filter is a variable, the function is scanned for `varname["..."] = value` assignments.
 5. **Risk classification.** `$where` with user input → CRITICAL (JS execution). Direct user input in a field value, or `$regex` with user input → HIGH. User input in `$or`/`$and`/`$nor` array elements → MEDIUM. Sanitized user input → LOW (informational).

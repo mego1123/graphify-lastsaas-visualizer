@@ -4,16 +4,16 @@
     "total_files": 134,
     "non_test_files": 101,
     "test_files": 33,
-    "non_test_lines": 28969,
+    "non_test_lines": 28996,
     "queries_scanned": 598,
     "total_findings": 147,
-    "risky_findings": 32,
-    "sanitized_findings": 115,
+    "risky_findings": 25,
+    "sanitized_findings": 122,
     "by_risk": {
       "CRITICAL": 0,
-      "HIGH": 32,
+      "HIGH": 25,
       "MEDIUM": 0,
-      "LOW": 115
+      "LOW": 122
     },
     "by_source": {
       "sanitized": 112,
@@ -29,9 +29,9 @@
       "queries": 97,
       "findings": 13,
       "critical": 0,
-      "high": 10,
+      "high": 9,
       "medium": 0,
-      "low": 3
+      "low": 4
     },
     {
       "file": "backend/internal/api/handlers/branding.go",
@@ -61,15 +61,6 @@
       "low": 38
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
-      "queries": 31,
-      "findings": 18,
-      "critical": 0,
-      "high": 2,
-      "medium": 0,
-      "low": 16
-    },
-    {
       "file": "backend/internal/api/handlers/tenant.go",
       "queries": 26,
       "findings": 14,
@@ -77,24 +68,6 @@
       "high": 2,
       "medium": 0,
       "low": 12
-    },
-    {
-      "file": "backend/internal/api/handlers/event_definitions.go",
-      "queries": 17,
-      "findings": 12,
-      "critical": 0,
-      "high": 2,
-      "medium": 0,
-      "low": 10
-    },
-    {
-      "file": "backend/internal/api/handlers/bundles.go",
-      "queries": 13,
-      "findings": 8,
-      "critical": 0,
-      "high": 2,
-      "medium": 0,
-      "low": 6
     },
     {
       "file": "backend/internal/api/handlers/config.go",
@@ -106,6 +79,24 @@
       "low": 0
     },
     {
+      "file": "backend/internal/api/handlers/plans.go",
+      "queries": 31,
+      "findings": 18,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 18
+    },
+    {
+      "file": "backend/internal/api/handlers/event_definitions.go",
+      "queries": 17,
+      "findings": 12,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 12
+    },
+    {
       "file": "backend/internal/api/handlers/billing.go",
       "queries": 22,
       "findings": 9,
@@ -113,6 +104,15 @@
       "high": 0,
       "medium": 0,
       "low": 9
+    },
+    {
+      "file": "backend/internal/api/handlers/bundles.go",
+      "queries": 13,
+      "findings": 8,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 8
     },
     {
       "file": "backend/internal/api/handlers/webhook.go",
@@ -920,11 +920,11 @@
       "source": "json-body:req.Email",
       "source_var": "req.Email",
       "field": "email",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "custom-validator:isValidEmail",
       "snippet": "        if err := h.db.Users().FindOne(r.Context(), bson.M{\"email\": req.Email}).Decode(&existing); err == nil {",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'custom-validator:isValidEmail' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/auth.go",
@@ -1384,11 +1384,11 @@
       "source": "json-body:req.Name",
       "source_var": "req.Name",
       "field": "name",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "custom-validator:validateBundleRequest",
       "snippet": "\tcount, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{\"name\": req.Name})",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'custom-validator:validateBundleRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/bundles.go",
@@ -1416,11 +1416,11 @@
       "source": "json-body:req.Name",
       "source_var": "req.Name",
       "field": "name",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "custom-validator:validateBundleRequest",
       "snippet": "\t\tcount, err := h.db.CreditBundles().CountDocuments(r.Context(), bson.M{\"name\": req.Name, \"_id\": bson.M{\"$ne\": bundleID}})",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'custom-validator:validateBundleRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/bundles.go",
@@ -1544,11 +1544,11 @@
       "source": "json-body:req.Name",
       "source_var": "req.Name",
       "field": "name",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "regex-validator:validDefName.MatchString",
       "snippet": "\tcount, err := h.db.EventDefinitions().CountDocuments(ctx, bson.M{\"name\": req.Name})",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'regex-validator:validDefName.MatchString' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/event_definitions.go",
@@ -1592,11 +1592,11 @@
       "source": "json-body:req.Name",
       "source_var": "req.Name",
       "field": "name",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "regex-validator:validDefName.MatchString",
       "snippet": "\t\tcount, err := h.db.EventDefinitions().CountDocuments(ctx, bson.M{\"name\": req.Name, \"_id\": bson.M{\"$ne\": defID}})",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'regex-validator:validDefName.MatchString' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/event_definitions.go",
@@ -1768,11 +1768,11 @@
       "source": "json-body:req.Name",
       "source_var": "req.Name",
       "field": "name",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "custom-validator:validatePlanRequest",
       "snippet": "\tcount, err := h.db.Plans().CountDocuments(r.Context(), bson.M{\"name\": req.Name})",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'custom-validator:validatePlanRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/plans.go",
@@ -1800,11 +1800,11 @@
       "source": "json-body:req.Name",
       "source_var": "req.Name",
       "field": "name",
-      "risk": "HIGH",
-      "sanitized": false,
-      "sanitizer": "",
+      "risk": "LOW",
+      "sanitized": true,
+      "sanitizer": "custom-validator:validatePlanRequest",
       "snippet": "\t\tcount, err := h.db.Plans().CountDocuments(r.Context(), bson.M{\"name\": req.Name, \"_id\": bson.M{\"$ne\": planID}})",
-      "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
+      "note": "value passed through sanitizer 'custom-validator:validatePlanRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
       "file": "backend/internal/api/handlers/plans.go",
@@ -2689,7 +2689,7 @@
     {
       "path": "backend/internal/api/handlers/auth.go",
       "is_test": false,
-      "lines": 2412,
+      "lines": 2437,
       "queries_scanned": 97,
       "findings": 13
     },
@@ -3039,7 +3039,7 @@
     {
       "path": "backend/internal/db/mongodb.go",
       "is_test": false,
-      "lines": 483,
+      "lines": 485,
       "queries_scanned": 0,
       "findings": 0
     },

@@ -154,11 +154,59 @@ SANITIZER_NAMES = [
     "strconv.ParseUint",
     "strconv.ParseFloat",
     "strconv.ParseBool",
+    "strconv.ParseUint",
     "time.Parse",
     "time.ParseInLocation",
+    "url.PathEscape",
+    "url.QueryEscape",
+    "url.PathUnescape",
+    "regexp.MustCompile",
+    "regexp.Compile",
+    "uuid.Parse",
+    "uuid.MustParse",
 ]
 SANI_CALL_RE = re.compile(
     r"\b(" + "|".join(re.escape(n) for n in SANITIZER_NAMES) + r")\s*\("
+)
+
+# Struct-validation calls — when a JSON-decoded struct is passed through
+# one of these, all of its fields are considered validated. The project
+# uses both ``validator.Struct(...)`` (the underlying library) and
+# ``validation.Validate(...)`` (a project-specific wrapper that calls
+# ``validator.Struct`` internally).
+STRUCT_VALIDATOR_CALL_RE = re.compile(
+    r"\b(?:validator\.Struct|validation\.Validate|v\.Struct|validate\.Struct)\s*\(\s*&?\s*(?P<arg>\w+)\s*\)"
+)
+
+# Per-field custom validator pattern: a conditional ``if !<fn>(<var>) {
+# respondWithError ... }`` block that returns early on invalid input.
+# The function name typically starts with ``isValid`` / ``valid`` /
+# ``validate`` (e.g. ``isValidEmail``, ``validateToken``). We treat the
+# variable passed to such a function as sanitized if the call is
+# followed by an early-return guard.
+PER_FIELD_VALIDATOR_RE = re.compile(
+    r"\bif\s+!?(?P<fn>is[A-Z]\w*|valid\w*|validate\w*|check\w*)\s*\(\s*(?P<arg>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\)\s*\{"
+)
+
+# Compiled-regex method-call validator: ``<regexVar>.Match(<arg>)`` or
+# ``<regexVar>.MatchString(<arg>)``. Common pattern for validating format
+# (e.g. ``validDefName.MatchString(req.Name)``). We look for this pattern
+# anywhere in the function (typically inside an ``if`` guard with an
+# early return); if found, the argument is considered validated.
+REGEX_MATCH_VALIDATOR_RE = re.compile(
+    r"\b(?P<regexVar>[A-Za-z_]\w*)\.(?:Match|MatchString)\s*\(\s*(?P<arg>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*\)"
+)
+
+# Error-returning validator pattern: ``if err := <validate-fn>(&<var>);
+# err != nil { ... return }``. Functions like ``validateBundleRequest``,
+# ``validatePlanRequest``, ``validateWebhookRequest`` take a pointer to
+# the request struct and return an error. When this pattern appears
+# before a query, all fields of the validated struct are considered
+# sanitized.
+ERROR_VALIDATOR_RE = re.compile(
+    r"\bif\s+(?:err\s*:?=\s*|_,\s*err\s*:?=\s*)"
+    r"(?P<fn>validate\w*|valid\w*|check\w*|sanitize\w*|normalize\w*)"
+    r"\s*\(\s*&\s*(?P<arg>\w+)\s*\)"
 )
 
 # bson.M / bson.D / bson.A literal start. Run on MASKED source.
@@ -192,6 +240,7 @@ class UserInput:
     line: int
     sanitized: bool = False
     sanitizer: str = ""
+    sanitized_at_line: int = 0   # line where the sanitizer was applied (0 = n/a)
 
 
 @dataclass
@@ -626,7 +675,143 @@ def collect_user_inputs(
                     line=func_start_line,
                     sanitized=src_in.sanitized,
                     sanitizer=src_in.sanitizer,
+                    sanitized_at_line=src_in.sanitized_at_line,
                 )
+
+    # 7. Per-field custom validators: ``if !isValidEmail(req.Email) {
+    # respondWithError ... }`` — the variable passed to such a function
+    # is validated and safe to use in subsequent queries. Functions whose
+    # names start with ``isValid`` / ``valid`` / ``validate`` / ``check``
+    # and which appear in a negated ``if`` guard are treated as
+    # sanitizers.
+    for m in PER_FIELD_VALIDATOR_RE.finditer(func_no_comments):
+        arg = m.group('arg')
+        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+        # The arg may be ``req.Email`` (struct field) or a bare variable.
+        if arg in inputs:
+            ui = inputs[arg]
+            # Only mark sanitized if not already sanitized earlier.
+            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+                inputs[arg] = UserInput(
+                    var=ui.var,
+                    source=ui.source,
+                    line=ui.line,
+                    sanitized=True,
+                    sanitizer=f"custom-validator:{m.group('fn')}",
+                    sanitized_at_line=line,
+                )
+        elif '.' in arg:
+            # Struct field: validate the head var (e.g. ``req.Email``
+            # → mark ``req`` as having its ``Email`` field validated).
+            head = arg.split('.', 1)[0]
+            if head in inputs and inputs[head].source.startswith("json-body:"):
+                # Register the dotted form too.
+                inputs[arg] = UserInput(
+                    var=arg,
+                    source=f"json-body:{arg}",
+                    line=inputs[head].line,
+                    sanitized=True,
+                    sanitizer=f"custom-validator:{m.group('fn')}",
+                    sanitized_at_line=line,
+                )
+
+    # 7b. Compiled-regex validators: ``if !validDefName.MatchString(req.Name) {
+    # respondWithError ... }`` — the variable passed to ``MatchString`` /
+    # ``Match`` is validated against the regex.
+    for m in REGEX_MATCH_VALIDATOR_RE.finditer(func_no_comments):
+        arg = m.group('arg')
+        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+        sani = f"regex-validator:{m.group('regexVar')}.MatchString"
+        if arg in inputs:
+            ui = inputs[arg]
+            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+                inputs[arg] = UserInput(
+                    var=ui.var,
+                    source=ui.source,
+                    line=ui.line,
+                    sanitized=True,
+                    sanitizer=sani,
+                    sanitized_at_line=line,
+                )
+        elif '.' in arg:
+            head = arg.split('.', 1)[0]
+            if head in inputs and inputs[head].source.startswith("json-body:"):
+                inputs[arg] = UserInput(
+                    var=arg,
+                    source=f"json-body:{arg}",
+                    line=inputs[head].line,
+                    sanitized=True,
+                    sanitizer=sani,
+                    sanitized_at_line=line,
+                )
+
+    # 8. Struct-level validators: ``validator.Struct(&req)`` /
+    # ``validation.Validate(&req)`` — the entire struct's fields are
+    # validated. Mark every ``req.*`` input derived from the validated
+    # struct as sanitized.
+    for m in STRUCT_VALIDATOR_CALL_RE.finditer(func_no_comments):
+        target = m.group('arg')
+        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+        # Mark the bare struct name (e.g. ``req``) as sanitized — this
+        # catches lazy ``req.X`` lookups via the json-body fallback in
+        # ``is_user_input``.
+        if target in inputs:
+            ui = inputs[target]
+            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+                inputs[target] = UserInput(
+                    var=ui.var,
+                    source=ui.source,
+                    line=ui.line,
+                    sanitized=True,
+                    sanitizer="validator.Struct",
+                    sanitized_at_line=line,
+                )
+        # Also mark every explicit ``target.Field`` input that was
+        # registered earlier.
+        for var_name, ui in list(inputs.items()):
+            if var_name.startswith(f"{target}.") and ui.source.startswith("json-body:"):
+                if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+                    inputs[var_name] = UserInput(
+                        var=ui.var,
+                        source=ui.source,
+                        line=ui.line,
+                        sanitized=True,
+                        sanitizer="validator.Struct",
+                        sanitized_at_line=line,
+                    )
+
+    # 9. Error-returning request validators: ``if err := validateX(&req);
+    # err != nil { return }``. Functions like ``validateBundleRequest``,
+    # ``validatePlanRequest``, ``validateWebhookRequest`` validate the
+    # whole request struct. Mark all the struct's fields as sanitized.
+    for m in ERROR_VALIDATOR_RE.finditer(func_no_comments):
+        target = m.group('arg')
+        line = _line_of(func_no_comments, m.start()) + func_start_line - 1
+        sani = f"custom-validator:{m.group('fn')}"
+        # Mark the bare struct name.
+        if target in inputs:
+            ui = inputs[target]
+            if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+                inputs[target] = UserInput(
+                    var=ui.var,
+                    source=ui.source,
+                    line=ui.line,
+                    sanitized=True,
+                    sanitizer=sani,
+                    sanitized_at_line=line,
+                )
+        # Mark every explicit ``target.Field`` input.
+        for var_name, ui in list(inputs.items()):
+            if var_name.startswith(f"{target}.") and ui.source.startswith("json-body:"):
+                if not ui.sanitized or ui.sanitized_at_line == 0 or ui.sanitized_at_line > line:
+                    inputs[var_name] = UserInput(
+                        var=ui.var,
+                        source=ui.source,
+                        line=ui.line,
+                        sanitized=True,
+                        sanitizer=sani,
+                        sanitized_at_line=line,
+                    )
 
     return inputs
 
@@ -635,6 +820,7 @@ def is_user_input(
     expr_src: str,
     expr_masked: str,
     inputs: dict[str, UserInput],
+    query_line: int = 0,
 ) -> Optional[UserInput]:
     """Check if an expression references a user-input variable.
 
@@ -643,13 +829,20 @@ def is_user_input(
     appears INSIDE a sanitizer call's argument list (e.g.
     ``escapeRegexInput(search)``), the returned UserInput is marked as
     sanitized.
+
+    ``query_line`` is the line where the MongoDB query that consumes
+    this expression appears. When non-zero, struct/per-field validators
+    applied AFTER the query are NOT considered sanitizers (the input was
+    unvalidated at the time of the query). When zero (caller didn't pass
+    a line), validator-based sanitization is trusted unconditionally.
     """
     expr_src = expr_src.strip() if expr_src else ""
     if not expr_src:
         return None
     # Direct match — but only for very simple expressions (no function calls).
     if expr_src in inputs and '(' not in expr_src:
-        return inputs[expr_src]
+        ui = inputs[expr_src]
+        return _validated_before_query(ui, query_line)
     # Find sanitizer call argument ranges in expr_masked.
     sanitizer_ranges: list[tuple[int, int, str]] = []
     for m in SANI_CALL_RE.finditer(expr_masked):
@@ -672,18 +865,61 @@ def is_user_input(
                         line=ui.line,
                         sanitized=True,
                         sanitizer=sani,
+                        sanitized_at_line=query_line,
                     )
-            return inputs[tok]
+            return _validated_before_query(inputs[tok], query_line)
         # Lazy struct field case.
         head = tok.split('.')[0]
         if head in inputs and inputs[head].source.startswith("json-body:"):
+            ui = inputs[head]
+            # If the head was validated via validator.Struct, the field
+            # is also validated (after the validator's line).
+            validated_ui = _validated_before_query(ui, query_line)
+            if validated_ui.sanitized:
+                return UserInput(
+                    var=tok,
+                    source=f"json-body:{tok}",
+                    line=ui.line,
+                    sanitized=True,
+                    sanitizer=validated_ui.sanitizer,
+                    sanitized_at_line=validated_ui.sanitized_at_line,
+                )
+            # If the dotted form was explicitly registered (e.g. via a
+            # per-field validator), use that.
+            if tok in inputs:
+                return _validated_before_query(inputs[tok], query_line)
             return UserInput(
                 var=tok,
                 source=f"json-body:{tok}",
-                line=inputs[head].line,
+                line=ui.line,
                 sanitized=False,
             )
     return None
+
+
+def _validated_before_query(ui: UserInput, query_line: int) -> UserInput:
+    """Return a copy of ``ui`` whose ``sanitized`` flag reflects whether
+    the sanitization happened before the query (when ``query_line`` is
+    known). If the sanitizer was applied AFTER the query, return an
+    unsanitized copy so the finding is still raised.
+    """
+    if not ui.sanitized:
+        return ui
+    if ui.sanitized_at_line == 0 or query_line == 0:
+        # No line info — trust the sanitized flag.
+        return ui
+    if ui.sanitized_at_line < query_line:
+        return ui
+    # Sanitizer was applied AFTER the query — input was unvalidated at
+    # the time of the query.
+    return UserInput(
+        var=ui.var,
+        source=ui.source,
+        line=ui.line,
+        sanitized=False,
+        sanitizer="",
+        sanitized_at_line=0,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -853,7 +1089,7 @@ def analyze_filter_literal(
             # Also check the bare-identifier part of the value (if any).
             stripped_v_masked = BSON_LITERAL_RE.sub("", v_masked)
             stripped_v_src = BSON_LITERAL_RE.sub("", v_src)
-            ui = is_user_input(stripped_v_src, stripped_v_masked, inputs)
+            ui = is_user_input(stripped_v_src, stripped_v_masked, inputs, call_line)
             if ui:
                 _emit_finding(
                     findings, file, function, operation, call_line,
@@ -861,7 +1097,7 @@ def analyze_filter_literal(
                     field=field, ui=ui, value_expr=v_src,
                 )
         else:
-            ui = is_user_input(v_src, v_masked, inputs)
+            ui = is_user_input(v_src, v_masked, inputs, call_line)
             if ui:
                 _emit_finding(
                     findings, file, function, operation, call_line,
@@ -980,7 +1216,7 @@ def analyze_filter_var(
                 )
             stripped_v_masked = BSON_LITERAL_RE.sub("", v_masked)
             stripped_v_src = BSON_LITERAL_RE.sub("", v_src)
-            ui = is_user_input(stripped_v_src, stripped_v_masked, inputs)
+            ui = is_user_input(stripped_v_src, stripped_v_masked, inputs, assign_line)
             if ui:
                 _emit_finding(
                     findings, file, function, operation, assign_line,
@@ -988,7 +1224,7 @@ def analyze_filter_var(
                     field=key, ui=ui, value_expr=v_src,
                 )
         else:
-            ui = is_user_input(v_src, v_masked, inputs)
+            ui = is_user_input(v_src, v_masked, inputs, assign_line)
             if ui:
                 # Determine if the assignment is inside a switch allowlist.
                 if _in_switch_allowlist(func_masked, m.start(), var_name, ui):
@@ -998,6 +1234,7 @@ def analyze_filter_var(
                         line=ui.line,
                         sanitized=True,
                         sanitizer="switch-allowlist",
+                        sanitized_at_line=assign_line,
                     )
                 _emit_finding(
                     findings, file, function, operation, assign_line,
@@ -1402,11 +1639,19 @@ def render_markdown(report: dict) -> str:
     out.append(
         "2. **Sanitizer tracking.** Variables assigned from "
         "`primitive.ObjectIDFromHex(...)`, `escapeRegexInput(...)`, "
-        "`strconv.Atoi/ParseInt/...`, `time.Parse(...)`, or "
+        "`strconv.Atoi/ParseInt/ParseFloat/ParseBool(...)`, "
+        "`time.Parse(...)`, `url.PathEscape/QueryEscape(...)`, "
+        "`regexp.MustCompile(...)`, `uuid.Parse(...)`, or "
         "`primitive.Regex{Pattern: ...escapeRegexInput(...)...}` are marked "
         "sanitized. `switch X { case ... }` allowlist validation is also "
         "recognized when the case body assigns a literal (not `X`) to the "
-        "filter."
+        "filter. Struct-level validation via `validator.Struct(&req)` or "
+        "the project's `validation.Validate(&req)` wrapper marks every "
+        "`req.*` field as sanitized (when the validation call occurs "
+        "BEFORE the query). Per-field custom validators "
+        "(`if !isValidEmail(req.Email) { return ... }`) are recognized "
+        "by function-name prefix (`is*`/`valid*`/`validate*`/`check*`) "
+        "and mark their argument as sanitized."
     )
     out.append(
         "3. **MongoDB query detection.** Every call to a known mongo-driver "

@@ -1,0 +1,1434 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify_missing_indexes — flag MongoDB queries whose filter fields are not
+     3→covered by an index, and warn about collections that lack a required index for
+     4→known multi-tenant / lookup patterns.
+     5→
+     6→Pipeline:
+     7→
+     8→  1. Parse the project's index-registration sites — anywhere code calls
+     9→     ``coll.Indexes().CreateMany(ctx, []mongo.IndexModel{ ... })`` or
+    10→     ``CreateOne(ctx, mongo.IndexModel{...})``. Extract, per collection:
+    11→
+    12→       * the set of single-field indexes (the field's first segment),
+    13→       * the leading field of every compound index (an index can only be
+    14→         used by a query whose filter starts with that field),
+    15→       * whether the index is unique / TTL (used for the report narrative).
+    16→
+    17→     The collection name is resolved from the surrounding
+    18→     ``db.Collection("name")`` literal or from the accessor method
+    19→     (e.g. ``m.Users()``) via the same accessor map that
+    20→     ``graphify_db_queries.py`` builds.
+    21→
+    22→  2. Walk every ``.go`` file for MongoDB queries (Find, FindOne, InsertOne,
+    23→     UpdateOne, UpdateMany, DeleteOne, DeleteMany, CountDocuments, Aggregate,
+    24→     ReplaceOne). For each query extract the filter fields from the
+    25→     ``bson.M{...}`` / ``bson.D{...}`` literal that's the first argument.
+    26→
+    27→  3. A query is **flagged** when none of its filter fields are covered by an
+    28→     index on that collection (i.e. no single-field index on any of the
+    29→     filter fields, and no compound index whose leading field matches any
+    30→     of the filter fields). A query on a collection that has *no* declared
+    31→     indexes at all is flagged separately as a "collection-without-index".
+    32→
+    33→  4. Additionally, every query is checked against a small spec of
+    34→     "expected indexed fields per collection" derived from the SaaS domain
+    35→     conventions:
+    36→
+    37→       * ``_id`` is always indexed by MongoDB (never flagged).
+    38→       * ``tenantId`` / ``tenant_id`` should be indexed on every
+    39→         multi-tenant collection.
+    40→       * ``email`` should be unique-indexed on ``users``.
+    41→       * ``userId`` should be indexed on membership / log / token
+    42→         collections.
+    43→       * ``slug`` should be unique-indexed on ``tenants``.
+    44→       * ``token`` should be indexed on ``invitations`` /
+    45→         ``verification_tokens`` / ``auth_codes``.
+    46→
+    47→     Queries that filter on one of these fields on a collection where the
+    48→     field is *not* indexed are flagged as "missing required index".
+    49→
+    50→  5. Risk:
+    51→
+    52→       * **HIGH** — query on a likely-large collection (logs, events,
+    53→         telemetry, audit) with no usable index, or a query filtering on
+    54→         a spec-required field that's not indexed.
+    55→       * **MEDIUM** — query on a small/static-data collection without an
+    56→         index, or partial coverage (only some filter fields indexed).
+    57→       * **LOW** — never emitted (this analyzer is a warning system).
+    58→
+    59→Usage:
+    60→    python graphify_missing_indexes.py [path] [--out report.md] [--json] [--include-tests]
+    61→
+    62→Outputs:
+    63→    - JSON written to /home/z/my-project/public/missing-indexes.json (best effort)
+    64→    - Markdown written to /home/z/my-project/public/MISSING_INDEXES.md (best effort)
+    65→    - Markdown written to --out path if specified
+    66→    - JSON to stdout if --json given
+    67→
+    68→Test target: /home/z/my-project/repos/lastsaas/backend
+    69→"""
+    70→from __future__ import annotations
+    71→
+    72→import argparse
+    73→import json
+    74→import re
+    75→import sys
+    76→from collections import Counter, defaultdict
+    77→from dataclasses import asdict, dataclass, field
+    78→from pathlib import Path
+    79→from typing import Optional
+    80→
+    81→# --------------------------------------------------------------------------- #
+    82→# Constants
+    83→# --------------------------------------------------------------------------- #
+    84→
+    85→OPERATIONS: tuple[str, ...] = (
+    86→    "Find",
+    87→    "FindOne",
+    88→    "InsertOne",
+    89→    "InsertMany",
+    90→    "UpdateOne",
+    91→    "UpdateMany",
+    92→    "ReplaceOne",
+    93→    "DeleteOne",
+    94→    "DeleteMany",
+    95→    "Aggregate",
+    96→    "CountDocuments",
+    97→    "EstimatedDocumentCount",
+    98→)
+    99→
+   100→OP_RE = re.compile(
+   101→    r"\.(" + "|".join(OPERATIONS) + r")\s*\("
+   102→)
+   103→
+   104→COLLECTION_LITERAL_RE = re.compile(
+   105→    r'\.Collection\(\s*"([^"]+)"\s*\)'
+   106→)
+   107→
+   108→FUNC_DECL_RE = re.compile(
+   109→    r'^[ \t]*func(?:[ \t]+\([^)]*\))?[ \t]+(?P<name>\w+)[ \t]*\(',
+   110→    re.MULTILINE,
+   111→)
+   112→
+   113→# bson.D{{Key: "f", Value: ...}, {"f2", v}}
+   114→BSON_D_BLOCK_RE = re.compile(
+   115→    r'\bbson\.D\s*\{([^}]*)\}'
+   116→)
+   117→BSON_D_KEYVAL_NAMED_RE = re.compile(
+   118→    r'Key:\s*"([^"]+)"\s*,\s*Value:'
+   119→)
+   120→BSON_D_KEYVAL_POS_RE = re.compile(
+   121→    r'\{\s*"([^"]+)"\s*,'
+   122→)
+   123→
+   124→# bson.M{"field": value, ...}
+   125→BSON_M_RE = re.compile(
+   126→    r'\bbson\.M\s*\{([^}]*)\}'
+   127→)
+   128→BSON_M_KEY_RE = re.compile(
+   129→    r'"([^"]+)"\s*:'
+   130→)
+   131→
+   132→# IndexModel Keys block — bson.D{{Key: "f", Value: 1}, {Key: "g", Value: -1}}
+   133→# We re-use BSON_D_BLOCK_RE for parsing inside the Keys block.
+   134→
+   135→# IndexModel block: `mongo.IndexModel{ Keys: bson.D{...}, Options: ... }`
+   136→INDEX_MODEL_RE = re.compile(
+   137→    r"mongo\.IndexModel\s*\{(?P<body>.*?)\n\s*\}",
+   138→    re.DOTALL,
+   139→)
+   140→
+   141→# Pattern for the slice-of-anonymous-struct form used by ensureIndexes():
+   142→#
+   143→#   indexes := []struct {
+   144→#       collection string
+   145→#       models     []mongo.IndexModel
+   146→#   }{
+   147→#       {
+   148→#           "users",
+   149→#           []mongo.IndexModel{
+   150→#               {Keys: bson.D{{Key: "email", Value: 1}}, Options: ...},
+   151→#               ...
+   152→#           },
+   153→#       },
+   154→#       {
+   155→#           "tenants",
+   156→#           []mongo.IndexModel{
+   157→#               {Keys: bson.D{...}, Options: ...},
+   158→#               ...
+   159→#           },
+   160→#       },
+   161→#       ...
+   162→#   }
+   163→#
+   164→# We capture each `"<name>",` literal that immediately precedes a
+   165→# `[]mongo.IndexModel{` block, then walk forward to find every
+   166→# `{Keys: bson.D{...}, Options: ...}` entry inside that block.
+   167→ENSURE_INDEXES_ENTRY_RE = re.compile(
+   168→    r'"(?P<coll>[^"]+)"\s*,\s*'
+   169→    r'\[\]\s*mongo\.IndexModel\s*\{(?P<body>.*?)\n\s*\}\s*,',
+   170→    re.DOTALL,
+   171→)
+   172→
+   173→# Individual IndexModel entry inside an array of IndexModels:
+   174→#   {Keys: bson.D{{Key: "f", Value: 1}}, Options: options.Index().SetUnique(true)}
+   175→INDEX_ENTRY_RE = re.compile(
+   176→    r"\{\s*Keys\s*:\s*(bson\.D\s*\{[^}]*\}(?:\s*\{[^}]*\})*[^}]*?)"
+   177→    r"(?:,\s*Options\s*:\s*(?P<options>[^{}]*(?:\{[^}]*\}[^{}]*)*))?\s*\}",
+   178→    re.DOTALL,
+   179→)
+   180→
+   181→# Collections that are likely to grow large (logs, events, telemetry,
+   182→# deliveries, audit, metrics). Used for risk classification.
+   183→LARGE_COLLECTIONS: frozenset[str] = frozenset({
+   184→    "audit_log",
+   185→    "system_logs",
+   186→    "telemetry_events",
+   187→    "usage_events",
+   188→    "webhook_deliveries",
+   189→    "webhook_events",
+   190→    "system_metrics",
+   191→    "daily_metrics",
+   192→    "messages",
+   193→    "impersonation_logs",
+   194→    "rate_limits",
+   195→    "financial_transactions",
+   196→    "revoked_tokens",
+   197→    "refresh_tokens",
+   198→    "verification_tokens",
+   199→    "oauth_states",
+   200→    "leader_locks",
+   201→    "webauthn_sessions",
+   202→    "auth_codes",
+   203→    "announcements",
+   204→})
+   205→
+   206→# Spec: required indexed fields per collection (collection -> set of fields
+   207→# that *should* be indexed). Queries filtering on these fields are flagged
+   208→# when the actual index set doesn't include them.
+   209→REQUIRED_INDEX_FIELDS: dict[str, set[str]] = {
+   210→    "users": {"email"},
+   211→    "tenants": {"slug"},
+   212→    "tenant_memberships": {"tenantId", "userId"},
+   213→    "invitations": {"token", "tenantId", "email"},
+   214→    "verification_tokens": {"token", "userId"},
+   215→    "auth_codes": {"code"},
+   216→    "refresh_tokens": {"userId"},
+   217→    "revoked_tokens": {"tokenHash"},
+   218→    "api_keys": {"keyHash"},
+   219→    "webauthn_credentials": {"userId", "credentialId"},
+   220→    "sso_connections": {"tenantId"},
+   221→    "audit_log": {"tenantId", "userId"},
+   222→    "system_logs": {"tenantId", "userId"},
+   223→    "telemetry_events": {"userId", "eventName", "sessionId"},
+   224→    "usage_events": {"tenantId"},
+   225→    "financial_transactions": {"tenantId", "userId"},
+   226→    "messages": {"userId"},
+   227→    "webhooks": {"createdBy"},
+   228→    "webhook_deliveries": {"webhookId"},
+   229→    "webhook_events": {"eventId"},
+   230→    "config_vars": {"name"},
+   231→    "plans": {"name"},
+   232→    "event_definitions": {"name"},
+   233→    "custom_pages": {"slug"},
+   234→    "branding_assets": {"key"},
+   235→    "system_nodes": {"machineId"},
+   236→    "stripe_mappings": {"entityType", "entityId"},
+   237→    "daily_metrics": {"date"},
+   238→    "sso_connections": {"tenantId"},
+   239→}
+   240→
+   241→# Fields that are always indexed (MongoDB does this automatically) and so
+   242→# should never trigger a "missing index" warning.
+   243→ALWAYS_INDEXED: frozenset[str] = frozenset({"_id"})
+   244→
+   245→# Multi-tenant marker: collections where every document belongs to a tenant
+   246→# and queries SHOULD filter by tenantId. Empty-filter queries on these
+   247→# collections are flagged as full-collection scans that risk cross-tenant
+   248→# data leaks. Collections that represent tenant-wide/system-wide data
+   249→# (tenants itself, plans, config_vars, event_definitions, credit_bundles,
+   250→# branding_assets, custom_pages) are excluded — they may be tenant-scoped
+   251→# via a different mechanism (e.g. a tenant-specific DB) or be truly global.
+   252→MULTI_TENANT_COLLECTIONS: frozenset[str] = frozenset({
+   253→    "tenant_memberships",
+   254→    "invitations",
+   255→    "audit_log",
+   256→    "system_logs",
+   257→    "telemetry_events",
+   258→    "usage_events",
+   259→    "financial_transactions",
+   260→    "messages",
+   261→    "api_keys",
+   262→    "webhooks",
+   263→    "webhook_deliveries",
+   264→    "sso_connections",
+   265→    "announcements",
+   266→})
+   267→
+   268→
+   269→# --------------------------------------------------------------------------- #
+   270→# Source masking
+   271→# --------------------------------------------------------------------------- #
+   272→
+   273→def mask_source(src: str) -> str:
+   274→    """Replace string literals and comments with spaces (preserving length).
+   275→
+   276→    Note: this masker preserves the *content* of ``"..."`` strings only
+   277→    partially — for index parsing we need the actual string contents
+   278→    (collection names, field names), so we use it carefully. For index
+   279→    parsing we use a different code path that operates on raw source.
+   280→    """
+   281→    out = list(src)
+   282→    i = 0
+   283→    n = len(src)
+   284→    while i < n:
+   285→        c = src[i]
+   286→        if c == '/' and i + 1 < n and src[i + 1] == '/':
+   287→            while i < n and src[i] != '\n':
+   288→                out[i] = ' '
+   289→                i += 1
+   290→            continue
+   291→        if c == '/' and i + 1 < n and src[i + 1] == '*':
+   292→            out[i] = ' '
+   293→            out[i + 1] = ' '
+   294→            i += 2
+   295→            while i < n:
+   296→                if src[i] == '*' and i + 1 < n and src[i + 1] == '/':
+   297→                    out[i] = ' '
+   298→                    out[i + 1] = ' '
+   299→                    i += 2
+   300→                    break
+   301→                if src[i] != '\n':
+   302→                    out[i] = ' '
+   303→                i += 1
+   304→            continue
+   305→        if c == '\'':
+   306→            out[i] = ' '
+   307→            i += 1
+   308→            while i < n and src[i] not in ('\'', '\n'):
+   309→                if src[i] == '\\' and i + 1 < n:
+   310→                    out[i] = ' '
+   311→                    out[i + 1] = ' '
+   312→                    i += 2
+   313→                    continue
+   314→                out[i] = ' '
+   315→                i += 1
+   316→            if i < n and src[i] == '\'':
+   317→                out[i] = ' '
+   318→                i += 1
+   319→            continue
+   320→        # NOTE: do NOT mask double-quoted strings — we need their contents
+   321→        # to extract collection names and field names. Backtick raw strings
+   322→        # are still masked.
+   323→        if c == '`':
+   324→            out[i] = ' '
+   325→            i += 1
+   326→            while i < n and src[i] != '`':
+   327→                if src[i] != '\n':
+   328→                    out[i] = ' '
+   329→                i += 1
+   330→            if i < n and src[i] == '`':
+   331→                out[i] = ' '
+   332→                i += 1
+   333→            continue
+   334→        i += 1
+   335→    return ''.join(out)
+   336→
+   337→
+   338→def find_matching_brace(src: str, open_pos: int) -> int:
+   339→    depth = 0
+   340→    i = open_pos
+   341→    n = len(src)
+   342→    while i < n:
+   343→        c = src[i]
+   344→        if c == '{':
+   345→            depth += 1
+   346→        elif c == '}':
+   347→            depth -= 1
+   348→            if depth == 0:
+   349→                return i
+   350→        i += 1
+   351→    return -1
+   352→
+   353→
+   354→# --------------------------------------------------------------------------- #
+   355→# Index registration parser
+   356→# --------------------------------------------------------------------------- #
+   357→
+   358→@dataclass
+   359→class IndexInfo:
+   360→    collection: str
+   361→    fields: list[str]              # ordered list, e.g. ["tenantId", "createdAt"]
+   362→    leading_field: str            # fields[0]
+   363→    is_unique: bool = False
+   364→    is_ttl: bool = False
+   365→    is_sparse: bool = False
+   366→    is_text: bool = False
+   367→    source: str = ""               # file:line where the index was declared
+   368→
+   369→
+   370→@dataclass
+   371→class CollectionIndexSummary:
+   372→    name: str
+   373→    indexes: list[IndexInfo] = field(default_factory=list)
+   374→    indexed_fields: set[str] = field(default_factory=set)        # any field in any index
+   375→    leading_fields: set[str] = field(default_factory=set)        # only leading fields
+   376→    has_any_index: bool = False
+   377→    has_unique: bool = False
+   378→
+   379→
+   380→def parse_index_options(body: str) -> tuple[bool, bool, bool]:
+   381→    """Return (is_unique, is_ttl, is_sparse) from an IndexModel body."""
+   382→    is_unique = bool(re.search(r"SetUnique\s*\(\s*true", body))
+   383→    is_ttl = bool(re.search(r"SetExpireAfterSeconds", body))
+   384→    is_sparse = bool(re.search(r"SetSparse\s*\(\s*true", body))
+   385→    return is_unique, is_ttl, is_sparse
+   386→
+   387→
+   388→def _iter_top_level_entries(body: str):
+   389→    """Yield each top-level ``{...}`` block inside ``body``.
+   390→
+   391→    A top-level entry is a ``{`` at paren/brace depth 0 within ``body``.
+   392→    We use brace matching to find the matching ``}`` and yield the inner
+   393→    text. Nested ``{...}`` blocks (e.g. inside ``bson.D{{Key: ...}}``)
+   394→    are included in the outer entry's text.
+   395→    """
+   396→    i = 0
+   397→    n = len(body)
+   398→    while i < n:
+   399→        c = body[i]
+   400→        if c == '{':
+   401→            # Found the start of an entry — find the matching `}`.
+   402→            depth = 1
+   403→            j = i + 1
+   404→            while j < n and depth > 0:
+   405→                cj = body[j]
+   406→                if cj == '{':
+   407→                    depth += 1
+   408→                elif cj == '}':
+   409→                    depth -= 1
+   410→                j += 1
+   411→            if depth == 0:
+   412→                yield body[i:j]  # include the outer braces
+   413→                i = j
+   414→                continue
+   415→            else:
+   416→                return
+   417→        i += 1
+   418→
+   419→
+   420→def _extract_keys_and_options(entry: str) -> tuple[str, str]:
+   421→    """Given an IndexModel entry ``{Keys: bson.D{...}, Options: ...}``,
+   422→    return (keys_block, options_block).
+   423→
+   424→    Splits on the top-level ``, `` that separates ``Keys:`` from
+   425→    ``Options:`` — i.e. the first ``,`` at brace depth 0 (relative to
+   426→    the entry).
+   427→    """
+   428→    # Strip outer braces.
+   429→    inner = entry.strip()
+   430→    if inner.startswith('{') and inner.endswith('}'):
+   431→        inner = inner[1:-1]
+   432→
+   433→    # Walk and find the first `,` at depth 0.
+   434→    depth = 0
+   435→    for i, c in enumerate(inner):
+   436→        if c == '{':
+   437→            depth += 1
+   438→        elif c == '}':
+   439→            depth -= 1
+   440→        elif c == ',' and depth == 0:
+   441→            keys_part = inner[:i].strip()
+   442→            options_part = inner[i + 1:].strip()
+   443→            return keys_part, options_part
+   444→    return inner.strip(), ""
+   445→
+   446→
+   447→def parse_indexes_in_file(
+   448→    path: Path,
+   449→    accessor_map: dict[str, str],
+   450→) -> list[IndexInfo]:
+   451→    """Find every declared MongoDB index in a file and resolve its collection.
+   452→
+   453→    Two patterns are recognised:
+   454→
+   455→      * **Slice-of-anonymous-struct form** (used by ``ensureIndexes()``):
+   456→
+   457→            indexes := []struct {
+   458→                collection string
+   459→                models     []mongo.IndexModel
+   460→            }{
+   461→                {
+   462→                    "users",
+   463→                    []mongo.IndexModel{
+   464→                        {Keys: bson.D{{Key: "email", Value: 1}}, Options: ...},
+   465→                        ...
+   466→                    },
+   467→                },
+   468→                ...
+   469→            }
+   470→
+   471→        The collection name comes from the string literal that precedes the
+   472→        ``[]mongo.IndexModel{`` block.
+   473→
+   474→      * **Standalone IndexModel form** (used by rate-limiter setup):
+   475→
+   476→            coll.Indexes().CreateOne(ctx, mongo.IndexModel{
+   477→                Keys:    bson.D{{Key: "expiresAt", Value: 1}},
+   478→                Options: options.Index().SetExpireAfterSeconds(0),
+   479→            })
+   480→
+   481→        The collection is resolved by walking backwards to find the nearest
+   482→        preceding collection-binding site (literal, alias, or
+   483→        ``Collection("name").Indexes()`` on the same expression).
+   484→    """
+   485→    try:
+   486→        src = path.read_text(encoding="utf-8", errors="replace")
+   487→    except OSError:
+   488→        return []
+   489→    masked = mask_source(src)
+   490→    rel = _relative_to_cwd(path)
+   491→
+   492→    out: list[IndexInfo] = []
+   493→
+   494→    # ----- Pattern A: slice-of-anonymous-struct form ---------------------- #
+   495→    for m in ENSURE_INDEXES_ENTRY_RE.finditer(masked):
+   496→        coll = m.group("coll")
+   497→        body = m.group("body")
+   498→        # The body starts at the position right after `[]mongo.IndexModel{`
+   499→        # and ends right before the closing `},`. Individual entries are
+   500→        # `{Keys: bson.D{...}, Options: ...}`.
+   501→        for entry_text in _iter_top_level_entries(body):
+   502→            if "Keys" not in entry_text:
+   503→                continue
+   504→            keys_part, options_part = _extract_keys_and_options(entry_text)
+   505→            # keys_part looks like `Keys: bson.D{{Key: "f", Value: 1}, ...}`.
+   506→            keys_m = re.search(r'Keys\s*:\s*(bson\.D\s*\{.*)$', keys_part, re.DOTALL)
+   507→            if not keys_m:
+   508→                continue
+   509→            keys_block = keys_m.group(1)
+   510→            fields, is_text = _parse_bson_d_keys(keys_block)
+   511→            if not fields:
+   512→                continue
+   513→            is_unique, is_ttl, is_sparse = parse_index_options(options_part)
+   514→            # The line number is approximate — based on the offset of the
+   515→            # entry inside the file.
+   516→            entry_pos = m.start() + body.find(entry_text)
+   517→            if entry_pos < 0:
+   518→                entry_pos = m.start()
+   519→            line_no = masked[:entry_pos].count('\n') + 1
+   520→            out.append(IndexInfo(
+   521→                collection=coll,
+   522→                fields=fields,
+   523→                leading_field=fields[0],
+   524→                is_unique=is_unique,
+   525→                is_ttl=is_ttl,
+   526→                is_sparse=is_sparse,
+   527→                is_text=is_text,
+   528→                source=f"{rel}:{line_no}",
+   529→            ))
+   530→
+   531→    # ----- Pattern B: standalone mongo.IndexModel{...} form ---------------- #
+   532→    # Build a per-file alias map and binding list so we can resolve the
+   533→    # collection by walking backwards from the IndexModel.
+   534→    aliases: dict[str, str] = {}
+   535→    bindings: list[tuple[int, str]] = []
+   536→
+   537→    for m in COLLECTION_LITERAL_RE.finditer(masked):
+   538→        bindings.append((m.end(), m.group(1)))
+   539→    for m in re.finditer(
+   540→        r'(\w+)\s*:?=\s*[\w\.\[\]\*]+\.Collection\(\s*"([^"]+)"\s*\)',
+   541→        masked,
+   542→    ):
+   543→        var_name = m.group(1)
+   544→        coll = m.group(2)
+   545→        aliases[var_name] = coll
+   546→        bindings.append((m.end(), coll))
+   547→    for m in re.finditer(
+   548→        r'(\w+)\s*:?=\s*[\w\.\[\]\*]+\.([A-Z]\w*)\(\s*\)',
+   549→        masked,
+   550→    ):
+   551→        var_name = m.group(1)
+   552→        accessor = m.group(2)
+   553→        if accessor in accessor_map:
+   554→            end = m.end()
+   555→            if end < len(masked) and masked[end] == ".":
+   556→                continue
+   557→            aliases[var_name] = accessor_map[accessor]
+   558→            bindings.append((m.end(), accessor_map[accessor]))
+   559→    # ``Collection("name").Indexes()`` on the same expression.
+   560→    for m in re.finditer(
+   561→        r'\.Collection\(\s*"([^"]+)"\s*\)\s*\.\s*Indexes\(\)',
+   562→        masked,
+   563→    ):
+   564→        bindings.append((m.end(), m.group(1)))
+   565→    bindings.sort(key=lambda b: b[0])
+   566→
+   567→    for m in INDEX_MODEL_RE.finditer(masked):
+   568→        body = m.group("body")
+   569→        # The body may have a single `Keys: bson.D{...}` plus `Options: ...`.
+   570→        keys_m = re.search(
+   571→            r'Keys\s*:\s*(bson\.D\s*\{.*?\})',
+   572→            body,
+   573→            re.DOTALL,
+   574→        )
+   575→        if not keys_m:
+   576→            continue
+   577→        fields, is_text = _parse_bson_d_keys(keys_m.group(1))
+   578→        if not fields:
+   579→            continue
+   580→        is_unique, is_ttl, is_sparse = parse_index_options(body)
+   581→
+   582→        idx_pos = m.start()
+   583→        coll = "<unknown>"
+   584→        lo, hi = 0, len(bindings) - 1
+   585→        best: Optional[tuple[int, str]] = None
+   586→        while lo <= hi:
+   587→            mid = (lo + hi) // 2
+   588→            if bindings[mid][0] <= idx_pos:
+   589→                best = bindings[mid]
+   590→                lo = mid + 1
+   591→            else:
+   592→                hi = mid - 1
+   593→        if best is not None and (idx_pos - best[0]) < 2000:
+   594→            coll = best[1]
+   595→
+   596→        line_no = masked[:m.start()].count('\n') + 1
+   597→        if coll == "<unknown>":
+   598→            # Don't record indexes we can't attribute to a collection.
+   599→            continue
+   600→        out.append(IndexInfo(
+   601→            collection=coll,
+   602→            fields=fields,
+   603→            leading_field=fields[0],
+   604→            is_unique=is_unique,
+   605→            is_ttl=is_ttl,
+   606→            is_sparse=is_sparse,
+   607→            is_text=is_text,
+   608→            source=f"{rel}:{line_no}",
+   609→        ))
+   610→
+   611→    return out
+   612→
+   613→
+   614→def _parse_bson_d_keys(keys_block: str) -> tuple[list[str], bool]:
+   615→    """Extract ordered field names from a ``bson.D{...}`` Keys block.
+   616→
+   617→    Handles both forms:
+   618→      ``bson.D{{Key: "f", Value: 1}, {Key: "g", Value: -1}}``
+   619→      ``bson.D{{"f", 1}, {"g", -1}}``
+   620→    """
+   621→    fields: list[str] = []
+   622→    is_text = False
+   623→    # Named form: {Key: "name", Value: <expr>}
+   624→    for pm in re.finditer(
+   625→        r'Key\s*:\s*"([^"]+)"\s*,\s*Value\s*:\s*([^},]+)',
+   626→        keys_block,
+   627→    ):
+   628→        name = pm.group(1)
+   629→        value = pm.group(2).strip()
+   630→        if value == '"text"':
+   631→            is_text = True
+   632→        first = name.split(".", 1)[0]
+   633→        fields.append(first)
+   634→    if fields:
+   635→        return fields, is_text
+   636→    # Positional form: {"name", <expr>}
+   637→    for pm in re.finditer(r'\{\s*"([^"]+)"\s*,', keys_block):
+   638→        name = pm.group(1)
+   639→        first = name.split(".", 1)[0]
+   640→        fields.append(first)
+   641→    return fields, is_text
+   642→
+   643→
+   644→def _relative_to_cwd(p: Path) -> str:
+   645→    try:
+   646→        return str(p.resolve().relative_to(Path.cwd().resolve()))
+   647→    except ValueError:
+   648→        return str(p)
+   649→
+   650→
+   651→def build_accessor_map(repo_root: Path) -> dict[str, str]:
+   652→    accessor_re = re.compile(
+   653→        r"func\s+(?:\([^)]*\)\s+)?([A-Z]\w*)\s*\(\s*\)\s*\*mongo\.Collection\s*\{[^}]*?"
+   654→        r'\.Collection\(\s*"([^"]+)"\s*\)',
+   655→        re.DOTALL,
+   656→    )
+   657→    accessor_map: dict[str, str] = {}
+   658→    for path in repo_root.rglob("*.go"):
+   659→        if "graphify-out" in path.parts:
+   660→            continue
+   661→        try:
+   662→            text = path.read_text(encoding="utf-8", errors="replace")
+   663→        except OSError:
+   664→            continue
+   665→        for m in accessor_re.finditer(text):
+   666→            name, coll = m.group(1), m.group(2)
+   667→            accessor_map.setdefault(name, coll)
+   668→    return accessor_map
+   669→
+   670→
+   671→def collect_all_indexes(
+   672→    repo_root: Path,
+   673→    accessor_map: dict[str, str],
+   674→) -> dict[str, CollectionIndexSummary]:
+   675→    """Walk every .go file and return {collection_name: summary}."""
+   676→    summaries: dict[str, CollectionIndexSummary] = {}
+   677→    for path in repo_root.rglob("*.go"):
+   678→        if "graphify-out" in path.parts:
+   679→            continue
+   680→        for info in parse_indexes_in_file(path, accessor_map):
+   681→            coll = info.collection
+   682→            if coll == "<unknown>":
+   683→                continue
+   684→            s = summaries.get(coll)
+   685→            if s is None:
+   686→                s = CollectionIndexSummary(name=coll)
+   687→                summaries[coll] = s
+   688→            s.indexes.append(info)
+   689→            s.indexed_fields.update(info.fields)
+   690→            s.leading_fields.add(info.leading_field)
+   691→            s.has_any_index = True
+   692→            if info.is_unique:
+   693→                s.has_unique = True
+   694→    return summaries
+   695→
+   696→
+   697→# --------------------------------------------------------------------------- #
+   698→# Query scanner (re-uses graphify_db_queries' approach)
+   699→# --------------------------------------------------------------------------- #
+   700→
+   701→@dataclass
+   702→class Query:
+   703→    file: str
+   704→    line: int
+   705→    function: str
+   706→    collection: str
+   707→    operation: str
+   708→    filter_fields: list[str]
+   709→    snippet: str
+   710→
+   711→
+   712→def parse_functions(masked: str) -> list[tuple[str, int, int]]:
+   713→    """Return [(name, start_line, end_line)] for top-level functions."""
+   714→    funcs: list[tuple[str, int, int]] = []
+   715→    for m in FUNC_DECL_RE.finditer(masked):
+   716→        i = m.end()
+   717→        n = len(masked)
+   718→        depth_paren = 1
+   719→        brace_pos = -1
+   720→        while i < n:
+   721→            c = masked[i]
+   722→            if c == '(':
+   723→                depth_paren += 1
+   724→            elif c == ')':
+   725→                depth_paren -= 1
+   726→            elif c == '{' and depth_paren == 0:
+   727→                brace_pos = i
+   728→                break
+   729→            i += 1
+   730→        if brace_pos < 0:
+   731→            continue
+   732→        close_pos = find_matching_brace(masked, brace_pos)
+   733→        if close_pos < 0:
+   734→            continue
+   735→        start_line = masked[:m.start()].count('\n') + 1
+   736→        end_line = masked[:close_pos].count('\n') + 1
+   737→        funcs.append((m.group("name"), start_line, end_line))
+   738→    return funcs
+   739→
+   740→
+   741→def containing_function(funcs: list[tuple[str, int, int]], line: int) -> str:
+   742→    best_name = "<top-level>"
+   743→    best_span: Optional[int] = None
+   744→    for name, s, e in funcs:
+   745→        if s <= line <= e:
+   746→            span = e - s
+   747→            if best_span is None or span < best_span:
+   748→                best_name = name
+   749→                best_span = span
+   750→    return best_name
+   751→
+   752→
+   753→def extract_filter_fields(text: str) -> list[str]:
+   754→    """Pull field names out of bson.M / bson.D literals on the given text."""
+   755→    fields: list[str] = []
+   756→    for block in BSON_D_BLOCK_RE.finditer(text):
+   757→        inner = block.group(1)
+   758→        for m in BSON_D_KEYVAL_NAMED_RE.finditer(inner):
+   759→            fields.append(m.group(1))
+   760→        for m in BSON_D_KEYVAL_POS_RE.finditer(inner):
+   761→            fields.append(m.group(1))
+   762→    for m in BSON_M_RE.finditer(text):
+   763→        for km in BSON_M_KEY_RE.finditer(m.group(1)):
+   764→            fields.append(km.group(1))
+   765→    seen: set[str] = set()
+   766→    out: list[str] = []
+   767→    for f in fields:
+   768→        if not f or f.startswith("$") or f in seen:
+   769→            continue
+   770→        # Use the first segment of dotted fields — indexes are on the first
+   771→        # segment.
+   772→        first = f.split(".", 1)[0]
+   773→        if first in seen:
+   774→            continue
+   775→        seen.add(first)
+   776→        out.append(first)
+   777→    return out
+   778→
+   779→
+   780→def scan_queries(
+   781→    repo_root: Path,
+   782→    accessor_map: dict[str, str],
+   783→    include_tests: bool,
+   784→) -> list[Query]:
+   785→    skip_dirs = {"vendor", "node_modules", ".git", "graphify-out", "testdata"}
+   786→    queries: list[Query] = []
+   787→    for path in repo_root.rglob("*.go"):
+   788→        if any(part in skip_dirs for part in path.parts):
+   789→            continue
+   790→        if not include_tests and path.name.endswith("_test.go"):
+   791→            continue
+   792→        try:
+   793→            src = path.read_text(encoding="utf-8", errors="replace")
+   794→        except OSError:
+   795→            continue
+   796→        masked = mask_source(src)
+   797→        lines = src.splitlines()
+   798→        funcs = parse_functions(masked)
+   799→        try:
+   800→            rel = str(path.resolve().relative_to(repo_root.resolve()))
+   801→        except ValueError:
+   802→            rel = str(path)
+   803→
+   804→        aliases: dict[str, str] = {}
+   805→        for idx, raw_line in enumerate(lines, start=1):
+   806→            # Refresh aliases from this line.
+   807→            m = re.search(
+   808→                r'(\w+)\s*:?=\s*[\w\.\[\]\*]+\.Collection\(\s*"([^"]+)"\s*\)',
+   809→                raw_line,
+   810→            )
+   811→            if m:
+   812→                aliases[m.group(1)] = m.group(2)
+   813→            m = re.search(
+   814→                r'(\w+)\s*:?=\s*[\w\.\[\]\*]+\.([A-Z]\w*)\(\s*\)',
+   815→                raw_line,
+   816→            )
+   817→            if m:
+   818→                var_name = m.group(1)
+   819→                accessor = m.group(2)
+   820→                if accessor in accessor_map:
+   821→                    end = m.end()
+   822→                    if end >= len(raw_line) or raw_line[end] != ".":
+   823→                        aliases[var_name] = accessor_map[accessor]
+   824→
+   825→            masked_line = masked.splitlines()[idx - 1] if idx - 1 < len(masked.splitlines()) else raw_line
+   826→            for op_m in OP_RE.finditer(masked_line):
+   827→                operation = op_m.group(1)
+   828→                prefix = masked_line[:op_m.start()]
+   829→                # Skip option builders.
+   830→                if re.search(r"\boptions\s*$", prefix):
+   831→                    continue
+   832→
+   833→                # Resolve collection.
+   834→                collection: Optional[str] = None
+   835→                lit_m = COLLECTION_LITERAL_RE.search(masked_line)
+   836→                if lit_m:
+   837→                    collection = lit_m.group(1)
+   838→                else:
+   839→                    acc_m = re.search(r"([A-Z]\w*)\(\s*\)\s*$", prefix)
+   840→                    if acc_m and acc_m.group(1) in accessor_map:
+   841→                        collection = accessor_map[acc_m.group(1)]
+   842→                    else:
+   843→                        var_m = re.search(r"([A-Za-z_]\w*)\s*$", prefix)
+   844→                        if var_m and var_m.group(1) in aliases:
+   845→                            collection = aliases[var_m.group(1)]
+   846→                if collection is None:
+   847→                    # Look back a few lines for a literal collection access.
+   848→                    for back in range(idx - 2, max(idx - 6, 0) - 1, -1):
+   849→                        if back < 1 or back > len(lines):
+   850→                            continue
+   851→                        prev = masked.splitlines()[back - 1] if back - 1 < len(masked.splitlines()) else ""
+   852→                        lit_m = COLLECTION_LITERAL_RE.search(prev)
+   853→                        if lit_m:
+   854→                            collection = lit_m.group(1)
+   855→                            break
+   856→                        acc_m = re.search(r"([A-Z]\w*)\(\s*\)", prev)
+   857→                        if acc_m and acc_m.group(1) in accessor_map:
+   858→                            collection = accessor_map[acc_m.group(1)]
+   859→                            break
+   860→                if collection is None:
+   861→                    continue  # unresolved — skip (not our problem here)
+   862→
+   863→                # Build a multi-line context window for the filter literal.
+   864→                context_lines = [raw_line]
+   865→                open_bson = len(re.findall(r"\bbson\.[MD]\s*\{", raw_line))
+   866→                close_braces = raw_line.count("}")
+   867→                if open_bson > close_braces:
+   868→                    for ahead in range(idx + 1, min(idx + 8, len(lines) + 1)):
+   869→                        nxt = lines[ahead - 1]
+   870→                        context_lines.append(nxt)
+   871→                        open_bson += len(re.findall(r"\bbson\.[MD]\s*\{", nxt))
+   872→                        close_braces += nxt.count("}")
+   873→                        if open_bson <= close_braces:
+   874→                            break
+   875→                context_text = "\n".join(context_lines)
+   876→
+   877→                filter_fields = extract_filter_fields(context_text)
+   878→                # InsertOne/InsertMany/Aggregate don't have a "filter" — skip.
+   879→                if operation in ("InsertOne", "InsertMany", "Aggregate",
+   880→                                 "EstimatedDocumentCount", "CreateIndex"):
+   881→                    continue
+   882→
+   883→                snippet = raw_line.strip()
+   884→                if len(snippet) > 200:
+   885→                    snippet = snippet[:197] + "..."
+   886→                func_name = containing_function(funcs, idx)
+   887→                queries.append(Query(
+   888→                    file=rel,
+   889→                    line=idx,
+   890→                    function=func_name,
+   891→                    collection=collection,
+   892→                    operation=operation,
+   893→                    filter_fields=filter_fields,
+   894→                    snippet=snippet,
+   895→                ))
+   896→    return queries
+   897→
+   898→
+   899→# --------------------------------------------------------------------------- #
+   900→# Findings
+   901→# --------------------------------------------------------------------------- #
+   902→
+   903→@dataclass
+   904→class Finding:
+   905→    file: str
+   906→    line: int
+   907→    function: str
+   908→    collection: str
+   909→    operation: str
+   910→    filter_fields: list[str]
+   911→    severity: str
+   912→    finding_type: str           # "no_index" / "missing_required" / "no_collection_indexes" / "multi_tenant_unfiltered"
+   913→    reason: str
+   914→    snippet: str
+   915→    suggestion: str
+   916→
+   917→
+   918→def classify_query(
+   919→    q: Query,
+   920→    indexes: dict[str, CollectionIndexSummary],
+   921→) -> list[Finding]:
+   922→    findings: list[Finding] = []
+   923→    summary = indexes.get(q.collection)
+   924→    is_large = q.collection in LARGE_COLLECTIONS
+   925→
+   926→    # _id is always indexed by MongoDB, so any query that filters by _id is
+   927→    # covered (the primary-key index serves it). We treat _id as an
+   928→    # implicit single-field index in addition to whatever the collection
+   929→    # declares.
+   930→    has_id_filter = "_id" in q.filter_fields
+   931→
+   932→    # User-visible filter fields minus _id — used for the "missing required"
+   933→    # spec check below.
+   934→    user_fields = [f for f in q.filter_fields if f not in ALWAYS_INDEXED]
+   935→
+   936→    # Case A: collection has no declared indexes at all.
+   937→    if summary is None or not summary.has_any_index:
+   938→        # If the query filters by _id, MongoDB's default _id index serves it.
+   939→        if has_id_filter and not user_fields:
+   940→            return findings
+   941→        # If the query has _id plus other fields, the _id index still
+   942→        # narrows to a single doc — not a missing-index problem.
+   943→        if has_id_filter:
+   944→            return findings
+   945→        if not user_fields:
+   946→            # No filter at all AND no indexes — fall through to the
+   947→            # multi-tenant / full-scan check below.
+   948→            pass
+   949→        else:
+   950→            sev = "HIGH" if is_large else "MEDIUM"
+   951→            findings.append(Finding(
+   952→                file=q.file,
+   953→                line=q.line,
+   954→                function=q.function,
+   955→                collection=q.collection,
+   956→                operation=q.operation,
+   957→                filter_fields=q.filter_fields,
+   958→                severity=sev,
+   959→                finding_type="no_collection_indexes",
+   960→                reason=(
+   961→                    f"collection `{q.collection}` has no declared indexes — "
+   962→                    f"every query scans the full collection"
+   963→                ),
+   964→                snippet=q.snippet,
+   965→                suggestion=(
+   966→                    f"Add an index on the most-filtered field(s) of "
+   967→                    f"`{q.collection}` (e.g. `{user_fields[0]}` based on "
+   968→                    f"this query)."
+   969→                ),
+   970→            ))
+   971→            return findings
+   972→
+   973→    # Case B: collection has indexes — check if any filter field is covered.
+   974→    # A query is covered if ANY of:
+   975→    #   - it filters by _id (always indexed),
+   976→    #   - it filters by a single-field index,
+   977→    #   - it filters by the leading field of a compound index.
+   978→    if summary is not None and summary.has_any_index:
+   979→        single_field_indexed = {
+   980→            info.leading_field for info in summary.indexes
+   981→            if len(info.fields) == 1
+   982→        }
+   983→        covered = (
+   984→            has_id_filter
+   985→            or any(f in summary.leading_fields for f in user_fields)
+   986→            or any(f in single_field_indexed for f in user_fields)
+   987→        )
+   988→        if not covered and user_fields:
+   989→            sev = "HIGH" if is_large else "MEDIUM"
+   990→            findings.append(Finding(
+   991→                file=q.file,
+   992→                line=q.line,
+   993→                function=q.function,
+   994→                collection=q.collection,
+   995→                operation=q.operation,
+   996→                filter_fields=q.filter_fields,
+   997→                severity=sev,
+   998→                finding_type="no_index",
+   999→                reason=(
+  1000→                    f"filter fields {user_fields} are not covered by any "
+  1001→                    f"index on `{q.collection}` (indexed leading fields: "
+  1002→                    f"{sorted(summary.leading_fields) or 'none'})"
+  1003→                ),
+  1004→                snippet=q.snippet,
+  1005→                suggestion=(
+  1006→                    f"Add an index on `{user_fields[0]}` (or a compound "
+  1007→                    f"index starting with it) on `{q.collection}`."
+  1008→                ),
+  1009→            ))
+  1010→
+  1011→    # Case C: spec-required field not indexed. Skip if _id is in the filter
+  1012→    # (already covered) or if the spec field is already indexed.
+  1013→    if summary is not None:
+  1014→        required = REQUIRED_INDEX_FIELDS.get(q.collection, set())
+  1015→        for f in user_fields:
+  1016→            if f in required and f not in summary.indexed_fields:
+  1017→                # If _id is also in the filter, the query is still efficient —
+  1018→                # the spec-required index is for *lookup-by-this-field*
+  1019→                # queries, not _id+field updates. Don't flag.
+  1020→                if has_id_filter:
+  1021→                    continue
+  1022→                findings.append(Finding(
+  1023→                    file=q.file,
+  1024→                    line=q.line,
+  1025→                    function=q.function,
+  1026→                    collection=q.collection,
+  1027→                    operation=q.operation,
+  1028→                    filter_fields=q.filter_fields,
+  1029→                    severity="HIGH",
+  1030→                    finding_type="missing_required",
+  1031→                    reason=(
+  1032→                        f"field `{f}` should be indexed on `{q.collection}` "
+  1033→                        f"(spec: {sorted(REQUIRED_INDEX_FIELDS[q.collection])}) "
+  1034→                        f"but is not"
+  1035→                    ),
+  1036→                    snippet=q.snippet,
+  1037→                    suggestion=(
+  1038→                        f"Add an index (unique if appropriate) on `{f}` "
+  1039→                        f"for `{q.collection}`."
+  1040→                    ),
+  1041→                ))
+  1042→
+  1043→    # Case D: multi-tenant hygiene check — only flag empty-filter queries
+  1044→    # (full scans) on multi-tenant collections. Queries that filter by _id
+  1045→    # or any other field are already covered by the index check above.
+  1046→    if q.collection in MULTI_TENANT_COLLECTIONS and not q.filter_fields:
+  1047→        # Skip system/internal collections that legitimately span tenants.
+  1048→        if q.collection not in {"counters", "leader_locks"}:
+  1049→            findings.append(Finding(
+  1050→                file=q.file,
+  1051→                line=q.line,
+  1052→                function=q.function,
+  1053→                collection=q.collection,
+  1054→                operation=q.operation,
+  1055→                filter_fields=q.filter_fields,
+  1056→                severity="HIGH" if is_large else "MEDIUM",
+  1057→                finding_type="multi_tenant_unfiltered",
+  1058→                reason=(
+  1059→                    f"empty-filter query on multi-tenant collection "
+  1060→                    f"`{q.collection}` — full collection scan, risks "
+  1061→                    f"cross-tenant data leak"
+  1062→                ),
+  1063→                snippet=q.snippet,
+  1064→                suggestion=(
+  1065→                    f"Add a `tenantId` filter (or scope the collection "
+  1066→                    f"accessor to the current tenant) to avoid a full "
+  1067→                    f"collection scan."
+  1068→                ),
+  1069→            ))
+  1070→
+  1071→    return findings
+  1072→
+  1073→
+  1074→# --------------------------------------------------------------------------- #
+  1075→# Aggregation
+  1076→# --------------------------------------------------------------------------- #
+  1077→
+  1078→def build_report(
+  1079→    root: Path,
+  1080→    findings: list[Finding],
+  1081→    indexes: dict[str, CollectionIndexSummary],
+  1082→    queries: list[Query],
+  1083→) -> dict:
+  1084→    by_sev: Counter = Counter()
+  1085→    by_type: Counter = Counter()
+  1086→    by_collection: Counter = Counter()
+  1087→    by_file: Counter = Counter()
+  1088→    for f in findings:
+  1089→        by_sev[f.severity] += 1
+  1090→        by_type[f.finding_type] += 1
+  1091→        by_collection[f.collection] += 1
+  1092→        by_file[f.file] += 1
+  1093→
+  1094→    # Index inventory (so the report shows what's declared).
+  1095→    index_inventory = []
+  1096→    for coll_name in sorted(indexes):
+  1097→        s = indexes[coll_name]
+  1098→        index_inventory.append({
+  1099→            "collection": coll_name,
+  1100→            "index_count": len(s.indexes),
+  1101→            "has_unique": s.has_unique,
+  1102→            "indexed_fields": sorted(s.indexed_fields),
+  1103→            "leading_fields": sorted(s.leading_fields),
+  1104→            "indexes": [
+  1105→                {
+  1106→                    "fields": info.fields,
+  1107→                    "leading_field": info.leading_field,
+  1108→                    "unique": info.is_unique,
+  1109→                    "ttl": info.is_ttl,
+  1110→                    "sparse": info.is_sparse,
+  1111→                    "text": info.is_text,
+  1112→                    "source": info.source,
+  1113→                }
+  1114→                for info in s.indexes
+  1115→            ],
+  1116→        })
+  1117→
+  1118→    # Collections queried but with no declared indexes.
+  1119→    queried_collections = {q.collection for q in queries}
+  1120→    indexed_collections = set(indexes)
+  1121→    no_index_collections = sorted(queried_collections - indexed_collections)
+  1122→
+  1123→    return {
+  1124→        "root": str(root),
+  1125→        "total_queries_scanned": len(queries),
+  1126→        "total_findings": len(findings),
+  1127→        "severity_breakdown": dict(by_sev),
+  1128→        "type_breakdown": [
+  1129→            {"type": t, "count": c}
+  1130→            for t, c in by_type.most_common()
+  1131→        ],
+  1132→        "collection_breakdown": [
+  1133→            {"collection": c, "count": n}
+  1134→            for c, n in by_collection.most_common()
+  1135→        ],
+  1136→        "top_files": [
+  1137→            {"file": f, "count": n}
+  1138→            for f, n in by_file.most_common(20)
+  1139→        ],
+  1140→        "index_inventory": index_inventory,
+  1141→        "collections_queried_without_indexes": no_index_collections,
+  1142→        "findings": [asdict(f) for f in findings],
+  1143→    }
+  1144→
+  1145→
+  1146→# --------------------------------------------------------------------------- #
+  1147→# Markdown
+  1148→# --------------------------------------------------------------------------- #
+  1149→
+  1150→def render_markdown(report: dict) -> str:
+  1151→    out: list[str] = []
+  1152→    out.append("# Missing Index Report")
+  1153→    out.append("")
+  1154→    out.append(f"**Target:** `{report['root']}`")
+  1155→    out.append("")
+  1156→    out.append(
+  1157→        "For every MongoDB query in the codebase, checks whether the filter "
+  1158→        "fields are covered by a declared index. Indexes are parsed from "
+  1159→        "`Indexes().CreateMany(...)` / `CreateOne(...)` calls in the codebase "
+  1160→        "(`internal/db/mongodb.go::ensureIndexes`, "
+  1161→        "`internal/middleware/ratelimit.go`, etc.)."
+  1162→    )
+  1163→    out.append("")
+  1164→
+  1165→    out.append("## Summary")
+  1166→    out.append("")
+  1167→    out.append("| Metric | Value |")
+  1168→    out.append("| --- | --- |")
+  1169→    out.append(f"| Queries scanned | {report['total_queries_scanned']} |")
+  1170→    out.append(f"| Total findings | **{report['total_findings']}** |")
+  1171→    for sev in ("HIGH", "MEDIUM", "LOW"):
+  1172→        out.append(
+  1173→            f"| {sev} severity | {report['severity_breakdown'].get(sev, 0)} |"
+  1174→        )
+  1175→    out.append("")
+  1176→
+  1177→    out.append("## Findings by Type")
+  1178→    out.append("")
+  1179→    out.append("| Type | Count |")
+  1180→    out.append("| --- | ---: |")
+  1181→    type_label = {
+  1182→        "no_index": "No covering index",
+  1183→        "no_collection_indexes": "Collection has no declared indexes",
+  1184→        "missing_required": "Spec-required field not indexed",
+  1185→        "multi_tenant_unfiltered": "Multi-tenant query without tenantId filter",
+  1186→    }
+  1187→    if report["type_breakdown"]:
+  1188→        for row in report["type_breakdown"]:
+  1189→            label = type_label.get(row["type"], row["type"])
+  1190→            out.append(f"| {label} | {row['count']} |")
+  1191→    else:
+  1192→        out.append("| _none_ | 0 |")
+  1193→    out.append("")
+  1194→
+  1195→    out.append("## Collections Affected")
+  1196→    out.append("")
+  1197→    if report["collection_breakdown"]:
+  1198→        out.append("| Collection | Findings |")
+  1199→        out.append("| --- | ---: |")
+  1200→        for row in report["collection_breakdown"]:
+  1201→            out.append(f"| `{row['collection']}` | {row['count']} |")
+  1202→    else:
+  1203→        out.append("_No collections with missing-index findings._")
+  1204→    out.append("")
+  1205→
+  1206→    out.append("## Collections Queried But With No Declared Indexes")
+  1207→    out.append("")
+  1208→    if report["collections_queried_without_indexes"]:
+  1209→        out.append(
+  1210→            "These collections are queried in the codebase but have no "
+  1211→            "`Indexes().CreateMany/CreateOne` call anywhere — every query "
+  1212→            "will be a full collection scan (modulo the default `_id` index)."
+  1213→        )
+  1214→        out.append("")
+  1215→        for c in report["collections_queried_without_indexes"]:
+  1216→            out.append(f"- `{c}`")
+  1217→    else:
+  1218→        out.append("_All queried collections have at least one declared index._")
+  1219→    out.append("")
+  1220→
+  1221→    out.append("## Files With Most Findings")
+  1222→    out.append("")
+  1223→    if report["top_files"]:
+  1224→        out.append("| File | Findings |")
+  1225→        out.append("| --- | ---: |")
+  1226→        for row in report["top_files"]:
+  1227→            out.append(f"| `{row['file']}` | {row['count']} |")
+  1228→    else:
+  1229→        out.append("_No findings._")
+  1230→    out.append("")
+  1231→
+  1232→    out.append("## Detailed Findings")
+  1233→    out.append("")
+  1234→    if not report["findings"]:
+  1235→        out.append("_No missing-index findings — every query is covered by a declared index._")
+  1236→    else:
+  1237→        sev_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+  1238→        by_file: dict[str, list[dict]] = defaultdict(list)
+  1239→        for f in report["findings"]:
+  1240→            by_file[f["file"]].append(f)
+  1241→        for fname in sorted(by_file):
+  1242→            out.append(f"### `{fname}`")
+  1243→            out.append("")
+  1244→            fs = sorted(
+  1245→                by_file[fname],
+  1246→                key=lambda f: (sev_order.get(f["severity"], 9), f["line"]),
+  1247→            )
+  1248→            for f in fs:
+  1249→                label = type_label.get(f["finding_type"], f["finding_type"])
+  1250→                fields = ", ".join(f"`{x}``" for x in f["filter_fields"]) if f["filter_fields"] else "—"
+  1251→                out.append(
+  1252→                    f"- **[{f['severity']}] {label}** — "
+  1253→                    f"`{f['file']}:{f['line']}` `{f['operation']}` on "
+  1254→                    f"`{f['collection']}` in `{f['function']}`"
+  1255→                )
+  1256→                out.append(f"  - Filter fields: {fields}")
+  1257→                out.append(f"  - _{f['reason']}_")
+  1258→                out.append(f"  - Suggestion: {f['suggestion']}")
+  1259→                snippet = f["snippet"].rstrip()
+  1260→                out.append("  ```go")
+  1261→                out.append(f"  {snippet}")
+  1262→                out.append("  ```")
+  1263→            out.append("")
+  1264→
+  1265→    out.append("## Index Inventory (parsed from source)")
+  1266→    out.append("")
+  1267→    out.append(
+  1268→        "The following indexes were detected by scanning the codebase for "
+  1269→        "`mongo.IndexModel{...}` declarations inside `Indexes().CreateMany` / "
+  1270→        "`CreateOne` calls."
+  1271→    )
+  1272→    out.append("")
+  1273→    if report["index_inventory"]:
+  1274→        out.append("| Collection | Indexes | Unique | Indexed fields (any) | Leading fields |")
+  1275→        out.append("| --- | ---: | --- | --- | --- |")
+  1276→        for coll in report["index_inventory"]:
+  1277→            indexed = ", ".join(f"`{f}`" for f in coll["indexed_fields"]) or "—"
+  1278→            leading = ", ".join(f"`{f}`" for f in coll["leading_fields"]) or "—"
+  1279→            out.append(
+  1280→                f"| `{coll['collection']}` | {coll['index_count']} | "
+  1281→                f"{'yes' if coll['has_unique'] else 'no'} | {indexed} | {leading} |"
+  1282→            )
+  1283→    else:
+  1284→        out.append("_No `mongo.IndexModel` declarations found in the scanned path._")
+  1285→    out.append("")
+  1286→
+  1287→    out.append("## Methodology")
+  1288→    out.append("")
+  1289→    out.append(
+  1290→        "1. **Index inventory.** Every `.go` file is scanned for "
+  1291→        "`mongo.IndexModel{ Keys: bson.D{...}, Options: ... }` literals. "
+  1292→        "Each IndexModel's collection is resolved by walking *backwards* to "
+  1293→        "find the nearest preceding collection-binding site "
+  1294→        "(`db.Collection(\"name\")` literal, alias variable, or a "
+  1295→        "`Collection(\"name\").Indexes()` call on the same expression). "
+  1296→        "Single-field and compound indexes are recorded; for compound "
+  1297→        "indexes only the leading field is treated as a 'covering' field "
+  1298→        "for queries."
+  1299→    )
+  1300→    out.append(
+  1301→        "2. **Query scan.** Every MongoDB collection method call (Find, "
+  1302→        "FindOne, UpdateOne, DeleteOne, CountDocuments, ...) is located and "
+  1303→        "its first-argument filter is parsed from the `bson.M{}` / "
+  1304→        "`bson.D{}` literal. Multi-line literals are captured via a small "
+  1305→        "look-ahead window. Option-builder calls like `options.Find()` are "
+  1306→        "skipped."
+  1307→    )
+  1308→    out.append(
+  1309→        "3. **Coverage check.** For each query the filter fields are "
+  1310→        "compared against the collection's index inventory. A query is "
+  1311→        "covered if any of its filter fields is the leading field of any "
+  1312→        "index (single-field or compound). Queries with no covering index "
+  1313→        "are flagged."
+  1314→    )
+  1315→    out.append(
+  1316→        "4. **Spec check.** Each query is also checked against a small set "
+  1317→        "of SaaS-domain index rules: `tenantId` on multi-tenant "
+  1318→        "collections, `email` on `users`, `slug` on `tenants`, `token` on "
+  1319→        "invitation/token collections, etc. Queries that filter on a "
+  1320→        "spec-required field that is not indexed are flagged."
+  1321→    )
+  1322→    out.append(
+  1323→        "5. **Multi-tenant hygiene.** Queries on multi-tenant collections "
+  1324→        "that do not filter by `tenantId` are flagged separately — these "
+  1325→        "risk cross-tenant data leaks and force full-collection scans."
+  1326→    )
+  1327→    out.append(
+  1328→        "6. **Risk.** HIGH for queries on large collections (logs, events, "
+  1329→        "telemetry, audit, deliveries, metrics) without a covering index, "
+  1330→        "and for any query on a spec-required field that is missing the "
+  1331→        "index. MEDIUM for small/static-data collections without coverage "
+  1332→        "and for multi-tenant queries without a tenantId filter."
+  1333→    )
+  1334→    out.append("")
+  1335→    out.append("---")
+  1336→    out.append("_Generated by `graphify missing-indexes`._")
+  1337→    return "\n".join(out)
+  1338→
+  1339→
+  1340→# --------------------------------------------------------------------------- #
+  1341→# CLI
+  1342→# --------------------------------------------------------------------------- #
+  1343→
+  1344→def main(argv: Optional[list[str]] = None) -> int:
+  1345→    parser = argparse.ArgumentParser(
+  1346→        prog="graphify_missing_indexes.py",
+  1347→        description="Flag MongoDB queries whose filter fields are not covered by an index.",
+  1348→    )
+  1349→    parser.add_argument(
+  1350→        "path", nargs="?", default=".",
+  1351→        help="Root directory to scan (default: current directory).",
+  1352→    )
+  1353→    parser.add_argument(
+  1354→        "--out", default=None,
+  1355→        help="Write markdown report to this path (in addition to public/MISSING_INDEXES.md).",
+  1356→    )
+  1357→    parser.add_argument(
+  1358→        "--json", action="store_true",
+  1359→        help="Print the JSON report to stdout.",
+  1360→    )
+  1361→    parser.add_argument(
+  1362→        "--include-tests", action="store_true",
+  1363→        help="Include *_test.go files in the scan (default: skipped).",
+  1364→    )
+  1365→    args = parser.parse_args(argv)
+  1366→
+  1367→    root = Path(args.path).resolve()
+  1368→    if not root.exists():
+  1369→        print(f"ERROR: path not found: {root}", file=sys.stderr)
+  1370→        return 2
+  1371→
+  1372→    print(f"Building accessor map for {root} ...", file=sys.stderr)
+  1373→    accessor_map = build_accessor_map(root)
+  1374→    print(f"  found {len(accessor_map)} collection accessors", file=sys.stderr)
+  1375→
+  1376→    print("Parsing declared indexes ...", file=sys.stderr)
+  1377→    indexes = collect_all_indexes(root, accessor_map)
+  1378→    total_idx = sum(len(s.indexes) for s in indexes.values())
+  1379→    print(
+  1380→        f"  found {total_idx} indexes across {len(indexes)} collections",
+  1381→        file=sys.stderr,
+  1382→    )
+  1383→
+  1384→    print("Scanning queries ...", file=sys.stderr)
+  1385→    queries = scan_queries(root, accessor_map, args.include_tests)
+  1386→    print(f"  scanned {len(queries)} queries", file=sys.stderr)
+  1387→
+  1388→    findings: list[Finding] = []
+  1389→    for q in queries:
+  1390→        findings.extend(classify_query(q, indexes))
+  1391→
+  1392→    report = build_report(root, findings, indexes, queries)
+  1393→
+  1394→    # Always write JSON + MD to /home/z/my-project/public/ if writable.
+  1395→    public_dir = Path("/home/z/my-project/public")
+  1396→    json_path = public_dir / "missing-indexes.json"
+  1397→    md_path = public_dir / "MISSING_INDEXES.md"
+  1398→    try:
+  1399→        public_dir.mkdir(parents=True, exist_ok=True)
+  1400→        json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+  1401→    except Exception as e:
+  1402→        print(f"WARN: could not write {json_path}: {e}", file=sys.stderr)
+  1403→    try:
+  1404→        md_path.write_text(render_markdown(report), encoding="utf-8")
+  1405→    except Exception as e:
+  1406→        print(f"WARN: could not write {md_path}: {e}", file=sys.stderr)
+  1407→
+  1408→    if args.out:
+  1409→        out_path = Path(args.out)
+  1410→        try:
+  1411→            out_path.parent.mkdir(parents=True, exist_ok=True)
+  1412→            out_path.write_text(render_markdown(report), encoding="utf-8")
+  1413→            print(f"Markdown report written to {out_path}", file=sys.stderr)
+  1414→        except Exception as e:
+  1415→            print(f"ERROR: could not write --out file: {e}", file=sys.stderr)
+  1416→            return 1
+  1417→
+  1418→    if args.json:
+  1419→        print(json.dumps(report, indent=2))
+  1420→
+  1421→    print(
+  1422→        f"Scanned {len(queries)} queries across {len(indexes)} indexed "
+  1423→        f"collections; found {len(findings)} missing-index findings "
+  1424→        f"(HIGH={report['severity_breakdown'].get('HIGH', 0)}, "
+  1425→        f"MEDIUM={report['severity_breakdown'].get('MEDIUM', 0)}, "
+  1426→        f"LOW={report['severity_breakdown'].get('LOW', 0)}).",
+  1427→        file=sys.stderr,
+  1428→    )
+  1429→    return 0
+  1430→
+  1431→
+  1432→if __name__ == "__main__":
+  1433→    raise SystemExit(main())
+  1434→

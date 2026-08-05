@@ -1,33 +1,33 @@
 {
-  "root": "/home/z/my-project/repos/lastsaas/backend",
-  "total_findings": 27,
+  "root": "/home/z/my-project/repos/lastsaas",
+  "total_findings": 21,
   "severity_breakdown": {
-    "MEDIUM": 13,
-    "HIGH": 14
+    "LOW": 15,
+    "MEDIUM": 6
   },
   "operation_breakdown": [
     {
       "operation": "FindOne",
-      "count": 8
-    },
-    {
-      "operation": "DeleteMany",
       "count": 7
     },
     {
-      "operation": "Find",
-      "count": 3
+      "operation": "DeleteMany",
+      "count": 4
     },
     {
       "operation": "CountDocuments",
       "count": 3
     },
     {
-      "operation": "InsertOne",
-      "count": 3
+      "operation": "Find",
+      "count": 2
     },
     {
       "operation": "DeleteOne",
+      "count": 2
+    },
+    {
+      "operation": "InsertOne",
       "count": 2
     },
     {
@@ -42,15 +42,7 @@
     },
     {
       "collection": "tenants",
-      "count": 6
-    },
-    {
-      "collection": "dynamic:name",
-      "count": 3
-    },
-    {
-      "collection": "system_logs",
-      "count": 2
+      "count": 5
     },
     {
       "collection": "invitations",
@@ -84,73 +76,46 @@
   "loop_kind_breakdown": [
     {
       "kind": "range",
-      "count": 24
+      "count": 20
     },
     {
       "kind": "infinite",
-      "count": 2
-    },
-    {
-      "kind": "condition",
       "count": 1
     }
   ],
   "top_files": [
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "count": 9
     },
     {
-      "file": "internal/api/handlers/auth.go",
-      "count": 6
+      "file": "backend/internal/api/handlers/auth.go",
+      "count": 5
     },
     {
-      "file": "internal/testutil/testutil.go",
-      "count": 4
-    },
-    {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "count": 2
     },
     {
-      "file": "internal/configstore/seed.go",
+      "file": "backend/internal/configstore/seed.go",
       "count": 2
     },
     {
-      "file": "cmd/lastsaas/cmd_logs.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "count": 1
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "count": 1
     },
     {
-      "file": "internal/api/handlers/webhook.go",
-      "count": 1
-    },
-    {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "count": 1
     }
   ],
   "findings": [
     {
-      "file": "cmd/lastsaas/cmd_logs.go",
-      "line": 180,
-      "end_line": 207,
-      "call_line": 193,
-      "function": "logsFollow",
-      "loop_kind": "infinite",
-      "loop_var": "_",
-      "operation": "Find",
-      "collection": "system_logs",
-      "snippet": "        for {\n                time.Sleep(2 * time.Second)\n\n                followFilter := bson.M{}\n                for k, v := range filter {\n                        followFilter[k] = v\n                }\n                followFilter[\"createdAt\"] = bson.M{\"$gt\": lastTime}\n... (20 more lines)",
-      "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "MEDIUM",
-      "note": "Find call inside infinite loop"
-    },
-    {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1277,
       "end_line": 1332,
       "call_line": 1280,
@@ -161,11 +126,11 @@
       "collection": "tenant_memberships",
       "snippet": "\tfor _, m := range ownerships {\n\t\ttenant := tenantMap[m.TenantID]\n\n\t\tmemberCursor, err := h.db.TenantMemberships().Find(ctx, bson.M{\n\t\t\t\"tenantId\": m.TenantID,\n\t\t\t\"userId\":   bson.M{\"$ne\": userID},\n\t\t})\n\t\tif err != nil {\n... (48 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "Find call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1277,
       "end_line": 1332,
       "call_line": 1301,
@@ -176,11 +141,11 @@
       "collection": "users",
       "snippet": "\tfor _, m := range ownerships {\n\t\ttenant := tenantMap[m.TenantID]\n\n\t\tmemberCursor, err := h.db.TenantMemberships().Find(ctx, bson.M{\n\t\t\t\"tenantId\": m.TenantID,\n\t\t\t\"userId\":   bson.M{\"$ne\": userID},\n\t\t})\n\t\tif err != nil {\n... (48 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "Find call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1398,
@@ -191,11 +156,11 @@
       "collection": "tenants",
       "snippet": "\tfor _, m := range memberships {\n\t\tif m.Role != models.RoleOwner {\n\t\t\tcontinue\n\t\t}\n\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to look up tenant\")\n... (77 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1414,
@@ -206,11 +171,11 @@
       "collection": "tenant_memberships",
       "snippet": "\tfor _, m := range memberships {\n\t\tif m.Role != models.RoleOwner {\n\t\t\tcontinue\n\t\t}\n\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to look up tenant\")\n... (77 more lines)",
       "suggestion": "Use BulkWrite with a []mongo.WriteModel (UpdateOne models) instead of issuing UpdateOne per iteration.",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "UpdateOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1430,
@@ -221,11 +186,11 @@
       "collection": "tenant_memberships",
       "snippet": "\tfor _, m := range memberships {\n\t\tif m.Role != models.RoleOwner {\n\t\t\tcontinue\n\t\t}\n\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to look up tenant\")\n... (77 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "CountDocuments call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1454,
@@ -236,11 +201,11 @@
       "collection": "tenant_memberships",
       "snippet": "\tfor _, m := range memberships {\n\t\tif m.Role != models.RoleOwner {\n\t\t\tcontinue\n\t\t}\n\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to look up tenant\")\n... (77 more lines)",
       "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1457,
@@ -251,11 +216,11 @@
       "collection": "tenants",
       "snippet": "\tfor _, m := range memberships {\n\t\tif m.Role != models.RoleOwner {\n\t\t\tcontinue\n\t\t}\n\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to look up tenant\")\n... (77 more lines)",
       "suggestion": "Use DeleteMany with an $in filter instead of DeleteOne in a loop.",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "DeleteOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1460,
@@ -266,11 +231,11 @@
       "collection": "invitations",
       "snippet": "\tfor _, m := range memberships {\n\t\tif m.Role != models.RoleOwner {\n\t\t\tcontinue\n\t\t}\n\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to look up tenant\")\n... (77 more lines)",
       "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "internal/api/handlers/admin.go",
+      "file": "backend/internal/api/handlers/admin.go",
       "line": 1678,
       "end_line": 1690,
       "call_line": 1680,
@@ -281,29 +246,14 @@
       "collection": "tenants",
       "snippet": "\tfor _, m := range memberships {\n\t\tvar tenant models.Tenant\n\t\tif err := h.db.Tenants().FindOne(r.Context(), bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n\t\t\tcontinue\n\t\t}\n\t\tmembershipInfos = append(membershipInfos, MembershipInfo{\n\t\t\tTenantID:   tenant.ID.Hex(),\n\t\t\tTenantName: tenant.Name,\n... (5 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "MEDIUM",
+      "severity": "LOW",
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/auth.go",
-      "line": 2060,
-      "end_line": 2072,
-      "call_line": 2062,
-      "function": "getUserMemberships",
-      "loop_kind": "range",
-      "loop_var": "m",
-      "operation": "FindOne",
-      "collection": "tenants",
-      "snippet": "        for _, m := range memberships {\n                var tenant models.Tenant\n                if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n                        continue\n                }\n                result = append(result, MembershipInfo{\n                        TenantID:   tenant.ID.Hex(),\n                        TenantName: tenant.Name,\n... (5 more lines)",
-      "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
-      "note": "FindOne call inside range loop"
-    },
-    {
-      "file": "internal/api/handlers/auth.go",
-      "line": 2255,
-      "end_line": 2299,
-      "call_line": 2261,
+      "file": "backend/internal/api/handlers/auth.go",
+      "line": 2280,
+      "end_line": 2324,
+      "call_line": 2286,
       "function": "DeleteAccount",
       "loop_kind": "range",
       "loop_var": "m",
@@ -311,14 +261,14 @@
       "collection": "tenants",
       "snippet": "        for _, m := range memberships {\n                if m.Role != models.RoleOwner {\n                        continue\n                }\n\n                var tenant models.Tenant\n                if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n                        continue\n... (37 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
+      "severity": "LOW",
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/auth.go",
-      "line": 2255,
-      "end_line": 2299,
-      "call_line": 2270,
+      "file": "backend/internal/api/handlers/auth.go",
+      "line": 2280,
+      "end_line": 2324,
+      "call_line": 2295,
       "function": "DeleteAccount",
       "loop_kind": "range",
       "loop_var": "m",
@@ -326,14 +276,14 @@
       "collection": "tenant_memberships",
       "snippet": "        for _, m := range memberships {\n                if m.Role != models.RoleOwner {\n                        continue\n                }\n\n                var tenant models.Tenant\n                if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n                        continue\n... (37 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
+      "severity": "LOW",
       "note": "CountDocuments call inside range loop"
     },
     {
-      "file": "internal/api/handlers/auth.go",
-      "line": 2255,
-      "end_line": 2299,
-      "call_line": 2280,
+      "file": "backend/internal/api/handlers/auth.go",
+      "line": 2280,
+      "end_line": 2324,
+      "call_line": 2305,
       "function": "DeleteAccount",
       "loop_kind": "range",
       "loop_var": "m",
@@ -341,14 +291,14 @@
       "collection": "tenant_memberships",
       "snippet": "        for _, m := range memberships {\n                if m.Role != models.RoleOwner {\n                        continue\n                }\n\n                var tenant models.Tenant\n                if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n                        continue\n... (37 more lines)",
       "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
-      "severity": "HIGH",
+      "severity": "LOW",
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "internal/api/handlers/auth.go",
-      "line": 2255,
-      "end_line": 2299,
-      "call_line": 2283,
+      "file": "backend/internal/api/handlers/auth.go",
+      "line": 2280,
+      "end_line": 2324,
+      "call_line": 2308,
       "function": "DeleteAccount",
       "loop_kind": "range",
       "loop_var": "m",
@@ -356,14 +306,14 @@
       "collection": "tenants",
       "snippet": "        for _, m := range memberships {\n                if m.Role != models.RoleOwner {\n                        continue\n                }\n\n                var tenant models.Tenant\n                if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n                        continue\n... (37 more lines)",
       "suggestion": "Use DeleteMany with an $in filter instead of DeleteOne in a loop.",
-      "severity": "HIGH",
+      "severity": "LOW",
       "note": "DeleteOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/auth.go",
-      "line": 2255,
-      "end_line": 2299,
-      "call_line": 2286,
+      "file": "backend/internal/api/handlers/auth.go",
+      "line": 2280,
+      "end_line": 2324,
+      "call_line": 2311,
       "function": "DeleteAccount",
       "loop_kind": "range",
       "loop_var": "m",
@@ -371,11 +321,11 @@
       "collection": "invitations",
       "snippet": "        for _, m := range memberships {\n                if m.Role != models.RoleOwner {\n                        continue\n                }\n\n                var tenant models.Tenant\n                if err := h.db.Tenants().FindOne(ctx, bson.M{\"_id\": m.TenantID}).Decode(&tenant); err != nil {\n                        continue\n... (37 more lines)",
       "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
-      "severity": "HIGH",
+      "severity": "LOW",
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "internal/api/handlers/event_definitions.go",
+      "file": "backend/internal/api/handlers/event_definitions.go",
       "line": 457,
       "end_line": 472,
       "call_line": 463,
@@ -386,11 +336,11 @@
       "collection": "event_definitions",
       "snippet": "\tfor {\n\t\tif visited[current] {\n\t\t\treturn true\n\t\t}\n\t\tvisited[current] = true\n\t\tvar parent models.EventDefinition\n\t\terr := h.db.EventDefinitions().FindOne(ctx, bson.M{\"_id\": current}).Decode(&parent)\n\t\tif err != nil {\n... (8 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
+      "severity": "MEDIUM",
       "note": "FindOne call inside infinite loop"
     },
     {
-      "file": "internal/api/handlers/webhook.go",
+      "file": "backend/internal/api/handlers/webhook.go",
       "line": 518,
       "end_line": 527,
       "call_line": 519,
@@ -401,47 +351,47 @@
       "collection": "messages",
       "snippet": "\tfor _, m := range memberships {\n\t\th.db.Messages().InsertOne(ctx, models.Message{\n\t\t\tUserID:    m.UserID,\n\t\t\tSubject:   subject,\n\t\t\tBody:      body,\n\t\t\tIsSystem:  true,\n\t\t\tRead:      false,\n\t\t\tCreatedAt: time.Now(),\n... (2 more lines)",
       "suggestion": "Use InsertMany with a slice of documents instead of InsertOne in a loop.",
-      "severity": "HIGH",
+      "severity": "LOW",
       "note": "InsertOne call inside range loop"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 69,
       "end_line": 86,
       "call_line": 71,
       "function": "ListWebhooks",
       "loop_kind": "range",
-      "loop_var": "k",
+      "loop_var": "hook",
       "operation": "CountDocuments",
       "collection": "webhook_deliveries",
       "snippet": "\tfor i, hook := range hooks {\n\t\tresult[i].Webhook = hook\n\t\tcount, err := h.db.WebhookDeliveries().CountDocuments(ctx, bson.M{\n\t\t\t\"webhookId\": hook.ID,\n\t\t\t\"createdAt\": bson.M{\"$gte\": since},\n\t\t})\n\t\tif err != nil {\n\t\t\tslog.Warn(\"failed to count webhook deliveries\", \"webhookId\", hook.ID, \"error\", err)\n... (10 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
+      "severity": "MEDIUM",
       "note": "CountDocuments call inside range loop"
     },
     {
-      "file": "internal/api/handlers/webhooks.go",
+      "file": "backend/internal/api/handlers/webhooks.go",
       "line": 69,
       "end_line": 86,
       "call_line": 83,
       "function": "ListWebhooks",
       "loop_kind": "range",
-      "loop_var": "k",
+      "loop_var": "hook",
       "operation": "FindOne",
       "collection": "webhook_deliveries",
       "snippet": "\tfor i, hook := range hooks {\n\t\tresult[i].Webhook = hook\n\t\tcount, err := h.db.WebhookDeliveries().CountDocuments(ctx, bson.M{\n\t\t\t\"webhookId\": hook.ID,\n\t\t\t\"createdAt\": bson.M{\"$gte\": since},\n\t\t})\n\t\tif err != nil {\n\t\t\tslog.Warn(\"failed to count webhook deliveries\", \"webhookId\", hook.ID, \"error\", err)\n... (10 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
+      "severity": "MEDIUM",
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "internal/configstore/seed.go",
+      "file": "backend/internal/configstore/seed.go",
       "line": 379,
       "end_line": 391,
       "call_line": 380,
       "function": "Seed",
       "loop_kind": "range",
-      "loop_var": "f",
+      "loop_var": "def",
       "operation": "FindOne",
       "collection": "config_vars",
       "snippet": "        for _, def := range SystemDefaults {\n                err := col.FindOne(ctx, bson.M{\"name\": def.Name}).Err()\n                if err == mongo.ErrNoDocuments {\n                        def.CreatedAt = now\n                        def.UpdatedAt = now\n                        if _, err := col.InsertOne(ctx, def); err != nil {\n                                return err\n                        }\n... (5 more lines)",
@@ -450,13 +400,13 @@
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "internal/configstore/seed.go",
+      "file": "backend/internal/configstore/seed.go",
       "line": 379,
       "end_line": 391,
       "call_line": 384,
       "function": "Seed",
       "loop_kind": "range",
-      "loop_var": "f",
+      "loop_var": "def",
       "operation": "InsertOne",
       "collection": "config_vars",
       "snippet": "        for _, def := range SystemDefaults {\n                err := col.FindOne(ctx, bson.M{\"name\": def.Name}).Err()\n                if err == mongo.ErrNoDocuments {\n                        def.CreatedAt = now\n                        def.UpdatedAt = now\n                        if _, err := col.InsertOne(ctx, def); err != nil {\n                                return err\n                        }\n... (5 more lines)",
@@ -465,79 +415,19 @@
       "note": "InsertOne call inside range loop"
     },
     {
-      "file": "internal/health/query.go",
+      "file": "backend/internal/health/query.go",
       "line": 96,
       "end_line": 105,
       "call_line": 98,
       "function": "GetCurrentMetrics",
       "loop_kind": "range",
-      "loop_var": "e",
+      "loop_var": "node",
       "operation": "FindOne",
       "collection": "system_metrics",
       "snippet": "        for _, node := range nodes {\n                var metric models.SystemMetric\n                err := s.db.SystemMetrics().FindOne(ctx,\n                        bson.M{\"nodeId\": node.MachineID},\n                        options.FindOne().SetSort(bson.D{{Key: \"timestamp\", Value: -1}}),\n                ).Decode(&metric)\n                if err == nil {\n                        results = append(results, metric)\n... (2 more lines)",
       "suggestion": "Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`",
-      "severity": "HIGH",
-      "note": "FindOne call inside range loop"
-    },
-    {
-      "file": "internal/testutil/testutil.go",
-      "line": 97,
-      "end_line": 101,
-      "call_line": 98,
-      "function": "MustConnectTestDB",
-      "loop_kind": "range",
-      "loop_var": "e",
-      "operation": "DeleteMany",
-      "collection": "dynamic:name",
-      "snippet": "                for _, name := range colls {\n                        if _, err := database.Database.Collection(name).DeleteMany(ctx, bson.M{}); err != nil {\n                                log.Printf(\"testutil: warning: failed to delete from %s: %v\", name, err)\n                        }\n                }",
-      "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
-      "severity": "HIGH",
-      "note": "DeleteMany call inside range loop"
-    },
-    {
-      "file": "internal/testutil/testutil.go",
-      "line": 143,
-      "end_line": 147,
-      "call_line": 144,
-      "function": "ConnectTestDB",
-      "loop_kind": "range",
-      "loop_var": "e",
-      "operation": "DeleteMany",
-      "collection": "dynamic:name",
-      "snippet": "                for _, name := range colls {\n                        if _, err := database.Database.Collection(name).DeleteMany(ctx, bson.M{}); err != nil {\n                                log.Printf(\"testutil: warning: failed to delete from %s: %v\", name, err)\n                        }\n                }",
-      "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
-      "severity": "HIGH",
-      "note": "DeleteMany call inside range loop"
-    },
-    {
-      "file": "internal/testutil/testutil.go",
-      "line": 226,
-      "end_line": 230,
-      "call_line": 227,
-      "function": "CleanupCollections",
-      "loop_kind": "range",
-      "loop_var": "e",
-      "operation": "DeleteMany",
-      "collection": "dynamic:name",
-      "snippet": "        for _, name := range collections {\n                if _, err := database.Database.Collection(name).DeleteMany(ctx, bson.M{}); err != nil {\n                        log.Printf(\"testutil: warning: failed to delete from %s: %v\", name, err)\n                }\n        }",
-      "suggestion": "Batch this operation \u2014 issue a single bulk/multi-document call instead of one DB call per loop iteration.",
       "severity": "MEDIUM",
-      "note": "DeleteMany call inside range loop"
-    },
-    {
-      "file": "internal/testutil/testutil.go",
-      "line": 333,
-      "end_line": 345,
-      "call_line": 341,
-      "function": "InsertTestLogs",
-      "loop_kind": "condition",
-      "loop_var": "_",
-      "operation": "InsertOne",
-      "collection": "system_logs",
-      "snippet": "        for i := 0; i < count; i++ {\n                entry := models.SystemLog{\n                        ID:        primitive.NewObjectID(),\n                        Severity:  severity,\n                        Category:  category,\n                        Message:   fmt.Sprintf(\"Test log entry %d\", i+1),\n                        CreatedAt: time.Now().Add(-time.Duration(i) * time.Minute),\n                }\n... (5 more lines)",
-      "suggestion": "Use InsertMany with a slice of documents instead of InsertOne in a loop.",
-      "severity": "HIGH",
-      "note": "InsertOne call inside condition loop"
+      "note": "FindOne call inside range loop"
     }
   ]
 }

@@ -1,0 +1,903 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify_n_plus_1 — detect MongoDB queries running inside loops (N+1 problems).
+     3→
+     4→Walks every ``.go`` file (excluding ``*_test.go`` unless ``--include-tests``)
+     5→under the target path, locates loop bodies (``for ... range ...``,
+     6→``for i; cond; post { ... }``, ``for cond { ... }``, ``for { ... }``),
+     7→and inspects the body for MongoDB collection operations:
+     8→
+     9→  * Find / FindOne / InsertOne / InsertMany
+    10→  * UpdateOne / UpdateMany / ReplaceOne
+    11→  * DeleteOne / DeleteMany
+    12→  * CountDocuments / EstimatedDocumentCount
+    13→  * Aggregate
+    14→
+    15→A query inside a loop body is an N+1 problem: the loop runs N times, and
+    16→each iteration hits the database. The standard fix is to batch the IDs and
+    17→issue a single ``$in`` query, e.g.::
+    18→
+    19→    // Before (N+1):
+    20→    for _, id := range ids {
+    21→        user, err := col.FindOne(ctx, bson.M{"_id": id}).Decode(&u)
+    22→    }
+    23→    // After (single query):
+    24→    cur, err := col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})
+    25→
+    26→For each finding the script records:
+    27→
+    28→  * file, line (loop start), end_line (loop close)
+    29→  * loop variable name and loop kind (range / three-form / condition / infinite)
+    30→  * the MongoDB operation name (Find, FindOne, ...)
+    31→  * the collection name (resolved via ``db.Collection("name")`` literal,
+    32→    via the codebase's collection accessor methods like ``m.Users()``, or
+    33→    via an aliased local variable like ``col := m.Users()``)
+    34→  * the containing function
+    35→  * the call line (where the DB op actually appears in the loop body)
+    36→  * a code snippet
+    37→  * a remediation suggestion
+    38→  * risk: HIGH for queries in user-facing handlers; MEDIUM for admin/batch
+    39→
+    40→Usage:
+    41→    python graphify_n_plus_1.py [path] [--out report.md] [--json] [--include-tests]
+    42→
+    43→Outputs:
+    44→    - JSON written to /home/z/my-project/public/n-plus-1.json (best effort)
+    45→    - Markdown written to /home/z/my-project/public/N_PLUS_1.md (best effort)
+    46→    - Markdown written to --out path if specified
+    47→    - JSON to stdout if --json given
+    48→
+    49→Test target: /home/z/my-project/repos/lastsaas/backend
+    50→"""
+    51→from __future__ import annotations
+    52→
+    53→import argparse
+    54→import json
+    55→import re
+    56→import sys
+    57→from collections import Counter, defaultdict
+    58→from dataclasses import asdict, dataclass, field
+    59→from pathlib import Path
+    60→from typing import Optional
+    61→
+    62→# --------------------------------------------------------------------------- #
+    63→# Constants
+    64→# --------------------------------------------------------------------------- #
+    65→
+    66→# MongoDB collection methods we treat as queries. Same set as
+    67→# graphify_db_queries.py plus ReplaceOne.
+    68→OPERATIONS: tuple[str, ...] = (
+    69→    "Find",
+    70→    "FindOne",
+    71→    "InsertOne",
+    72→    "InsertMany",
+    73→    "UpdateOne",
+    74→    "UpdateMany",
+    75→    "ReplaceOne",
+    76→    "DeleteOne",
+    77→    "DeleteMany",
+    78→    "Aggregate",
+    79→    "CountDocuments",
+    80→    "EstimatedDocumentCount",
+    81→)
+    82→
+    83→OP_RE = re.compile(
+    84→    r"\.(" + "|".join(OPERATIONS) + r")\s*\("
+    85→)
+    86→
+    87→# Direct collection access: ``db.Collection("name")``
+    88→COLLECTION_LITERAL_RE = re.compile(
+    89→    r'\.Collection\(\s*"([^"]+)"\s*\)'
+    90→)
+    91→
+    92→# Function declaration: ``func [recv] Name(``
+    93→FUNC_DECL_RE = re.compile(
+    94→    r'^[ \t]*func(?:[ \t]+\([^)]*\))?[ \t]+(?P<name>\w+)[ \t]*\(',
+    95→    re.MULTILINE,
+    96→)
+    97→
+    98→# Loop start. Captures the whole ``for ...`` header up to and including the
+    99→# opening brace (the brace is consumed so we can find the matching close).
+   100→LOOP_HEADER_RE = re.compile(
+   101→    r'^[ \t]*for\b(?P<header>[^{;]*)',
+   102→    re.MULTILINE,
+   103→)
+   104→
+   105→# Detect which kind of loop it is by inspecting the header.
+   106→#   for _, x := range items {        -> "range"
+   107→#   for i := 0; i < n; i++ {          -> "three-form"
+   108→#   for cond {                         -> "condition"
+   109→#   for {                              -> "infinite"
+   110→#   for k := range m {                 -> "range" (single-var form)
+   111→def classify_loop(header: str) -> tuple[str, str]:
+   112→    """Return (kind, loop_variable) for a loop header (without `for` or `{`)."""
+   113→    h = header.strip()
+   114→    if not h:
+   115→        return "infinite", "_"
+   116→    if "range" in h:
+   117→        # forms:
+   118→        #   _, x := range items   -> x
+   119→        #   k, v := range items   -> k (or both)
+   120→        #   x := range items      -> x
+   121→        #   for range items       -> (no var) "_"
+   122→        m = re.search(r'(?P<lhs>[^=:]]*)\s*(?::=|=)\s*range\b', h)
+   123→        if m:
+   124→            lhs = m.group("lhs").strip()
+   125→            # take the last identifier in the lhs list
+   126→            ids = re.findall(r'\b\w+\b', lhs)
+   127→            if ids:
+   128→                return "range", ids[-1]
+   129→            return "range", "_"
+   130→        return "range", "_"
+   131→    if ";" in h:
+   132→        # three-form: init; cond; post
+   133→        parts = [p.strip() for p in h.split(";")]
+   134→        init = parts[0] if parts else ""
+   135→        m = re.search(r'(\w+)\s*(?::=|=)', init)
+   136→        if m:
+   137→            return "three-form", m.group(1)
+   138→        # Could be `i++` or empty
+   139→        m2 = re.match(r'(\w+)\s*\+\+', init)
+   140→        if m2:
+   141→            return "three-form", m2.group(1)
+   142→        return "three-form", "_"
+   143→    return "condition", "_"
+   144→
+   145→
+   146→# --------------------------------------------------------------------------- #
+   147→# Source masking (so brace matching is safe against strings/comments)
+   148→# --------------------------------------------------------------------------- #
+   149→
+   150→def mask_source(src: str) -> str:
+   151→    """Replace string literals and comments with spaces (preserving length)."""
+   152→    out = list(src)
+   153→    i = 0
+   154→    n = len(src)
+   155→    while i < n:
+   156→        c = src[i]
+   157→        if c == '/' and i + 1 < n and src[i + 1] == '/':
+   158→            while i < n and src[i] != '\n':
+   159→                out[i] = ' '
+   160→                i += 1
+   161→            continue
+   162→        if c == '/' and i + 1 < n and src[i + 1] == '*':
+   163→            out[i] = ' '
+   164→            out[i + 1] = ' '
+   165→            i += 2
+   166→            while i < n:
+   167→                if src[i] == '*' and i + 1 < n and src[i + 1] == '/':
+   168→                    out[i] = ' '
+   169→                    out[i + 1] = ' '
+   170→                    i += 2
+   171→                    break
+   172→                if src[i] != '\n':
+   173→                    out[i] = ' '
+   174→                i += 1
+   175→            continue
+   176→        if c == '\'':
+   177→            out[i] = ' '
+   178→            i += 1
+   179→            while i < n and src[i] not in ('\'', '\n'):
+   180→                if src[i] == '\\' and i + 1 < n:
+   181→                    out[i] = ' '
+   182→                    out[i + 1] = ' '
+   183→                    i += 2
+   184→                    continue
+   185→                out[i] = ' '
+   186→                i += 1
+   187→            if i < n and src[i] == '\'':
+   188→                out[i] = ' '
+   189→                i += 1
+   190→            continue
+   191→        if c == '"':
+   192→            out[i] = ' '
+   193→            i += 1
+   194→            while i < n and src[i] not in ('"', '\n'):
+   195→                if src[i] == '\\' and i + 1 < n:
+   196→                    out[i] = ' '
+   197→                    out[i + 1] = ' '
+   198→                    i += 2
+   199→                    continue
+   200→                out[i] = ' '
+   201→                i += 1
+   202→            if i < n and src[i] == '"':
+   203→                out[i] = ' '
+   204→                i += 1
+   205→            continue
+   206→        if c == '`':
+   207→            out[i] = ' '
+   208→            i += 1
+   209→            while i < n and src[i] != '`':
+   210→                if src[i] != '\n':
+   211→                    out[i] = ' '
+   212→                i += 1
+   213→            if i < n and src[i] == '`':
+   214→                out[i] = ' '
+   215→                i += 1
+   216→            continue
+   217→        i += 1
+   218→    return ''.join(out)
+   219→
+   220→
+   221→def find_matching_brace(masked: str, open_pos: int) -> int:
+   222→    """Given position of `{` in masked source, return matching `}` position."""
+   223→    depth = 0
+   224→    i = open_pos
+   225→    n = len(masked)
+   226→    while i < n:
+   227→        c = masked[i]
+   228→        if c == '{':
+   229→            depth += 1
+   230→        elif c == '}':
+   231→            depth -= 1
+   232→            if depth == 0:
+   233→                return i
+   234→        i += 1
+   235→    return -1
+   236→
+   237→
+   238→# --------------------------------------------------------------------------- #
+   239→# Data containers
+   240→# --------------------------------------------------------------------------- #
+   241→
+   242→@dataclass
+   243→class FuncRange:
+   244→    name: str
+   245→    start_line: int  # 1-indexed
+   246→    end_line: int    # 1-indexed
+   247→
+   248→
+   249→@dataclass
+   250→class LoopRange:
+   251→    start_line: int
+   252→    end_line: int
+   253→    kind: str
+   254→    loop_var: str
+   255→
+   256→
+   257→@dataclass
+   258→class Finding:
+   259→    file: str
+   260→    line: int           # loop start line
+   261→    end_line: int       # loop close line
+   262→    call_line: int      # line where the DB op actually appears
+   263→    function: str
+   264→    loop_kind: str
+   265→    loop_var: str
+   266→    operation: str
+   267→    collection: str
+   268→    snippet: str
+   269→    suggestion: str
+   270→    severity: str       # HIGH / MEDIUM / LOW
+   271→    note: str = ""
+   272→
+   273→
+   274→# --------------------------------------------------------------------------- #
+   275→# Function / loop parsing
+   276→# --------------------------------------------------------------------------- #
+   277→
+   278→def parse_functions(masked: str) -> list[FuncRange]:
+   279→    """Find named top-level function/method declarations and their body ranges."""
+   280→    funcs: list[FuncRange] = []
+   281→    for m in FUNC_DECL_RE.finditer(masked):
+   282→        # Walk forward from end of match to find the body `{`.
+   283→        i = m.end()
+   284→        n = len(masked)
+   285→        depth_paren = 1
+   286→        brace_pos = -1
+   287→        while i < n:
+   288→            c = masked[i]
+   289→            if c == '(':
+   290→                depth_paren += 1
+   291→            elif c == ')':
+   292→                depth_paren -= 1
+   293→            elif c == '{' and depth_paren == 0:
+   294→                brace_pos = i
+   295→                break
+   296→            i += 1
+   297→        if brace_pos < 0:
+   298→            continue
+   299→        close_pos = find_matching_brace(masked, brace_pos)
+   300→        if close_pos < 0:
+   301→            continue
+   302→        start_line = masked[:m.start()].count('\n') + 1
+   303→        end_line = masked[:close_pos].count('\n') + 1
+   304→        funcs.append(FuncRange(
+   305→            name=m.group("name"),
+   306→            start_line=start_line,
+   307→            end_line=end_line,
+   308→        ))
+   309→    return funcs
+   310→
+   311→
+   312→def containing_function(funcs: list[FuncRange], line: int) -> str:
+   313→    """Innermost named function whose body contains ``line``."""
+   314→    best: Optional[FuncRange] = None
+   315→    best_span: Optional[int] = None
+   316→    for f in funcs:
+   317→        if f.start_line <= line <= f.end_line:
+   318→            span = f.end_line - f.start_line
+   319→            if best is None or span < best_span:
+   320→                best = f
+   321→                best_span = span
+   322→    return best.name if best else "<top-level>"
+   323→
+   324→
+   325→def parse_loops(masked: str) -> list[LoopRange]:
+   326→    """Find every loop header and the matching closing brace.
+   327→
+   328→    Returns loops sorted by start_line. The loop body extends from the line
+   329→    after the header's `{` to the line of the matching `}`. Nested loops are
+   330→    included as separate entries.
+   331→    """
+   332→    loops: list[LoopRange] = []
+   333→    n = len(masked)
+   334→    for m in LOOP_HEADER_RE.finditer(masked):
+   335→        header_text = m.group("header")
+   336→        # Walk forward from end of match to find the body `{`. We must skip
+   337→        # over any `;`/`)`/whitespace and (importantly) balance any `(` that
+   338→        # appears in the header.
+   339→        i = m.end()
+   340→        depth_paren = 0
+   341→        brace_pos = -1
+   342→        while i < n:
+   343→            c = masked[i]
+   344→            if c == '(':
+   345→                depth_paren += 1
+   346→            elif c == ')':
+   347→                depth_paren -= 1
+   348→                if depth_paren < 0:
+   349→                    depth_paren = 0
+   350→            elif c == '{' and depth_paren == 0:
+   351→                brace_pos = i
+   352→                break
+   353→            elif c == ';' and depth_paren == 0:
+   354→                # Three-form for: `for i := 0; i < n; i++ {`
+   355→                # The semicolons are part of the header — keep going.
+   356→                pass
+   357→            elif c == '\n':
+   358→                pass
+   359→            i += 1
+   360→        if brace_pos < 0:
+   361→            continue
+   362→        close_pos = find_matching_brace(masked, brace_pos)
+   363→        if close_pos < 0:
+   364→            continue
+   365→        start_line = masked[:m.start()].count('\n') + 1
+   366→        end_line = masked[:close_pos].count('\n') + 1
+   367→        kind, loop_var = classify_loop(header_text)
+   368→        loops.append(LoopRange(
+   369→            start_line=start_line,
+   370→            end_line=end_line,
+   371→            kind=kind,
+   372→            loop_var=loop_var,
+   373→        ))
+   374→    loops.sort(key=lambda L: L.start_line)
+   375→    return loops
+   376→
+   377→
+   378→# --------------------------------------------------------------------------- #
+   379→# Collection resolution
+   380→# --------------------------------------------------------------------------- #
+   381→
+   382→def build_accessor_map(repo_root: Path) -> dict[str, str]:
+   383→    """Build {accessor_method_name: collection_name}.
+   384→
+   385→    Scans every .go file for ``func (recv) Name() *mongo.Collection {
+   386→    return <expr>.Collection("name") }``.
+   387→    """
+   388→    accessor_re = re.compile(
+   389→        r"func\s+(?:\([^)]*\)\s+)?([A-Z]\w*)\s*\(\s*\)\s*\*mongo\.Collection\s*\{[^}]*?"
+   390→        r'\.Collection\(\s*"([^"]+)"\s*\)',
+   391→        re.DOTALL,
+   392→    )
+   393→    accessor_map: dict[str, str] = {}
+   394→    for path in repo_root.rglob("*.go"):
+   395→        if "graphify-out" in path.parts:
+   396→            continue
+   397→        try:
+   398→            text = path.read_text(encoding="utf-8", errors="replace")
+   399→        except OSError:
+   400→            continue
+   401→        for m in accessor_re.finditer(text):
+   402→            name, coll = m.group(1), m.group(2)
+   403→            accessor_map.setdefault(name, coll)
+   404→    return accessor_map
+   405→
+   406→
+   407→def resolve_collection(
+   408→    line_text: str,
+   409→    aliases: dict[str, str],
+   410→    accessor_map: dict[str, str],
+   411→) -> Optional[str]:
+   412→    """Resolve which collection a DB-op call on this line targets.
+   413→
+   414→    Strategy (in order):
+   415→
+   416→      1. literal ``.Collection("name")`` in the prefix
+   417→      2. dynamic ``.Collection(<var>)`` (e.g. ``.Collection(name)``) → "dynamic"
+   418→      3. accessor call ``<expr>.<Accessor>()`` in the prefix (e.g. ``m.Users()``)
+   419→      4. aliased local variable ``<ident>.<Op>`` (e.g. ``col.FindOne(...)``)
+   420→    """
+   421→    # Strategy 1: literal ``.Collection("name").<Op>``
+   422→    lit_m = COLLECTION_LITERAL_RE.search(line_text)
+   423→    if lit_m:
+   424→        return lit_m.group(1)
+   425→
+   426→    # Strategy 2: dynamic ``.Collection(<var>)``
+   427→    dyn_m = re.search(r'\.Collection\(\s*([A-Za-z_]\w*)\s*\)', line_text)
+   428→    if dyn_m:
+   429→        return f"dynamic:{dyn_m.group(1)}"
+   430→
+   431→    # Strategy 3: accessor call ``<expr>.<Accessor>().<Op>``
+   432→    acc_m = re.search(r"([A-Z]\w*)\(\s*\)", line_text)
+   433→    if acc_m:
+   434→        accessor = acc_m.group(1)
+   435→        if accessor in accessor_map:
+   436→            return accessor_map[accessor]
+   437→
+   438→    # Strategy 4: aliased variable ``<ident>.<Op>``
+   439→    # The OP_RE consumes the ``.`` so look at the identifier right before the op.
+   440→    op_m = OP_RE.search(line_text)
+   441→    if op_m:
+   442→        prefix = line_text[:op_m.start()]
+   443→        var_m = re.search(r"([A-Za-z_]\w*)\s*$", prefix.rstrip())
+   444→        if var_m:
+   445→            var_name = var_m.group(1)
+   446→            if var_name in aliases:
+   447→                return aliases[var_name]
+   448→    return None
+   449→
+   450→
+   451→def update_aliases_for_line(line_text: str, aliases: dict[str, str],
+   452→                            accessor_map: dict[str, str]) -> None:
+   453→    """Refresh the alias table from a single line.
+   454→
+   455→    Recognises:
+   456→      ``col := <expr>.Collection("name")``
+   457→      ``col := <expr>.<Accessor>()``   (when accessor is a known one)
+   458→    """
+   459→    # literal form
+   460→    m = re.search(
+   461→        r"(\w+)\s*:?=\s*[\w\.\[\]\*]+\.Collection\(\s*\"([^\"]+)\"\s*\)",
+   462→        line_text,
+   463→    )
+   464→    if m:
+   465→        aliases[m.group(1)] = m.group(2)
+   466→        return
+   467→    # accessor form
+   468→    m = re.search(
+   469→        r"(\w+)\s*:?=\s*[\w\.\[\]\*]+\.([A-Z]\w*)\(\s*\)",
+   470→        line_text,
+   471→    )
+   472→    if m:
+   473→        var_name = m.group(1)
+   474→        accessor = m.group(2)
+   475→        if accessor in accessor_map:
+   476→            # Make sure this isn't a chained call like ``h.db.Users().Find(...)``
+   477→            # by checking that the match doesn't end with ``.``.
+   478→            end = m.end()
+   479→            if end < len(line_text) and line_text[end] == ".":
+   480→                return
+   481→            aliases[var_name] = accessor_map[accessor]
+   482→
+   483→
+   484→# --------------------------------------------------------------------------- #
+   485→# Risk classification
+   486→# --------------------------------------------------------------------------- #
+   487→
+   488→# Heuristic: paths whose file path or function name suggests admin/CLI/batch
+   489→# processing get MEDIUM (these are typically not user-facing request loops);
+   490→# everything else gets HIGH.
+   491→ADMIN_HINTS: tuple[str, ...] = (
+   492→    "/admin", "/cmd/", "admin_test", "cmd_", "seed", "migrate", "cleanup",
+   493→    "batch", "doctor", "backfill",
+   494→)
+   495→
+   496→ADMIN_FUNC_HINTS: tuple[str, ...] = (
+   497→    "admin", "seed", "migrate", "cleanup", "backfill", "reconcile",
+   498→    "doctor", "batch",
+   499→)
+   500→
+   501→
+   502→def classify_risk(rel_file: str, function: str) -> str:
+   503→    fl = rel_file.lower()
+   504→    fn = (function or "").lower()
+   505→    if any(h in fl for h in ADMIN_HINTS):
+   506→        return "MEDIUM"
+   507→    if any(h in fn for h in ADMIN_FUNC_HINTS):
+   508→        return "MEDIUM"
+   509→    return "HIGH"
+   510→
+   511→
+   512→# --------------------------------------------------------------------------- #
+   513→# Per-file scanner
+   514→# --------------------------------------------------------------------------- #
+   515→
+   516→def make_snippet(lines: list[str], start: int, end: int, max_lines: int = 8) -> str:
+   517→    if start < 1:
+   518→        start = 1
+   519→    if end > len(lines):
+   520→        end = len(lines)
+   521→    if end < start:
+   522→        end = start
+   523→    chunk = lines[start - 1:end]
+   524→    if len(chunk) > max_lines:
+   525→        chunk = chunk[:max_lines] + [f"... ({end - start - max_lines + 1} more lines)"]
+   526→    return "\n".join(line.rstrip() for line in chunk)
+   527→
+   528→
+   529→def scan_file(
+   530→    path: Path,
+   531→    repo_root: Path,
+   532→    accessor_map: dict[str, str],
+   533→) -> list[Finding]:
+   534→    try:
+   535→        src = path.read_text(encoding="utf-8", errors="replace")
+   536→    except OSError:
+   537→        return []
+   538→    try:
+   539→        rel = str(path.resolve().relative_to(repo_root.resolve()))
+   540→    except ValueError:
+   541→        rel = str(path)
+   542→
+   543→    masked = mask_source(src)
+   544→    lines = src.splitlines()
+   545→    funcs = parse_functions(masked)
+   546→    loops = parse_loops(masked)
+   547→
+   548→    findings: list[Finding] = []
+   549→    # Aliases are file-scoped (resets per file). We refresh on every line so
+   550→    # that an alias defined before the loop is visible inside.
+   551→    aliases: dict[str, str] = {}
+   552→
+   553→    # Walk line-by-line, refreshing aliases, then for each line check whether
+   554→    # it falls inside any loop body and contains a DB op.
+   555→    for idx, raw_line in enumerate(lines, start=1):
+   556→        masked_line = masked.splitlines()[idx - 1] if idx - 1 < len(masked.splitlines()) else raw_line
+   557→        update_aliases_for_line(raw_line, aliases, accessor_map)
+   558→
+   559→        # Skip option-builder calls like ``options.Find()`` — they're not real
+   560→        # queries.
+   561→        if re.search(r"\boptions\s*\.\s*(Find|FindOne)\b", raw_line):
+   562→            continue
+   563→
+   564→        op_match = OP_RE.search(masked_line)
+   565→        if not op_match:
+   566→            continue
+   567→
+   568→        # Is this line inside a loop body?
+   569→        in_loop: Optional[LoopRange] = None
+   570→        for L in loops:
+   571→            if L.start_line < idx <= L.end_line:
+   572→                # Pick the innermost (smallest) loop containing this line.
+   573→                if in_loop is None or (L.end_line - L.start_line) < (in_loop.end_line - in_loop.start_line):
+   574→                    in_loop = L
+   575→        if in_loop is None:
+   576→            continue
+   577→
+   578→        operation = op_match.group(1)
+   579→        collection = resolve_collection(raw_line, aliases, accessor_map) or "<unknown>"
+   580→
+   581→        # Slight different suggestion for write operations vs reads.
+   582→        if operation in ("Find", "FindOne", "CountDocuments", "Aggregate"):
+   583→            suggestion = (
+   584→                "Use $in operator with a batch of IDs instead of querying in a loop. "
+   585→                "e.g. `col.Find(ctx, bson.M{\"_id\": bson.M{\"$in\": ids}})`"
+   586→            )
+   587→        elif operation in ("InsertOne",):
+   588→            suggestion = (
+   589→                "Use InsertMany with a slice of documents instead of InsertOne in a loop."
+   590→            )
+   591→        elif operation in ("UpdateOne", "ReplaceOne"):
+   592→            suggestion = (
+   593→                "Use BulkWrite with a []mongo.WriteModel (UpdateOne models) "
+   594→                "instead of issuing UpdateOne per iteration."
+   595→            )
+   596→        elif operation in ("DeleteOne",):
+   597→            suggestion = (
+   598→                "Use DeleteMany with an $in filter instead of DeleteOne in a loop."
+   599→            )
+   600→        else:
+   601→            suggestion = (
+   602→                "Batch this operation — issue a single bulk/multi-document call "
+   603→                "instead of one DB call per loop iteration."
+   604→            )
+   605→
+   606→        func_name = containing_function(funcs, idx)
+   607→        risk = classify_risk(rel, func_name)
+   608→
+   609→        snippet = make_snippet(lines, in_loop.start_line, in_loop.end_line)
+   610→
+   611→        findings.append(Finding(
+   612→            file=rel,
+   613→            line=in_loop.start_line,
+   614→            end_line=in_loop.end_line,
+   615→            call_line=idx,
+   616→            function=func_name,
+   617→            loop_kind=in_loop.kind,
+   618→            loop_var=in_loop.loop_var,
+   619→            operation=operation,
+   620→            collection=collection,
+   621→            snippet=snippet,
+   622→            suggestion=suggestion,
+   623→            severity=risk,
+   624→            note=f"{operation} call inside {in_loop.kind} loop",
+   625→        ))
+   626→
+   627→    return findings
+   628→
+   629→
+   630→# --------------------------------------------------------------------------- #
+   631→# Aggregation
+   632→# --------------------------------------------------------------------------- #
+   633→
+   634→def collect_files(root: Path, include_tests: bool) -> list[Path]:
+   635→    skip_dirs = {"vendor", "node_modules", ".git", "graphify-out", "testdata"}
+   636→    if root.is_file():
+   637→        return [root] if root.suffix == ".go" else []
+   638→    out: list[Path] = []
+   639→    for p in root.rglob("*.go"):
+   640→        if any(part in skip_dirs for part in p.parts):
+   641→            continue
+   642→        if not include_tests and p.name.endswith("_test.go"):
+   643→            continue
+   644→        out.append(p)
+   645→    return sorted(out)
+   646→
+   647→
+   648→def build_report(root: Path, findings: list[Finding]) -> dict:
+   649→    by_file: dict[str, list[Finding]] = defaultdict(list)
+   650→    by_op: Counter = Counter()
+   651→    by_collection: Counter = Counter()
+   652→    by_severity: Counter = Counter()
+   653→    by_kind: Counter = Counter()
+   654→    for f in findings:
+   655→        by_file[f.file].append(f)
+   656→        by_op[f.operation] += 1
+   657→        by_collection[f.collection] += 1
+   658→        by_severity[f.severity] += 1
+   659→        by_kind[f.loop_kind] += 1
+   660→
+   661→    top_files = sorted(
+   662→        ({"file": k, "count": len(v)} for k, v in by_file.items()),
+   663→        key=lambda d: -d["count"],
+   664→    )[:20]
+   665→
+   666→    return {
+   667→        "root": str(root),
+   668→        "total_findings": len(findings),
+   669→        "severity_breakdown": dict(by_severity),
+   670→        "operation_breakdown": [
+   671→            {"operation": op, "count": c}
+   672→            for op, c in by_op.most_common()
+   673→        ],
+   674→        "collection_breakdown": [
+   675→            {"collection": c, "count": n}
+   676→            for c, n in by_collection.most_common()
+   677→        ],
+   678→        "loop_kind_breakdown": [
+   679→            {"kind": k, "count": n}
+   680→            for k, n in by_kind.most_common()
+   681→        ],
+   682→        "top_files": top_files,
+   683→        "findings": [asdict(f) for f in findings],
+   684→    }
+   685→
+   686→
+   687→# --------------------------------------------------------------------------- #
+   688→# Markdown rendering
+   689→# --------------------------------------------------------------------------- #
+   690→
+   691→def render_markdown(report: dict) -> str:
+   692→    out: list[str] = []
+   693→    out.append("# N+1 Query Detection Report")
+   694→    out.append("")
+   695→    out.append(f"**Target:** `{report['root']}`")
+   696→    out.append("")
+   697→    out.append(
+   698→        "Finds MongoDB queries that run inside loop bodies. Each such query "
+   699→        "is an N+1 problem: the loop runs N times, and each iteration hits "
+   700→        "the database — N+1 round trips instead of one."
+   701→    )
+   702→    out.append("")
+   703→    out.append("## Summary")
+   704→    out.append("")
+   705→    out.append("| Metric | Value |")
+   706→    out.append("| --- | --- |")
+   707→    out.append(f"| Total N+1 findings | **{report['total_findings']}** |")
+   708→    for sev in ("HIGH", "MEDIUM", "LOW"):
+   709→        out.append(
+   710→            f"| {sev} severity | {report['severity_breakdown'].get(sev, 0)} |"
+   711→        )
+   712→    out.append("")
+   713→
+   714→    out.append("## Operations Involved")
+   715→    out.append("")
+   716→    out.append("| Operation | Count |")
+   717→    out.append("| --- | ---: |")
+   718→    for row in report["operation_breakdown"]:
+   719→        out.append(f"| `{row['operation']}` | {row['count']} |")
+   720→    out.append("")
+   721→
+   722→    out.append("## Collections Affected")
+   723→    out.append("")
+   724→    out.append("| Collection | Count |")
+   725→    out.append("| --- | ---: |")
+   726→    for row in report["collection_breakdown"]:
+   727→        out.append(f"| `{row['collection']}` | {row['count']} |")
+   728→    out.append("")
+   729→
+   730→    out.append("## Loop Kinds")
+   731→    out.append("")
+   732→    out.append("| Loop kind | Count |")
+   733→    out.append("| --- | ---: |")
+   734→    for row in report["loop_kind_breakdown"]:
+   735→        out.append(f"| `{row['kind']}` | {row['count']} |")
+   736→    out.append("")
+   737→
+   738→    out.append("## Files With Most Findings")
+   739→    out.append("")
+   740→    if not report["top_files"]:
+   741→        out.append("_No N+1 queries found._")
+   742→    else:
+   743→        out.append("| File | Findings |")
+   744→        out.append("| --- | ---: |")
+   745→        for row in report["top_files"]:
+   746→            out.append(f"| `{row['file']}` | {row['count']} |")
+   747→    out.append("")
+   748→
+   749→    out.append("## Detailed Findings")
+   750→    out.append("")
+   751→    findings = report["findings"]
+   752→    if not findings:
+   753→        out.append("_No N+1 queries found — every database query appears to be issued outside of a loop._")
+   754→    else:
+   755→        # Group by file, then sort within file by severity then loop start.
+   756→        sev_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+   757→        by_file: dict[str, list[dict]] = defaultdict(list)
+   758→        for f in findings:
+   759→            by_file[f["file"]].append(f)
+   760→        for fname in sorted(by_file):
+   761→            out.append(f"### `{fname}`")
+   762→            out.append("")
+   763→            fs = sorted(
+   764→                by_file[fname],
+   765→                key=lambda f: (sev_order.get(f["severity"], 9), f["line"]),
+   766→            )
+   767→            for f in fs:
+   768→                out.append(
+   769→                    f"- **[{f['severity']}] {f['operation']} on `{f['collection']}`**"
+   770→                    f" — `{f['file']}:{f['call_line']}` (loop at line {f['line']}, "
+   771→                    f"{f['loop_kind']} loop over `{f['loop_var']}`) in `{f['function']}`"
+   772→                )
+   773→                out.append(f"  - _{f['note']}_")
+   774→                out.append(f"  - Suggestion: {f['suggestion']}")
+   775→                snippet = f["snippet"].rstrip()
+   776→                out.append("  ```go")
+   777→                for line in snippet.splitlines():
+   778→                    out.append(f"  {line}")
+   779→                out.append("  ```")
+   780→            out.append("")
+   781→
+   782→    out.append("## Methodology")
+   783→    out.append("")
+   784→    out.append(
+   785→        "1. Each `.go` file is masked (strings/comments blanked out, length and "
+   786→        "newlines preserved) so brace-matching is safe."
+   787→    )
+   788→    out.append(
+   789→        "2. Every loop header (`for ... {`) is located and the matching `}` is "
+   790→        "found via depth counting. The loop body spans lines `start_line+1` to "
+   791→        "`end_line`. Nested loops are recorded separately."
+   792→    )
+   793→    out.append(
+   794→        "3. Every line is scanned for a MongoDB collection method call ("
+   795→        + ", ".join(OPERATIONS)
+   796→        + "). Option-builder calls like `options.Find()` are skipped."
+   797→    )
+   798→    out.append(
+   799→        "4. For each DB-op line that falls inside a loop body, the collection "
+   800→        "is resolved via (a) literal `db.Collection(\"name\")`, (b) an accessor "
+   801→        "call like `m.Users()`, or (c) an aliased local variable like "
+   802→        "`col := m.Users()`."
+   803→    )
+   804→    out.append(
+   805→        "5. Risk is **HIGH** for queries in user-facing handler code, "
+   806→        "**MEDIUM** for admin/CLI/batch paths (still bad, but lower blast radius)."
+   807→    )
+   808→    out.append(
+   809→        "6. Test files (`*_test.go`) are skipped by default; pass "
+   810→        "`--include-tests` to include them."
+   811→    )
+   812→    out.append("")
+   813→    out.append("---")
+   814→    out.append("_Generated by `graphify n-plus-1`._")
+   815→    return "\n".join(out)
+   816→
+   817→
+   818→# --------------------------------------------------------------------------- #
+   819→# CLI
+   820→# --------------------------------------------------------------------------- #
+   821→
+   822→def main(argv: Optional[list[str]] = None) -> int:
+   823→    parser = argparse.ArgumentParser(
+   824→        prog="graphify_n_plus_1.py",
+   825→        description="Detect N+1 queries: MongoDB calls running inside loops.",
+   826→    )
+   827→    parser.add_argument(
+   828→        "path", nargs="?", default=".",
+   829→        help="Root directory to scan (default: current directory).",
+   830→    )
+   831→    parser.add_argument(
+   832→        "--out", default=None,
+   833→        help="Write markdown report to this path (in addition to public/N_PLUS_1.md).",
+   834→    )
+   835→    parser.add_argument(
+   836→        "--json", action="store_true",
+   837→        help="Print the JSON report to stdout.",
+   838→    )
+   839→    parser.add_argument(
+   840→        "--include-tests", action="store_true",
+   841→        help="Include *_test.go files in the scan (default: skipped).",
+   842→    )
+   843→    args = parser.parse_args(argv)
+   844→
+   845→    root = Path(args.path).resolve()
+   846→    if not root.exists():
+   847→        print(f"ERROR: path not found: {root}", file=sys.stderr)
+   848→        return 2
+   849→
+   850→    accessor_map = build_accessor_map(root)
+   851→
+   852→    findings: list[Finding] = []
+   853→    files = collect_files(root, args.include_tests)
+   854→    for path in files:
+   855→        try:
+   856→            file_findings = scan_file(path, root, accessor_map)
+   857→        except Exception as e:
+   858→            print(f"WARN: failed to scan {path}: {e}", file=sys.stderr)
+   859→            continue
+   860→        findings.extend(file_findings)
+   861→
+   862→    report = build_report(root, findings)
+   863→
+   864→    # Always write JSON + MD to /home/z/my-project/public/ if writable.
+   865→    public_dir = Path("/home/z/my-project/public")
+   866→    json_path = public_dir / "n-plus-1.json"
+   867→    md_path = public_dir / "N_PLUS_1.md"
+   868→    try:
+   869→        public_dir.mkdir(parents=True, exist_ok=True)
+   870→        json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+   871→    except Exception as e:
+   872→        print(f"WARN: could not write {json_path}: {e}", file=sys.stderr)
+   873→    try:
+   874→        md_path.write_text(render_markdown(report), encoding="utf-8")
+   875→    except Exception as e:
+   876→        print(f"WARN: could not write {md_path}: {e}", file=sys.stderr)
+   877→
+   878→    if args.out:
+   879→        out_path = Path(args.out)
+   880→        try:
+   881→            out_path.parent.mkdir(parents=True, exist_ok=True)
+   882→            out_path.write_text(render_markdown(report), encoding="utf-8")
+   883→            print(f"Markdown report written to {out_path}", file=sys.stderr)
+   884→        except Exception as e:
+   885→            print(f"ERROR: could not write --out file: {e}", file=sys.stderr)
+   886→            return 1
+   887→
+   888→    if args.json:
+   889→        print(json.dumps(report, indent=2))
+   890→
+   891→    print(
+   892→        f"Scanned {len(files)} Go files; found {len(findings)} N+1 findings "
+   893→        f"(HIGH={report['severity_breakdown'].get('HIGH', 0)}, "
+   894→        f"MEDIUM={report['severity_breakdown'].get('MEDIUM', 0)}, "
+   895→        f"LOW={report['severity_breakdown'].get('LOW', 0)}).",
+   896→        file=sys.stderr,
+   897→    )
+   898→    return 0
+   899→
+   900→
+   901→if __name__ == "__main__":
+   902→    raise SystemExit(main())
+   903→

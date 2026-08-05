@@ -19,12 +19,12 @@ matched endpoint is checked for:
 - TS endpoints scanned: **153**
 - Go endpoints scanned: **163**
 - Matched endpoints: **122**
-- ✅ OK: **51**
+- ✅ OK: **57**
 - ⚪ Unknown Go shape: **12**
 - ⚫ No Go handler: **0**
-- 🔴 Missing-in-Go fields: **5**
-- 🟡 Extra-in-Go fields: **59**
-- 🟠 Type mismatches: **7**
+- 🔴 Missing-in-Go fields: **2**
+- 🟡 Extra-in-Go fields: **58**
+- 🟠 Type mismatches: **4**
 - Unmatched TS endpoints: **31**
 - Unmatched Go endpoints: **41**
 
@@ -56,7 +56,7 @@ matched endpoint is checked for:
 | `GET /api/admin/credit-bundles` | `BundlesHandler.ListBundles` | (map) | `{ bundles: CreditBundle[] }` | — | `total` | — | 🟡 extra in Go |
 | `POST /api/admin/credit-bundles` | `BundlesHandler.CreateBundle` | `CreditBundle` | `CreditBundle` | — | — | — | ✅ ok |
 | `GET /api/admin/dashboard` | `AdminHandler.GetDashboard` | (map) | `{ users: number; tenants: number; health: { he…` | — | `health` | — | 🟡 extra in Go |
-| `GET /api/admin/entitlement-keys` | `PlansHandler.ListEntitlementKeys` | (map) | `{ keys: EntitlementKeyInfo[] }` | — | — | 1 | 🟠 type mismatch |
+| `GET /api/admin/entitlement-keys` | `PlansHandler.ListEntitlementKeys` | (map) | `{ keys: EntitlementKeyInfo[] }` | — | — | — | ✅ ok |
 | `GET /api/admin/financial/metrics` | `BillingHandler.AdminGetMetrics` | (map) | `{ data: DailyMetricPoint[] }` | — | — | 1 | 🟠 type mismatch |
 | `GET /api/admin/financial/transactions` | `BillingHandler.AdminListTransactions` | (map) | `{ transactions: FinancialTransaction[]; total:…` | — | — | — | ✅ ok |
 | `GET /api/admin/health/current` | `HealthHandler.GetCurrent` | (map) | `{ metrics: SystemMetric[] }` | — | — | — | ✅ ok |
@@ -66,16 +66,16 @@ matched endpoint is checked for:
 | `POST /api/admin/health/test-email` | `HealthHandler.SendTestEmail` | (map) | `{ success?: boolean; error?: string }` | — | — | — | ✅ ok |
 | `GET /api/admin/logs` | `LogHandler.ListLogs` | `logListResponse` | `{ logs: SystemLog[]; total: number }` | — | — | — | ✅ ok |
 | `GET /api/admin/logs/export` | `LogHandler.ExportCSV` | — | `(unknown)` | — | — | — | ⚪ Go shape unknown |
-| `GET /api/admin/members` | `AdminHandler.ListRootMembers` | (map) | `{ members: TenantMember[]; invitations: Invita…` | — | — | 1 | 🟠 type mismatch |
+| `GET /api/admin/members` | `AdminHandler.ListRootMembers` | (map) | `{ members: TenantMember[]; invitations: Invita…` | — | — | — | ✅ ok |
 | `DELETE /api/admin/members/invitations/{invitationId}` | `AdminHandler.CancelRootInvitation` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `POST /api/admin/members/invite` | `AdminHandler.InviteRootMember` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `DELETE /api/admin/members/{userId}` | `AdminHandler.RemoveRootMember` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `PATCH /api/admin/members/{userId}/role` | `AdminHandler.ChangeRootMemberRole` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `GET /api/admin/plans` | `PlansHandler.ListPlans` | (map) | `{ plans: Plan[] }` | — | `total` | — | 🟡 extra in Go |
-| `POST /api/admin/plans` | `PlansHandler.CreatePlan` | `Plan` | `Plan` | `subscriberCount` | — | — | 🔴 missing in Go |
+| `POST /api/admin/plans` | `PlansHandler.CreatePlan` | `Plan` | `Plan` | — | — | — | ✅ ok |
 | `GET /api/admin/pm/engagement` | `PMHandler.GetEngagement` | — | `EngagementData` | — | — | — | ⚪ Go shape unknown |
 | `GET /api/admin/pm/event-definitions` | `EventDefinitionsHandler.ListEventDefinitions` | (map) | `{ definitions: EventDefinition[] }` | — | — | — | ✅ ok |
-| `POST /api/admin/pm/event-definitions` | `EventDefinitionsHandler.CreateEventDefinition` | `EventDefinition` | `EventDefinition` | `count` | — | — | 🔴 missing in Go |
+| `POST /api/admin/pm/event-definitions` | `EventDefinitionsHandler.CreateEventDefinition` | `EventDefinition` | `EventDefinition` | — | — | — | ✅ ok |
 | `GET /api/admin/pm/event-definitions/sankey` | `EventDefinitionsHandler.GetSankeyData` | (map) | `SankeyData` | — | `nodes`, `links` | — | 🟡 extra in Go |
 | `GET /api/admin/pm/events` | `PMHandler.GetCustomEvents` | — | `CustomEventData` | — | — | — | ⚪ Go shape unknown |
 | `GET /api/admin/pm/events/types` | `PMHandler.ListEventTypes` | (map) | `{ eventTypes: EventTypeSummary[] }` | — | — | — | ✅ ok |
@@ -114,7 +114,7 @@ matched endpoint is checked for:
 | `POST /api/auth/mfa/challenge` | `AuthHandler.MFAChallenge` | `AuthResponse` | `AuthResponse` | — | — | — | ✅ ok |
 | `POST /api/auth/mfa/disable` | `AuthHandler.MFADisable` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `POST /api/auth/mfa/regenerate-codes` | `AuthHandler.MFARegenerateRecoveryCodes` | (map) | `{ recoveryCodes: string[] }` | — | — | — | ✅ ok |
-| `POST /api/auth/mfa/setup` | `AuthHandler.MFASetup` | (map) | `{ secret: string; qrCodeUrl: string }` | `qrCodeUrl` | `qrUrl` | — | 🔴 missing in Go |
+| `POST /api/auth/mfa/setup` | `AuthHandler.MFASetup` | (map) | `{ secret: string; qrCodeUrl: string }` | — | — | — | ✅ ok |
 | `POST /api/auth/mfa/verify-setup` | `AuthHandler.MFAVerifySetup` | (map) | `{ recoveryCodes: string[] }` | — | `message` | — | 🟡 extra in Go |
 | `PATCH /api/auth/preferences` | `AuthHandler.UpdatePreferences` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `GET /api/auth/providers` | `AuthHandler.GetProviders` | — | `AuthProviders` | — | — | — | ⚪ Go shape unknown |
@@ -146,7 +146,7 @@ matched endpoint is checked for:
 | `POST /api/telemetry/events/batch` | `TelemetryHandler.TrackBatch` | (map) | `(unknown)` | — | `status`, `tracked` | — | 🟡 extra in Go |
 | `POST /api/telemetry/track` | `TelemetryHandler.TrackAnonymous` | (map) | `(unknown)` | — | `status` | — | 🟡 extra in Go |
 | `GET /api/tenant/activity` | `TenantHandler.GetActivity` | (map) | `{ logs: ActivityLogEntry[]; total: number }` | — | `page`, `limit` | 1 | 🟠 type mismatch |
-| `GET /api/tenant/members` | `TenantHandler.ListMembers` | (map) | `{ members: TenantMember[] }` | — | — | 1 | 🟠 type mismatch |
+| `GET /api/tenant/members` | `TenantHandler.ListMembers` | (map) | `{ members: TenantMember[] }` | — | — | — | ✅ ok |
 | `POST /api/tenant/members/invite` | `TenantHandler.InviteMember` | (map) | `(unknown)` | — | `error`, `code`, `userLimit` | — | 🟡 extra in Go |
 | `DELETE /api/tenant/members/{userId}` | `TenantHandler.RemoveMember` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
 | `PATCH /api/tenant/members/{userId}/role` | `TenantHandler.ChangeRole` | (map) | `(unknown)` | — | `message` | — | 🟡 extra in Go |
@@ -708,67 +708,6 @@ matched endpoint is checked for:
 | `size` | `unknown` | `number` |  |
 | `url` | `unknown` | `string` |  |
 
-### `POST /api/admin/plans`
-
-- **Status**: 🔴 missing in Go
-- **Go handler**: `PlansHandler.CreatePlan` (`backend/internal/api/handlers/plans.go`)
-- **Go struct**: `Plan`
-- **TS response type**: `Plan`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `annualDiscountPct` | `int` | `number` |  |
-| `bonusCredits` | `int64` | `number` |  |
-| `createdAt` | `time.Time` | `string` |  |
-| `creditResetPolicy` | `CreditResetPolicy` | `CreditResetPolicy` |  |
-| `description` | `string` | `string` |  |
-| `entitlements` | `map[string]EntitlementValue` | `Record<string, EntitlementValue>` |  |
-| `id` | `primitive.ObjectID` | `string` |  |
-| `includedSeats` | `int` | `number` |  |
-| `isArchived` | `bool` | `boolean` |  |
-| `isSystem` | `bool` | `boolean` |  |
-| `maxSeats` | `int` | `number` |  |
-| `minSeats` | `int` | `number` |  |
-| `monthlyPriceCents` | `int64` | `number` |  |
-| `name` | `string` | `string` |  |
-| `perSeatPriceCents` | `int64` | `number` |  |
-| `pricingModel` | `PricingModel` | `PricingModel` |  |
-| `subscriberCount` | `_(missing)_` | `number` | 🔴 missing in Go |
-| `trialDays` | `int` | `number` |  |
-| `updatedAt` | `time.Time` | `string` |  |
-| `usageCreditsPerMonth` | `int64` | `number` |  |
-| `userLimit` | `int` | `number` |  |
-
-### `POST /api/admin/pm/event-definitions`
-
-- **Status**: 🔴 missing in Go
-- **Go handler**: `EventDefinitionsHandler.CreateEventDefinition` (`backend/internal/api/handlers/event_definitions.go`)
-- **Go struct**: `EventDefinition`
-- **TS response type**: `EventDefinition`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `count` | `_(missing)_` | `number` | 🔴 missing in Go |
-| `createdAt` | `time.Time` | `string` |  |
-| `description` | `string` | `string` |  |
-| `id` | `primitive.ObjectID` | `string` |  |
-| `name` | `string` | `string` |  |
-| `parentId` | `*primitive.ObjectID` | `string` |  |
-| `updatedAt` | `time.Time` | `string` |  |
-
-### `POST /api/auth/mfa/setup`
-
-- **Status**: 🔴 missing in Go
-- **Go handler**: `AuthHandler.MFASetup` (`backend/internal/api/handlers/auth.go`)
-- **Go response**: anonymous `map[string]interface{}` literal
-- **TS response type**: `{ secret: string; qrCodeUrl: string }`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `qrCodeUrl` | `_(missing)_` | `string` | 🔴 missing in Go |
-| `qrUrl` | `unknown` | `_(missing)_` | 🟡 extra in Go |
-| `secret` | `unknown` | `string` |  |
-
 ### `GET /api/plans`
 
 - **Status**: 🔴 missing in Go
@@ -797,21 +736,6 @@ matched endpoint is checked for:
 | `upgradePromptBody` | `unknown` | `string` |  |
 | `upgradePromptTitle` | `unknown` | `string` |  |
 
-### `GET /api/admin/entitlement-keys`
-
-- **Status**: 🟠 type mismatch
-- **Go handler**: `PlansHandler.ListEntitlementKeys` (`backend/internal/api/handlers/plans.go`)
-- **Go response**: anonymous `map[string]interface{}` literal
-- **TS response type**: `{ keys: EntitlementKeyInfo[] }`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `keys` | `[]KeyInfo` | `EntitlementKeyInfo[]` | 🟠 struct name mismatch: Go KeyInfo[] vs TS EntitlementKeyInfo[] |
-
-**Type mismatches:**
-
-- `keys`: Go `[]KeyInfo` vs TS `EntitlementKeyInfo[]` — struct name mismatch: Go KeyInfo[] vs TS EntitlementKeyInfo[]
-
 ### `GET /api/admin/financial/metrics`
 
 - **Status**: 🟠 type mismatch
@@ -826,22 +750,6 @@ matched endpoint is checked for:
 **Type mismatches:**
 
 - `data`: Go `[]point` vs TS `DailyMetricPoint[]` — Go point[] vs TS DailyMetricPoint[]
-
-### `GET /api/admin/members`
-
-- **Status**: 🟠 type mismatch
-- **Go handler**: `AdminHandler.ListRootMembers` (`backend/internal/api/handlers/admin.go`)
-- **Go response**: anonymous `map[string]interface{}` literal
-- **TS response type**: `{ members: TenantMember[]; invitations: Invitation[] }`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `invitations` | `[]models.Invitation` | `Invitation[]` |  |
-| `members` | `[]MemberResponse` | `TenantMember[]` | 🟠 struct name mismatch: Go MemberResponse[] vs TS TenantMember[] |
-
-**Type mismatches:**
-
-- `members`: Go `[]MemberResponse` vs TS `TenantMember[]` — struct name mismatch: Go MemberResponse[] vs TS TenantMember[]
 
 ### `GET /api/admin/promotions/eligible-products`
 
@@ -875,21 +783,6 @@ matched endpoint is checked for:
 **Type mismatches:**
 
 - `logs`: Go `[]models.SystemLog` vs TS `ActivityLogEntry[]` — struct name mismatch: Go SystemLog[] vs TS ActivityLogEntry[]
-
-### `GET /api/tenant/members`
-
-- **Status**: 🟠 type mismatch
-- **Go handler**: `TenantHandler.ListMembers` (`backend/internal/api/handlers/tenant.go`)
-- **Go response**: anonymous `map[string]interface{}` literal
-- **TS response type**: `{ members: TenantMember[] }`
-
-| Field | Go type | TS type | Notes |
-|------|---------|---------|-------|
-| `members` | `[]MemberResponse` | `TenantMember[]` | 🟠 struct name mismatch: Go MemberResponse[] vs TS TenantMember[] |
-
-**Type mismatches:**
-
-- `members`: Go `[]MemberResponse` vs TS `TenantMember[]` — struct name mismatch: Go MemberResponse[] vs TS TenantMember[]
 
 ### `GET /api/usage/summary`
 
@@ -1160,9 +1053,9 @@ frontend may call them with a different URL/method.
 
 ## Recommendations
 
-- 🔴 **5 missing-in-Go field(s)** — the frontend reads data the backend doesn't send. Either add the field to the Go response struct, or remove the field from the TS type if it's no longer needed. Start with the endpoints flagged `missing in Go` above.
-- 🟡 **59 extra-in-Go field(s)** — the backend sends data the frontend ignores. Consider trimming the Go response struct to reduce payload size and avoid leaking internal fields. Note that some extra fields (e.g. audit metadata) may be intentional.
-- 🟠 **7 type mismatch(es)** — pay special attention to `int64` vs `string` mismatches on ID fields: JavaScript cannot represent integers > 2^53 precisely, so any ObjectID or 64-bit ID must be serialised as a string on the Go side (which `primitive.ObjectID.Hex()` does correctly).
+- 🔴 **2 missing-in-Go field(s)** — the frontend reads data the backend doesn't send. Either add the field to the Go response struct, or remove the field from the TS type if it's no longer needed. Start with the endpoints flagged `missing in Go` above.
+- 🟡 **58 extra-in-Go field(s)** — the backend sends data the frontend ignores. Consider trimming the Go response struct to reduce payload size and avoid leaking internal fields. Note that some extra fields (e.g. audit metadata) may be intentional.
+- 🟠 **4 type mismatch(es)** — pay special attention to `int64` vs `string` mismatches on ID fields: JavaScript cannot represent integers > 2^53 precisely, so any ObjectID or 64-bit ID must be serialised as a string on the Go side (which `primitive.ObjectID.Hex()` does correctly).
 - ⚪ **12 endpoint(s) with unparseable Go response** — the handler returns a value via a function call or complex expression the auditor can't statically resolve. Review these manually.
 
 Run this auditor as part of the CI pipeline so shape

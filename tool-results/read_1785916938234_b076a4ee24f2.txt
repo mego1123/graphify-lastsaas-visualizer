@@ -1,0 +1,2002 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify api shapes — backend ↔ frontend response-shape auditor.
+     3→
+     4→Compares Go backend API response shapes against the TypeScript frontend's
+     5→expected response types and reports mismatches.
+     6→
+     7→How it works
+     8→------------
+     9→
+    10→1. **Go side** — walks every `.go` file under the target path (excluding
+    11→   ``*_test.go`` by default) and:
+    12→
+    13→   - Parses every ``type X struct { ... }`` declaration, extracting the
+    14→     field name, Go type, and JSON tag (so we know the wire name and
+    15→     whether the field is omitempty / skipped via ``json:"-"``).
+    16→   - Parses every HTTP handler function (``func (h *XHandler) Method(
+    17→     w http.ResponseWriter, r *http.Request)``) and, inside its body,
+    18→     looks for the response-write call. Two patterns are recognised:
+    19→
+    20→       * ``respondWithJSON(w, http.StatusOK, <payload>)`` — the project's
+    21→         own helper, defined in ``internal/api/handlers/helpers.go``.
+    22→       * ``json.NewEncoder(w).Encode(<payload>)`` — stdlib pattern used
+    23→         directly in a few handlers (e.g. ``usage.go``).
+    24→
+    25→     The ``<payload>`` is then classified as one of:
+    26→
+    27→       * ``struct_literal`` — a typed composite literal such as
+    28→         ``AuthResponse{...}`` or ``bootstrapStatusResponse{...}``.
+    29→       * ``map_literal`` — an anonymous ``map[string]interface{}{...}``
+    30→         (or ``map[string]string{...}``) literal. The keys become the
+    31→         top-level response fields and the values are resolved to a
+    32→         type by inspecting the enclosing handler's local variable
+    33→         declarations (``var x models.User`` / ``x := Y{...}``).
+    34→       * ``bare_identifier`` — a single variable name such as
+    35→         ``user`` (rare; resolved via the same variable lookup).
+    36→       * ``unknown`` — anything else (function calls, complex
+    37→         expressions). The endpoint is still listed but the shape is
+    38→         marked ``unknown`` so the report can flag it for manual review.
+    39→
+    40→   - Parses the production router setup in ``cmd/server/main.go`` (and
+    41→     falls back to ``internal/api/handlers/testhelpers_test.go`` when
+    42→     ``main.go`` is absent) to map ``(HTTP method, full URL path) ->
+    43→     handler function``. Sub-routers built via ``parent.PathPrefix(
+    44→     "/x").Subrouter()`` are flattened so a route registered as
+    45→     ``protectedAuth.HandleFunc("/me", authHandler.GetMe)`` resolves
+    46→     to ``/api/auth/me``.
+    47→
+    48→2. **TypeScript side** — parses ``frontend/src/api/client.ts`` and
+    49→   ``frontend/src/types/index.ts``:
+    50→
+    51→   - For every ``api.<method><<ResponseType>>(url, ...)`` call (where
+    52→     ``method`` ∈ {get, post, put, patch, delete}) it captures the
+    53→     HTTP method, the URL (with template literals like ``${id}``
+    54→     normalised to ``{id}`` and ``/api`` prepended), and the response
+    55→     type — either a named type (``AuthResponse``) or an inline object
+    56→     literal (``{ user: User; memberships: MembershipInfo[] }``).
+    57→   - For every ``interface X { ... }`` and ``type X = ...`` declaration
+    58→     it captures the field name, TS type, and optionality.
+    59→
+    60→3. **Comparison** — for each TS endpoint, finds the matching Go endpoint
+    61→   by ``(method, normalised_path)``. For each matched pair, resolves
+    62→   both response shapes to a flat ``{field_name: type}`` map and
+    63→   reports:
+    64→
+    65→   - **Missing in Go** — TS expects a field the backend doesn't send
+    66→     (frontend bug waiting to happen).
+    67→   - **Extra in Go** — Go sends a field the frontend doesn't read
+    68→     (wasted bandwidth / accidental info leak).
+    69→   - **Type mismatch** — both sides have the field but the types
+    70→     disagree (e.g. Go ``int64`` vs TS ``string`` for an ID — the
+    71→     classic JS precision bug).
+    72→
+    73→4. **Output** — emits a comparison table and per-endpoint detail in
+    74→   both Markdown (``API_SHAPES.md``) and JSON (``api-shapes.json``).
+    75→
+    76→CLI
+    77→---
+    78→
+    79→    python graphify_api_shapes.py [path] [--out report.md] [--json]
+    80→                                   [--include-tests]
+    81→
+    82→``path`` defaults to the current working directory. When ``--out`` is
+    83→omitted and the script is run from the graphify workspace root, the
+    84→reports are written to ``public/api-shapes.json`` and
+    85→``public/API_SHAPES.md`` automatically.
+    86→"""
+    87→from __future__ import annotations
+    88→
+    89→import argparse
+    90→import json
+    91→import os
+    92→import re
+    93→import sys
+    94→from dataclasses import asdict, dataclass, field
+    95→from pathlib import Path
+    96→from typing import Dict, List, Optional, Set, Tuple
+    97→
+    98→
+    99→# ---------------------------------------------------------------------------
+   100→# Source masking helpers (so regex scans aren't fooled by strings/comments)
+   101→# ---------------------------------------------------------------------------
+   102→
+   103→def mask_go_source(text: str) -> str:
+   104→    """Replace Go string/rune literals and comments with same-length
+   105→    whitespace so brace/paren matching is robust. Newlines are preserved
+   106→    so line numbers stay accurate.
+   107→
+   108→    Length is preserved exactly — every input character maps to exactly
+   109→    one output character — so byte offsets in the masked source are
+   110→    identical to offsets in the raw source. This lets us locate a
+   111→    construct in the masked source (where brace matching is safe) and
+   112→    then slice the same byte range out of the raw source (where string
+   113→    contents are preserved).
+   114→    """
+   115→    out: List[str] = []
+   116→    i, n = 0, len(text)
+   117→    in_str = in_rune = in_line = in_block = False
+   118→    while i < n:
+   119→        c = text[i]
+   120→        nxt = text[i + 1] if i + 1 < n else ''
+   121→        if in_line:
+   122→            if c == '\n':
+   123→                in_line = False
+   124→                out.append(c)
+   125→            else:
+   126→                out.append(' ')
+   127→            i += 1
+   128→            continue
+   129→        if in_block:
+   130→            if c == '*' and nxt == '/':
+   131→                in_block = False
+   132→                out.append('  ')
+   133→                i += 2
+   134→                continue
+   135→            out.append('\n' if c == '\n' else ' ')
+   136→            i += 1
+   137→            continue
+   138→        if in_str:
+   139→            if c == '\\' and nxt:
+   140→                out.append('  ')
+   141→                i += 2
+   142→                continue
+   143→            if c == '"':
+   144→                in_str = False
+   145→                out.append('"')
+   146→                i += 1
+   147→                continue
+   148→            out.append('\n' if c == '\n' else ' ')
+   149→            i += 1
+   150→            continue
+   151→        if in_rune:
+   152→            if c == '\\' and nxt:
+   153→                out.append('  ')
+   154→                i += 2
+   155→                continue
+   156→            if c == "'":
+   157→                in_rune = False
+   158→                out.append("'")
+   159→                i += 1
+   160→                continue
+   161→            out.append(' ')
+   162→            i += 1
+   163→            continue
+   164→        if c == '/' and nxt == '/':
+   165→            in_line = True
+   166→            out.append('  ')
+   167→            i += 2
+   168→            continue
+   169→        if c == '/' and nxt == '*':
+   170→            in_block = True
+   171→            out.append('  ')
+   172→            i += 2
+   173→            continue
+   174→        if c == '"':
+   175→            in_str = True
+   176→            out.append('"')
+   177→            i += 1
+   178→            continue
+   179→        if c == "'":
+   180→            in_rune = True
+   181→            out.append("'")
+   182→            i += 1
+   183→            continue
+   184→        out.append(c)
+   185→        i += 1
+   186→    return ''.join(out)
+   187→
+   188→
+   189→def mask_ts_source(text: str) -> str:
+   190→    """Mask TS string literals, template literals, line and block
+   191→    comments. Template literals are tricky because they may contain
+   192→    nested ``${...}`` expressions — for our purposes (URL extraction)
+   193→    we keep the literal text of template strings intact so we can
+   194→    convert ``${id}`` to ``{id}`` later. We only strip comments and
+   195→    ordinary string literals.
+   196→    """
+   197→    out: List[str] = []
+   198→    i, n = 0, len(text)
+   199→    in_line = in_block = in_str = in_template = False
+   200→    template_depth = 0  # depth of ${ ... } inside template
+   201→    while i < n:
+   202→        c = text[i]
+   203→        nxt = text[i + 1] if i + 1 < n else ''
+   204→        if in_line:
+   205→            if c == '\n':
+   206→                in_line = False
+   207→                out.append(c)
+   208→            else:
+   209→                out.append(' ')
+   210→            i += 1
+   211→            continue
+   212→        if in_block:
+   213→            if c == '*' and nxt == '/':
+   214→                in_block = False
+   215→                out.append('  ')
+   216→                i += 2
+   217→                continue
+   218→            out.append('\n' if c == '\n' else ' ')
+   219→            i += 1
+   220→            continue
+   221→        if in_str:
+   222→            if c == '\\' and nxt:
+   223→                out.append(c)
+   224→                out.append(nxt)
+   225→                i += 2
+   226→                continue
+   227→            if c == '"':
+   228→                in_str = False
+   229→                out.append('"')
+   230→                i += 1
+   231→                continue
+   232→            out.append(c)
+   233→            i += 1
+   234→            continue
+   235→        if in_template:
+   236→            # Keep template content verbatim (we want ${id} preserved).
+   237→            if c == '\\' and nxt:
+   238→                out.append(c)
+   239→                out.append(nxt)
+   240→                i += 2
+   241→                continue
+   242→            if c == '`':
+   243→                in_template = False
+   244→                out.append('`')
+   245→                i += 1
+   246→                continue
+   247→            out.append(c)
+   248→            i += 1
+   249→            continue
+   250→        if c == '/' and nxt == '/':
+   251→            in_line = True
+   252→            i += 2
+   253→            continue
+   254→        if c == '/' and nxt == '*':
+   255→            in_block = True
+   256→            i += 2
+   257→            continue
+   258→        if c == '"':
+   259→            in_str = True
+   260→            out.append('"')
+   261→            i += 1
+   262→            continue
+   263→        if c == '`':
+   264→            in_template = True
+   265→            out.append('`')
+   266→            i += 1
+   267→            continue
+   268→        out.append(c)
+   269→        i += 1
+   270→    return ''.join(out)
+   271→
+   272→
+   273→def line_of(text: str, idx: int) -> int:
+   274→    return text.count('\n', 0, idx) + 1
+   275→
+   276→
+   277→def find_matching_brace(text: str, open_idx: int, open_ch: str = '{',
+   278→                        close_ch: str = '}') -> Tuple[Optional[str], int]:
+   279→    """Given ``text[open_idx] == open_ch``, return ``(body, end_idx)``
+   280→    where body is the text between the matching braces and ``end_idx``
+   281→    is one past the closing brace. Returns ``(None, -1)`` if unbalanced.
+   282→    """
+   283→    assert text[open_idx] == open_ch
+   284→    depth = 0
+   285→    i = open_idx
+   286→    n = len(text)
+   287→    while i < n:
+   288→        c = text[i]
+   289→        if c == open_ch:
+   290→            depth += 1
+   291→        elif c == close_ch:
+   292→            depth -= 1
+   293→            if depth == 0:
+   294→                return text[open_idx + 1:i], i + 1
+   295→        i += 1
+   296→    return None, -1
+   297→
+   298→
+   299→def find_matching_paren(text: str, open_idx: int) -> Tuple[Optional[str], int]:
+   300→    return find_matching_brace(text, open_idx, '(', ')')
+   301→
+   302→
+   303→# ---------------------------------------------------------------------------
+   304→# Data classes
+   305→# ---------------------------------------------------------------------------
+   306→
+   307→@dataclass
+   308→class GoField:
+   309→    name: str               # Go field name (e.g. "UserID")
+   310→    json_name: str          # wire name (e.g. "userId"); "-" if skipped
+   311→    go_type: str            # raw Go type (e.g. "string", "models.User", "*time.Time")
+   312→    is_omitempty: bool = False
+   313→    is_skipped: bool = False    # json:"-"
+   314→    is_optional: bool = False   # pointer type OR omitempty
+   315→
+   316→
+   317→@dataclass
+   318→class GoStruct:
+   319→    name: str               # struct type name (e.g. "User", "AuthResponse")
+   320→    file: str
+   321→    line: int
+   322→    package: str
+   323→    fields: List[GoField] = field(default_factory=list)
+   324→
+   325→
+   326→@dataclass
+   327→class GoResponseField:
+   328→    """A single top-level field in a Go response shape."""
+   329→    name: str                       # wire name (the JSON key)
+   330→    go_type: str                    # raw Go type (e.g. "models.User", "[]MemberResponse")
+   331→    struct_ref: Optional[str] = None    # name of referenced struct, if any
+   332→    is_array: bool = False
+   333→
+   334→
+   335→@dataclass
+   336→class GoResponseShape:
+   337→    """The shape of a single response call inside a handler."""
+   338→    kind: str                       # "struct_literal" | "map_literal" | "bare_identifier" | "unknown"
+   339→    struct_name: Optional[str] = None    # for struct_literal kind
+   340→    fields: List[GoResponseField] = field(default_factory=list)    # for map_literal kind
+   341→    raw: str = ""                   # the raw payload expression (truncated)
+   342→
+   343→
+   344→@dataclass
+   345→class GoHandler:
+   346→    name: str                       # "AuthHandler.Login"
+   347→    file: str
+   348→    line: int
+   349→    body: str = ""                  # function body (masked source)
+   350→    responses: List[GoResponseShape] = field(default_factory=list)
+   351→
+   352→
+   353→@dataclass
+   354→class GoRoute:
+   355→    method: str
+   356→    path: str                       # full path including /api prefix
+   357→    handler_func: str               # "AuthHandler.Login"
+   358→    file: str
+   359→    line: int
+   360→
+   361→
+   362→@dataclass
+   363→class TSField:
+   364→    name: str
+   365→    ts_type: str                    # raw type text (e.g. "string", "User", "MembershipInfo[]")
+   366→    is_optional: bool = False
+   367→    struct_ref: Optional[str] = None    # name of referenced interface/type, if any
+   368→    is_array: bool = False
+   369→
+   370→
+   371→@dataclass
+   372→class TSType:
+   373→    name: str
+   374→    file: str
+   375→    line: int
+   376→    kind: str                       # "interface" | "type_alias"
+   377→    fields: List[TSField] = field(default_factory=list)
+   378→    raw: str = ""
+   379→
+   380→
+   381→@dataclass
+   382→class TSEndpoint:
+   383→    method: str                     # "GET" | "POST" | ...
+   384→    path: str                       # normalised, with /api prefix
+   385→    response_type: str              # raw response type text
+   386→    response_kind: str              # "named" | "inline" | "unknown"
+   387→    response_fields: List[TSField] = field(default_factory=list)
+   388→    # for inline: the parsed fields; for named: the looked-up fields
+   389→    file: str = ""
+   390→    line: int = 0
+   391→    api_group: str = ""             # "authApi" / "tenantApi" / ...
+   392→    method_name: str = ""           # "register" / "login" / ...
+   393→
+   394→
+   395→@dataclass
+   396→class Comparison:
+   397→    method: str
+   398→    path: str
+   399→    go_handler: Optional[str]
+   400→    go_file: Optional[str]
+   401→    go_response_kind: str
+   402→    go_struct: Optional[str]
+   403→    go_fields: List[GoResponseField]
+   404→    ts_response_type: str
+   405→    ts_fields: List[TSField]
+   406→    missing_in_go: List[str]        # TS field names absent from Go
+   407→    extra_in_go: List[str]          # Go field names absent from TS
+   408→    type_mismatches: List[Dict[str, str]]   # {field, go_type, ts_type, note}
+   409→    status: str                     # "ok" | "missing_in_go" | "extra_in_go" | "type_mismatch" | "no_go_handler" | "unknown_go_shape"
+   410→
+   411→
+   412→# ---------------------------------------------------------------------------
+   413→# Go struct parser
+   414→# ---------------------------------------------------------------------------
+   415→
+   416→# `type Name struct {` — open brace at end of line. Name may be exported
+   417→# (uppercase initial) or unexported (lowercase initial) — both can be
+   418→# used as response shapes since JSON serialisation doesn't care about
+   419→# Go's export visibility.
+   420→RE_STRUCT_OPEN = re.compile(
+   421→    r'\btype\s+(?P<name>[A-Za-z]\w*)\s+struct\s*\{'
+   422→)
+   423→
+   424→# A field declaration inside a struct body. Field name is capitalised
+   425→# identifier; type is everything up to the backtick (or end of line if
+   426→# no tag); the JSON tag (if present) is captured.
+   427→RE_STRUCT_FIELD = re.compile(
+   428→    r'^\s*(?P<name>[A-Z]\w*)\s+(?P<type>[^\s`].*?)'
+   429→    r'(?:\s+`(?P<tag>[^`]*)`)?\s*$'
+   430→)
+   431→
+   432→# JSON tag inside a struct tag string.
+   433→RE_JSON_TAG = re.compile(r'json:"(?P<val>[^"]*)"')
+   434→
+   435→RE_PACKAGE = re.compile(r'^\s*package\s+(\w+)', re.MULTILINE)
+   436→
+   437→
+   438→def parse_go_structs(content: str, file: str, package: str,
+   439→                     raw_content: Optional[str] = None) -> List[GoStruct]:
+   440→    """Parse every ``type X struct { ... }`` declaration in ``content``.
+   441→
+   442→    ``content`` should be the masked source (for safe brace matching).
+   443→    ``raw_content`` is the original source — when provided, the struct
+   444→    body is re-sliced from the raw source so JSON tags are preserved.
+   445→    Offsets are identical because masking preserves length.
+   446→    """
+   447→    if raw_content is None:
+   448→        raw_content = content
+   449→    out: List[GoStruct] = []
+   450→    for m in RE_STRUCT_OPEN.finditer(content):
+   451→        name = m.group('name')
+   452→        line = line_of(content, m.start())
+   453→        brace_idx = content.find('{', m.start())
+   454→        if brace_idx == -1:
+   455→            continue
+   456→        body, _ = find_matching_brace(content, brace_idx, '{', '}')
+   457→        if body is None:
+   458→            continue
+   459→        # Re-slice the body from the raw source so JSON tags survive.
+   460→        raw_body = raw_content[brace_idx + 1: brace_idx + 1 + len(body)]
+   461→        fields = _parse_struct_fields(raw_body)
+   462→        out.append(GoStruct(
+   463→            name=name, file=file, line=line,
+   464→            package=package, fields=fields,
+   465→        ))
+   466→    return out
+   467→
+   468→
+   469→def _parse_struct_fields(body: str) -> List[GoField]:
+   470→    """Parse the body of a struct (text between the braces)."""
+   471→    fields: List[GoField] = []
+   472→    # We split on newlines but a field declaration may span multiple
+   473→    # lines if the type contains a newline (rare for our codebase).
+   474→    # Simple heuristic: process line by line, but if a line doesn't
+   475→    # have a backtick AND the next line starts with whitespace + backtick,
+   476→    # join them.
+   477→    lines = body.splitlines()
+   478→    i = 0
+   479→    while i < len(lines):
+   480→        line = lines[i]
+   481→        # Join continuation lines: if this line has a field name + type
+   482→        # but no backtick, look ahead for the tag.
+   483→        while i + 1 < len(lines) and '`' not in line and line.strip() and \
+   484→                not _is_field_start(lines[i + 1]):
+   485→            # Heuristic: continuation lines are usually indented more
+   486→            # than the field name line and contain the tag.
+   487→            line = line.rstrip() + ' ' + lines[i + 1].strip()
+   488→            i += 1
+   489→            if '`' in line:
+   490→                break
+   491→        f = _parse_struct_field_line(line)
+   492→        if f:
+   493→            fields.append(f)
+   494→        i += 1
+   495→    return fields
+   496→
+   497→
+   498→def _is_field_start(line: str) -> bool:
+   499→    """True if ``line`` looks like the start of a new struct field."""
+   500→    s = line.strip()
+   501→    if not s:
+   502→        return False
+   503→    # Field names are capitalised identifiers.
+   504→    return bool(re.match(r'^[A-Z]\w*\s+', s))
+   505→
+   506→
+   507→def _parse_struct_field_line(line: str) -> Optional[GoField]:
+   508→    s = line.strip()
+   509→    if not s or s.startswith('//'):
+   510→        return None
+   511→    # Embedded field (just a type name, no field name) — skip; we don't
+   512→    # need to flatten embeddings for response-shape comparison.
+   513→    if '`' not in s and re.match(r'^[A-Z]\w*\.?[A-Z]\w*$', s):
+   514→        return None
+   515→    # Comment-only or brace-only line.
+   516→    if s in {'{', '}', '};'}:
+   517→        return None
+   518→    m = RE_STRUCT_FIELD.match(s)
+   519→    if not m:
+   520→        # Fall back to a more permissive split: name + type + tag.
+   521→        # This catches unusual types like `map[string]EntitlementValue`.
+   522→        parts = s.split('`', 1)
+   523→        if len(parts) != 2:
+   524→            return None
+   525→        head, tag = parts
+   526→        head = head.strip()
+   527→        bits = head.split(None, 1)
+   528→        if len(bits) != 2:
+   529→            return None
+   530→        name, go_type = bits
+   531→        tag_str = tag.strip()
+   532→    else:
+   533→        name = m.group('name')
+   534→        go_type = m.group('type').strip()
+   535→        tag_str = m.group('tag') or ''
+   536→    if not name or not go_type:
+   537→        return None
+   538→    json_name = name  # default to Go field name
+   539→    is_omitempty = False
+   540→    is_skipped = False
+   541→    jm = RE_JSON_TAG.search(tag_str)
+   542→    if jm:
+   543→        val = jm.group('val')
+   544→        if val == '-':
+   545→            is_skipped = True
+   546→            json_name = ''
+   547→        else:
+   548→            # Handle "name,omitempty" and "name"
+   549→            bits = val.split(',', 1)
+   550→            json_name = bits[0]
+   551→            if len(bits) > 1 and 'omitempty' in bits[1]:
+   552→                is_omitempty = True
+   553→    is_optional = is_omitempty or go_type.startswith('*')
+   554→    return GoField(
+   555→        name=name, json_name=json_name, go_type=go_type,
+   556→        is_omitempty=is_omitempty, is_skipped=is_skipped,
+   557→        is_optional=is_optional,
+   558→    )
+   559→
+   560→
+   561→# ---------------------------------------------------------------------------
+   562→# Go handler / response parser
+   563→# ---------------------------------------------------------------------------
+   564→
+   565→# `func (h *XHandler) Method(w http.ResponseWriter, r *http.Request) {`
+   566→# Also matches `func (h XHandler) Method(...)` (value receiver) and
+   567→# unexported handler types like `func (h *bootstrapHandler) Status(...)`.
+   568→RE_HANDLER_FUNC = re.compile(
+   569→    r'\bfunc\s*\(\s*(?P<recv>\w+)\s+\*?(?P<recvtype>[A-Z]\w*)\s*\)\s+'
+   570→    r'(?P<method>[A-Z]\w*)\s*\(\s*w\s+http\.ResponseWriter,\s*r\s+\*?http\.Request\s*\)\s*\{'
+   571→)
+   572→
+   573→# A `respondWithJSON(w, http.StatusXxx, <payload>)` call. The payload
+   574→# begins after the second comma.
+   575→RE_RESPOND_WITH_JSON = re.compile(
+   576→    r'\brespondWithJSON\s*\(\s*w\s*,\s*http\.Status\w+\s*,'
+   577→)
+   578→
+   579→# A `json.NewEncoder(w).Encode(<payload>)` call.
+   580→RE_JSON_ENCODER = re.compile(
+   581→    r'\bjson\.NewEncoder\s*\(\s*w\s*\)\.Encode\s*\('
+   582→)
+   583→
+   584→# A struct-literal payload: `Name{` or `pkg.Name{` or `&Name{` (Name may
+   585→# be exported or unexported). Captures the struct name without the
+   586→# package prefix.
+   587→RE_STRUCT_LITERAL = re.compile(
+   588→    r'^\s*&?\s*(?:(?P<pkg>[a-z]\w*)\.)?(?P<name>[A-Za-z]\w*)\s*\{'
+   589→)
+   590→
+   591→# A map literal payload: `map[keyType]valueType{`.
+   592→RE_MAP_LITERAL = re.compile(r'^\s*map\s*\[')
+   593→
+   594→# Variable declaration: `var name Type` (single var).
+   595→RE_VAR_DECL = re.compile(
+   596→    r'\bvar\s+(?P<name>\w+)\s+(?P<type>[^\s=;]+(?:\.[A-Z]\w*)?(?:\[\w*\])?)'
+   597→)
+   598→
+   599→# Short declaration: `name := value` — we only care when value is a
+   600→# composite literal `Type{...}` or a slice literal `[]Type{...}`.
+   601→# Allows an optional lowercase package prefix (e.g. `models.Announcement`).
+   602→RE_SHORT_DECL_LITERAL = re.compile(
+   603→    r'\b(?P<name>\w+)\s*:?=\s*(?:'
+   604→    r'make\(\[\]?(?P<maketype>(?:[a-z]\w*\.)?[A-Z]\w*)'
+   605→    r'|\[\]?(?P<type>(?:[a-z]\w*\.)?[A-Z]\w*)\s*\{'
+   606→    r'|(?P<vtype>(?:[a-z]\w*\.)?[A-Z]\w*)\s*\{'
+   607→    r')'
+   608→)
+   609→
+   610→# Slice variable: `var x []Type` or `var x = []Type{...}`.
+   611→RE_VAR_SLICE = re.compile(
+   612→    r'\bvar\s+(?P<name>\w+)\s+\[\]?(?P<type>(?:[a-z]\w*\.)?[A-Z]\w*)'
+   613→)
+   614→
+   615→# Make for a slice: `x := make([]Type, ...)`.
+   616→RE_MAKE_SLICE = re.compile(
+   617→    r'\b(?P<name>\w+)\s*:?=\s*make\(\s*\[\]?\s*(?P<type>(?:[a-z]\w*\.)?[A-Z]\w*)'
+   618→)
+   619→
+   620→# A `var name Type` declaration (single var, no initializer). Captures
+   621→# the variable name and its type. Allows optional package prefix.
+   622→RE_VAR_DECL_NAMED = re.compile(
+   623→    r'\bvar\s+(?P<name>\w+)\s+(?P<type>(?:[a-z]\w*\.)?[A-Z]\w*(?:\[\])?)'
+   624→)
+   625→
+   626→
+   627→def parse_go_handlers(content: str, file: str,
+   628→                      raw_content: Optional[str] = None) -> List[GoHandler]:
+   629→    """Parse every HTTP handler function in ``content`` and extract its
+   630→    response shape(s).
+   631→
+   632→    ``content`` should be the masked source (comments and string
+   633→    contents blanked out) so brace matching is robust. ``raw_content``
+   634→    is the original source — when provided, the response *payload* is
+   635→    extracted from the raw source so string keys inside
+   636→    ``map[string]interface{}{...}`` literals are preserved. Offsets in
+   637→    the masked and raw sources are identical because masking preserves
+   638→    length and newlines.
+   639→    """
+   640→    out: List[GoHandler] = []
+   641→    if raw_content is None:
+   642→        raw_content = content
+   643→    for m in RE_HANDLER_FUNC.finditer(content):
+   644→        recvtype = m.group('recvtype')
+   645→        method = m.group('method')
+   646→        brace_idx = content.find('{', m.start())
+   647→        if brace_idx == -1:
+   648→            continue
+   649→        body, _ = find_matching_brace(content, brace_idx, '{', '}')
+   650→        if body is None:
+   651→            continue
+   652→        # Extract the corresponding raw body (same offsets).
+   653→        raw_body = raw_content[brace_idx + 1: brace_idx + 1 + len(body)]
+   654→        h = GoHandler(
+   655→            name=f'{recvtype}.{method}',
+   656→            file=file,
+   657→            line=line_of(content, m.start()),
+   658→            body=body,
+   659→        )
+   660→        h.responses = _parse_handler_responses(body, raw_body)
+   661→        out.append(h)
+   662→    return out
+   663→
+   664→
+   665→def _parse_handler_responses(body: str,
+   666→                             raw_body: Optional[str] = None) -> List[GoResponseShape]:
+   667→    """Find every response-write call in the handler body and parse
+   668→    its payload.
+   669→
+   670→    ``body`` is the masked body (used to locate response calls safely).
+   671→    ``raw_body`` is the original body text — when provided, payloads
+   672→    are extracted from it so string keys are preserved.
+   673→    """
+   674→    if raw_body is None:
+   675→        raw_body = body
+   676→    shapes: List[GoResponseShape] = []
+   677→    # Build a variable -> type map by scanning the body for declarations.
+   678→    var_types = _collect_var_types(body)
+   679→
+   680→    # Find every respondWithJSON call.
+   681→    for m in RE_RESPOND_WITH_JSON.finditer(body):
+   682→        # The payload starts after the second comma. Find the matching
+   683→        # close paren of the outer respondWithJSON call.
+   684→        open_paren_idx = body.find('(', m.start())
+   685→        if open_paren_idx == -1:
+   686→            continue
+   687→        args, _ = find_matching_paren(body, open_paren_idx)
+   688→        if args is None:
+   689→            continue
+   690→        # The payload is everything after the second comma.
+   691→        payload = _extract_third_arg(args)
+   692→        if payload is None:
+   693→            continue
+   694→        # Re-extract the payload from the raw body so string keys
+   695→        # are preserved. The offsets in `body` and `raw_body` are
+   696→        # identical because masking preserves length.
+   697→        raw_payload = _extract_payload_from_raw(raw_body, open_paren_idx)
+   698→        if raw_payload is not None:
+   699→            payload = raw_payload
+   700→        shape = _classify_payload(payload, var_types)
+   701→        shapes.append(shape)
+   702→
+   703→    # Find every json.NewEncoder(w).Encode call.
+   704→    for m in RE_JSON_ENCODER.finditer(body):
+   705→        open_paren_idx = body.find('(', m.end() - 1)
+   706→        if open_paren_idx == -1:
+   707→            continue
+   708→        args, _ = find_matching_paren(body, open_paren_idx)
+   709→        if args is None:
+   710→            continue
+   711→        # Re-extract from raw.
+   712→        raw_payload = _extract_encode_payload_from_raw(raw_body, m.start())
+   713→        payload = raw_payload if raw_payload is not None else args.strip()
+   714→        shape = _classify_payload(payload, var_types)
+   715→        shapes.append(shape)
+   716→
+   717→    return shapes
+   718→
+   719→
+   720→def _extract_payload_from_raw(raw_body: str,
+   721→                              masked_open_paren_idx: int) -> Optional[str]:
+   722→    """Given the open-paren index of a ``respondWithJSON(...)`` call
+   723→    in the masked body, extract the third argument (the payload) from
+   724→    the raw body using the same offset.
+   725→    """
+   726→    # Find the matching close paren in the raw body (string-aware).
+   727→    raw_args, _ = _find_matching_paren_raw(raw_body, masked_open_paren_idx)
+   728→    if raw_args is None:
+   729→        return None
+   730→    return _extract_third_arg(raw_args)
+   731→
+   732→
+   733→def _extract_encode_payload_from_raw(raw_body: str,
+   734→                                     masked_call_start: int) -> Optional[str]:
+   735→    """Given the start index of a ``json.NewEncoder(w).Encode(...)`` call
+   736→    in the masked body, extract the payload from the raw body.
+   737→    """
+   738→    # Find the open paren of the Encode call. In the raw body the call
+   739→    # text is `json.NewEncoder(w).Encode(` — find the open paren after
+   740→    # `Encode`.
+   741→    encode_idx = raw_body.find('Encode(', masked_call_start)
+   742→    if encode_idx == -1:
+   743→        return None
+   744→    open_paren_idx = raw_body.find('(', encode_idx)
+   745→    if open_paren_idx == -1:
+   746→        return None
+   747→    raw_args, _ = _find_matching_paren_raw(raw_body, open_paren_idx)
+   748→    if raw_args is None:
+   749→        return None
+   750→    return raw_args.strip()
+   751→
+   752→
+   753→def _find_matching_paren_raw(text: str, open_idx: int) -> Tuple[Optional[str], int]:
+   754→    """Like ``find_matching_paren`` but skips over string literals so
+   755→    parens inside strings don't confuse the matcher.
+   756→    """
+   757→    if open_idx < 0 or open_idx >= len(text) or text[open_idx] != '(':
+   758→        return None, -1
+   759→    depth = 0
+   760→    i = open_idx
+   761→    n = len(text)
+   762→    in_str = False
+   763→    in_rune = False
+   764→    in_line_comment = False
+   765→    in_block_comment = False
+   766→    while i < n:
+   767→        c = text[i]
+   768→        nxt = text[i + 1] if i + 1 < n else ''
+   769→        if in_line_comment:
+   770→            if c == '\n':
+   771→                in_line_comment = False
+   772→            i += 1
+   773→            continue
+   774→        if in_block_comment:
+   775→            if c == '*' and nxt == '/':
+   776→                in_block_comment = False
+   777→                i += 2
+   778→                continue
+   779→            i += 1
+   780→            continue
+   781→        if in_str:
+   782→            if c == '\\' and nxt:
+   783→                i += 2
+   784→                continue
+   785→            if c == '"':
+   786→                in_str = False
+   787→            i += 1
+   788→            continue
+   789→        if in_rune:
+   790→            if c == '\\' and nxt:
+   791→                i += 2
+   792→                continue
+   793→            if c == "'":
+   794→                in_rune = False
+   795→            i += 1
+   796→            continue
+   797→        if c == '/' and nxt == '/':
+   798→            in_line_comment = True
+   799→            i += 2
+   800→            continue
+   801→        if c == '/' and nxt == '*':
+   802→            in_block_comment = True
+   803→            i += 2
+   804→            continue
+   805→        if c == '"':
+   806→            in_str = True
+   807→            i += 1
+   808→            continue
+   809→        if c == "'":
+   810→            in_rune = True
+   811→            i += 1
+   812→            continue
+   813→        if c == '(':
+   814→            depth += 1
+   815→        elif c == ')':
+   816→            depth -= 1
+   817→            if depth == 0:
+   818→                return text[open_idx + 1:i], i + 1
+   819→        i += 1
+   820→    return None, -1
+   821→
+   822→
+   823→def _collect_var_types(body: str) -> Dict[str, str]:
+   824→    """Build a ``{var_name: type_str}`` map by scanning the handler
+   825→    body for variable declarations. Best-effort — used to resolve the
+   826→    types of bare identifiers in map literals.
+   827→    """
+   828→    out: Dict[str, str] = {}
+   829→    # `var name Type` declarations (most reliable — captures the type
+   830→    # explicitly). Try the named-variant regex first since it handles
+   831→    # package-qualified types like `models.ConfigVar`.
+   832→    for m in RE_VAR_DECL_NAMED.finditer(body):
+   833→        t = m.group('type')
+   834→        if t.endswith('[]'):
+   835→            out[m.group('name')] = t
+   836→        else:
+   837→            out[m.group('name')] = t
+   838→    # Fallback: the looser `var name X` regex catches things the named
+   839→    # variant misses (e.g. `var name map[string]X`).
+   840→    for m in RE_VAR_DECL.finditer(body):
+   841→        out.setdefault(m.group('name'), m.group('type'))
+   842→    for m in RE_VAR_SLICE.finditer(body):
+   843→        out[m.group('name')] = f'[]{m.group("type")}'
+   844→    for m in RE_MAKE_SLICE.finditer(body):
+   845→        out[m.group('name')] = f'[]{m.group("type")}'
+   846→    for m in RE_SHORT_DECL_LITERAL.finditer(body):
+   847→        name = m.group('name')
+   848→        maketype = m.group('maketype')
+   849→        slice_type = m.group('type')
+   850→        vtype = m.group('vtype')
+   851→        if maketype:
+   852→            out[name] = f'[]{maketype}'
+   853→        elif slice_type:
+   854→            out[name] = f'[]{slice_type}'
+   855→        elif vtype:
+   856→            out[name] = vtype
+   857→    return out
+   858→
+   859→
+   860→def _extract_third_arg(args: str) -> Optional[str]:
+   861→    """Given the comma-separated argument list of a
+   862→    ``respondWithJSON(w, status, payload)`` call, return the payload
+   863→    (third argument) as a string.
+   864→    """
+   865→    depth = 0
+   866→    comma_positions: List[int] = []
+   867→    for i, c in enumerate(args):
+   868→        if c in '([{':
+   869→            depth += 1
+   870→        elif c in ')]}':
+   871→            depth -= 1
+   872→        elif c == ',' and depth == 0:
+   873→            comma_positions.append(i)
+   874→    if len(comma_positions) < 2:
+   875→        return None
+   876→    payload = args[comma_positions[1] + 1:].strip()
+   877→    return payload
+   878→
+   879→
+   880→def _classify_payload(payload: str,
+   881→                      var_types: Dict[str, str]) -> GoResponseShape:
+   882→    """Classify a response payload expression into a GoResponseShape."""
+   883→    payload = payload.strip()
+   884→    raw = payload[:200]
+   885→    if not payload:
+   886→        return GoResponseShape(kind='unknown', raw=raw)
+   887→
+   888→    # Strip a trailing cast like `.(someType)` or method chain — keep
+   889→    # only the outermost expression.
+   890→
+   891→    # Case 1: struct literal `Name{...}`.
+   892→    m = RE_STRUCT_LITERAL.match(payload)
+   893→    if m:
+   894→        return GoResponseShape(
+   895→            kind='struct_literal',
+   896→            struct_name=m.group('name'),
+   897→            raw=raw,
+   898→        )
+   899→
+   900→    # Case 2: map literal `map[...]...{...}`.
+   901→    if RE_MAP_LITERAL.match(payload):
+   902→        return _parse_map_literal(payload, var_types, raw)
+   903→
+   904→    # Case 3: slice of structs `[]Name{...}`.
+   905→    if payload.startswith('[]'):
+   906→        # e.g. `[]MemberResponse{...}` — rare for top-level responses.
+   907→        inner = payload[2:].strip()
+   908→        m2 = RE_STRUCT_LITERAL.match(inner)
+   909→        if m2:
+   910→            return GoResponseShape(
+   911→                kind='struct_literal',
+   912→                struct_name=m2.group('name'),
+   913→                raw=raw,
+   914→            )
+   915→        return GoResponseShape(kind='unknown', raw=raw)
+   916→
+   917→    # Case 4: bare identifier (a variable holding a struct).
+   918→    if re.match(r'^[a-zA-Z_]\w*$', payload):
+   919→        t = var_types.get(payload)
+   920→        if t:
+   921→            return _make_shape_from_type(t, raw)
+   922→        return GoResponseShape(kind='bare_identifier', raw=raw)
+   923→
+   924→    # Case 5: address-of struct `&Name{...}`.
+   925→    if payload.startswith('&'):
+   926→        inner = payload[1:].strip()
+   927→        m3 = RE_STRUCT_LITERAL.match(inner)
+   928→        if m3:
+   929→            return GoResponseShape(
+   930→                kind='struct_literal',
+   931→                struct_name=m3.group('name'),
+   932→                raw=raw,
+   933→            )
+   934→
+   935→    return GoResponseShape(kind='unknown', raw=raw)
+   936→
+   937→
+   938→def _make_shape_from_type(type_str: str, raw: str) -> GoResponseShape:
+   939→    """Build a GoResponseShape from a resolved variable type string.
+   940→    Used when a payload is a bare identifier whose type we know.
+   941→    """
+   942→    is_array = type_str.startswith('[]')
+   943→    if is_array:
+   944→        type_str = type_str[2:]
+   945→    struct_ref = _strip_package(type_str)
+   946→    return GoResponseShape(
+   947→        kind='struct_literal' if struct_ref else 'unknown',
+   948→        struct_name=struct_ref or None,
+   949→        fields=[],
+   950→        raw=raw,
+   951→    )
+   952→
+   953→
+   954→def _parse_map_literal(payload: str,
+   955→                       var_types: Dict[str, str],
+   956→                       raw: str) -> GoResponseShape:
+   957→    """Parse a ``map[string]interface{}{...}`` literal into a list of
+   958→    GoResponseField entries (one per top-level key).
+   959→    """
+   960→    # Find the opening brace of the literal body. This is tricky because
+   961→    # `map[string]interface{}{...}` contains `interface{}` which has its
+   962→    # own `{}` pair. We scan from the start, tracking depth, and find
+   963→    # the first `{` at depth 0 (after the `map[...]` and value-type
+   964→    # declarations).
+   965→    brace_idx = _find_map_body_brace(payload)
+   966→    if brace_idx == -1:
+   967→        # Fall back to the simple find — may pick the wrong brace but
+   968→        # at least we won't crash.
+   969→        brace_idx = payload.find('{')
+   970→    if brace_idx == -1:
+   971→        return GoResponseShape(kind='unknown', raw=raw)
+   972→    body, _ = find_matching_brace(payload, brace_idx, '{', '}')
+   973→    if body is None:
+   974→        return GoResponseShape(kind='unknown', raw=raw)
+   975→    fields: List[GoResponseField] = []
+   976→    # Walk the body, splitting on top-level commas.
+   977→    entries = _split_top_level_commas(body)
+   978→    for entry in entries:
+   979→        entry = entry.strip()
+   980→        if not entry:
+   981→            continue
+   982→        # Each entry is `"key": value`.
+   983→        cm = re.match(r'^"(?P<key>[^"]*)"\s*:\s*(?P<val>.*)$', entry, re.DOTALL)
+   984→        if not cm:
+   985→            # Single-string map (e.g. `map[string]string{"message": "..."}`)
+   986→            # is already in the same shape — the regex above handles it.
+   987→            continue
+   988→        key = cm.group('key')
+   989→        val = cm.group('val').strip()
+   990→        f = _classify_map_value(val, var_types)
+   991→        f.name = key
+   992→        fields.append(f)
+   993→    return GoResponseShape(
+   994→        kind='map_literal',
+   995→        fields=fields,
+   996→        raw=raw,
+   997→    )
+   998→
+   999→
+  1000→def _find_map_body_brace(payload: str) -> int:
+  1001→    """Find the index of the opening brace of a ``map[...]...{...}``
+  1002→    literal's body. Skips past the ``map[...]`` type declaration and
+  1003→    any nested ``interface{}`` / ``struct{}`` in the value type.
+  1004→
+  1005→    The body brace is the ``{`` that comes AFTER the full type
+  1006→    declaration. For ``map[string]interface{}{...}`` the type is
+  1007→    ``interface{}`` (which has its own ``{}`` pair we must skip);
+  1008→    for ``map[string]string{...}`` the type is just ``string``.
+  1009→    """
+  1010→    s = payload.lstrip()
+  1011→    offset = len(payload) - len(s)
+  1012→    if not s.startswith('map['):
+  1013→        return payload.find('{')
+  1014→    # Walk past the `map[...]` part, tracking bracket depth.
+  1015→    i = payload.find('[')
+  1016→    if i == -1:
+  1017→        return payload.find('{')
+  1018→    depth = 1
+  1019→    i += 1
+  1020→    n = len(payload)
+  1021→    while i < n and depth > 0:
+  1022→        c = payload[i]
+  1023→        if c == '[':
+  1024→            depth += 1
+  1025→        elif c == ']':
+  1026→            depth -= 1
+  1027→        i += 1
+  1028→    # `i` is now just past the closing `]` of `map[...]`.
+  1029→    # Skip whitespace.
+  1030→    while i < n and payload[i] in ' \t\n\r':
+  1031→        i += 1
+  1032→    # Skip the value type. It may be:
+  1033→    #   - `interface{}` or `struct{}` (with their own `{}`)
+  1034→    #   - `*Type` (pointer)
+  1035→    #   - `[]Type` (slice)
+  1036→    #   - `map[...]Type` (recursive — track depth)
+  1037→    #   - `pkg.Type` or `Type` (named type)
+  1038→    # We loop until we find the body's `{`.
+  1039→    while i < n:
+  1040→        c = payload[i]
+  1041→        if c == '{':
+  1042→            return i
+  1043→        if c == '*':
+  1044→            i += 1
+  1045→            continue
+  1046→        if c == '[':
+  1047→            # Skip `[]` or `[N]`.
+  1048→            depth = 1
+  1049→            i += 1
+  1050→            while i < n and depth > 0:
+  1051→                if payload[i] == '[':
+  1052→                    depth += 1
+  1053→                elif payload[i] == ']':
+  1054→                    depth -= 1
+  1055→                i += 1
+  1056→            continue
+  1057→        if c.isalpha() or c == '_':
+  1058→            # Skip an identifier (possibly with `.` and `[]` suffixes).
+  1059→            while i < n and (payload[i].isalnum() or payload[i] in '._'):
+  1060→                i += 1
+  1061→            # After the identifier, check for `interface{}` / `struct{}`
+  1062→            # — actually those are keywords, not identifiers, so they're
+  1063→            # already skipped by the identifier loop above. Now check
+  1064→            # for a following `{}` (e.g. `interface{}`).
+  1065→            if i < n and payload[i] == '{':
+  1066→                # Skip the `{}` pair.
+  1067→                depth = 1
+  1068→                i += 1
+  1069→                while i < n and depth > 0:
+  1070→                    if payload[i] == '{':
+  1071→                        depth += 1
+  1072→                    elif payload[i] == '}':
+  1073→                        depth -= 1
+  1074→                    i += 1
+  1075→            continue
+  1076→        # Skip whitespace and other separators.
+  1077→        i += 1
+  1078→    return -1
+  1079→
+  1080→
+  1081→def _split_top_level_commas(text: str) -> List[str]:
+  1082→    """Split ``text`` on top-level commas (ignoring those inside
+  1083→    brackets, braces, or parens).
+  1084→    """
+  1085→    out: List[str] = []
+  1086→    depth = 0
+  1087→    start = 0
+  1088→    for i, c in enumerate(text):
+  1089→        if c in '([{':
+  1090→            depth += 1
+  1091→        elif c in ')]}':
+  1092→            depth -= 1
+  1093→        elif c == ',' and depth == 0:
+  1094→            out.append(text[start:i])
+  1095→            start = i + 1
+  1096→    if start < len(text):
+  1097→        out.append(text[start:])
+  1098→    return out
+  1099→
+  1100→
+  1101→def _classify_map_value(val: str,
+  1102→                        var_types: Dict[str, str]) -> GoResponseField:
+  1103→    """Given a value expression from a map literal, determine its type."""
+  1104→    val = val.strip()
+  1105→    # Strip trailing commas.
+  1106→    while val.endswith(','):
+  1107→        val = val[:-1].strip()
+  1108→    # Struct literal: `Name{...}`.
+  1109→    m = RE_STRUCT_LITERAL.match(val)
+  1110→    if m:
+  1111→        name = m.group('name')
+  1112→        return GoResponseField(
+  1113→            name='', go_type=name, struct_ref=name,
+  1114→        )
+  1115→    # Slice of struct literals: `[]Name{...}`.
+  1116→    if val.startswith('[]'):
+  1117→        inner = val[2:].strip()
+  1118→        m2 = RE_STRUCT_LITERAL.match(inner)
+  1119→        if m2:
+  1120→            name = m2.group('name')
+  1121→            return GoResponseField(
+  1122→                name='', go_type=f'[]{name}', struct_ref=name,
+  1123→                is_array=True,
+  1124→            )
+  1125→        # `[]pkg.Name{...}` — also a slice (fallback regex).
+  1126→        m3 = re.match(r'^(?:(?P<pkg>[a-z]\w*)\.)?(?P<name>[A-Za-z]\w*)\s*\{',
+  1127→                      inner)
+  1128→        if m3:
+  1129→            name = m3.group('name')
+  1130→            return GoResponseField(
+  1131→                name='', go_type=f'[]{name}', struct_ref=name,
+  1132→                is_array=True,
+  1133→            )
+  1134→    # Bare identifier (variable reference).
+  1135→    if re.match(r'^[a-zA-Z_]\w*$', val):
+  1136→        t = var_types.get(val)
+  1137→        if t:
+  1138→            is_array = t.startswith('[]')
+  1139→            base = t[2:] if is_array else t
+  1140→            return GoResponseField(
+  1141→                name='', go_type=t,
+  1142→                struct_ref=_strip_package(base) or None,
+  1143→                is_array=is_array,
+  1144→            )
+  1145→        return GoResponseField(name='', go_type='unknown')
+  1146→    # Primitive literals.
+  1147→    if val.startswith('"'):
+  1148→        return GoResponseField(name='', go_type='string')
+  1149→    if val in {'true', 'false'}:
+  1150→        return GoResponseField(name='', go_type='bool')
+  1151→    if re.match(r'^-?\d+(\.\d+)?$', val):
+  1152→        return GoResponseField(name='', go_type='number')
+  1153→    # Function call or complex expression — unknown.
+  1154→    return GoResponseField(name='', go_type='unknown')
+  1155→
+  1156→
+  1157→def _strip_package(type_str: str) -> str:
+  1158→    """``models.User`` -> ``User``; ``User`` -> ``User``."""
+  1159→    if '.' in type_str:
+  1160→        return type_str.rsplit('.', 1)[-1]
+  1161→    return type_str
+  1162→
+  1163→
+  1164→# ---------------------------------------------------------------------------
+  1165→# Go routes parser
+  1166→# ---------------------------------------------------------------------------
+  1167→
+  1168→# `<var> := <parent>.PathPrefix("<prefix>").Subrouter()` — captures
+  1169→# the new var, the parent var, and the prefix.
+  1170→RE_SUBROUTER = re.compile(
+  1171→    r'(\w+)\s*:?=\s*(\w+)\.PathPrefix\(\s*"([^"]*)"\s*\)\.Subrouter\(\)'
+  1172→)
+  1173→
+  1174→# `<router>.HandleFunc("<path>", <handler>)` — captures router, path.
+  1175→RE_ROUTER_CALL = re.compile(
+  1176→    r'(\w+)\.(HandleFunc|Handle)\(\s*"([^"]*)"\s*,'
+  1177→)
+  1178→
+  1179→# `.Methods("GET")` after a HandleFunc call.
+  1180→RE_METHODS = re.compile(r'\.Methods\(\s*"([A-Z]+)"\s*\)')
+  1181→
+  1182→# `<var> := <pkg>.NewXHandler(...)` — captures the var and the
+  1183→# constructor name (we strip the leading `New` to get the struct name).
+  1184→# Matches both `handlers.NewAuthHandler(...)` and `billing.NewFooHandler(...)`.
+  1185→RE_HANDLER_VAR = re.compile(
+  1186→    r'(\w+)\s*:?=\s*\w+\.New(\w+Handler)\s*\('
+  1187→)
+  1188→
+  1189→# Wrapper functions to peel off when extracting the handler reference.
+  1190→WRAPPER_FUNCS = {
+  1191→    'RateLimitHandler', 'RequireAuth', 'RequireRole', 'RequireTenant',
+  1192→    'RequireRootTenant', 'RequireActiveBilling', 'HandlerFunc',
+  1193→}
+  1194→
+  1195→# Packages that appear in `pkg.Func` form inside handler expressions
+  1196→# but are NOT handlers themselves.
+  1197→NON_HANDLER_PKGS = {
+  1198→    'http', 'middleware', 'rateLimiter', 'models', 'mux', 'r', 'fmt',
+  1199→    'strings', 'context', 'time', 'os', 'syscall', 'signal', 'path',
+  1200→    'filepath', 'bson', 'options', 'primitive', 'slog', 'json',
+  1201→    'mux', 'cors', 'email', 'auth', 'events', 'syslog', 'stripe',
+  1202→    'configstore', 'config', 'health', 'telemetry', 'testutil',
+  1203→    'validation', 'version',
+  1204→}
+  1205→
+  1206→
+  1207→def parse_go_routes(content: str, file: str,
+  1208→                    handler_vars: Optional[Dict[str, str]] = None
+  1209→                    ) -> List[GoRoute]:
+  1210→    """Parse a Go file's router setup and return a list of GoRoute.
+  1211→
+  1212→    ``content`` should be the RAW (unmasked) source so path strings
+  1213→    are preserved. The patterns we match (``HandleFunc``, ``PathPrefix``,
+  1214→    ``Subrouter``, ``Methods``) don't appear inside Go string literals
+  1215→    in this codebase, so masking isn't needed for route parsing.
+  1216→    """
+  1217→    routes: List[GoRoute] = []
+  1218→    # 1. Collect handler var -> struct name mappings from constructor
+  1219→    #    calls (e.g. `authHandler := handlers.NewAuthHandler(...)`).
+  1220→    if handler_vars is None:
+  1221→        handler_vars = {}
+  1222→    for m in RE_HANDLER_VAR.finditer(content):
+  1223→        var = m.group(1)
+  1224→        ctor = m.group(2)
+  1225→        # `NewAuthHandler` -> `AuthHandler` is already correct since
+  1226→        # the regex captures `(\w+Handler)` after `New`. But the
+  1227→        # constructor name might be `NewX` without the `Handler`
+  1228→        # suffix — in that case we just use the captured name as-is.
+  1229→        struct = ctor if ctor.endswith('Handler') else ctor
+  1230→        handler_vars.setdefault(var, struct)
+  1231→
+  1232→    # 2. Collect subrouter var -> (parent_var, prefix).
+  1233→    raw_subrouters: List[Tuple[str, str, str, int]] = []
+  1234→    for m in RE_SUBROUTER.finditer(content):
+  1235→        var = m.group(1)
+  1236→        parent = m.group(2)
+  1237→        prefix = m.group(3)
+  1238→        raw_subrouters.append((var, parent, prefix, m.start()))
+  1239→
+  1240→    # Resolve to absolute prefixes (parent's prefix + this prefix)
+  1241→    # via fixpoint iteration — subrouters may reference other subrouters.
+  1242→    resolved: Dict[str, Tuple[str, str]] = {}  # var -> (root, full_prefix)
+  1243→    known_routers = {'router', 'mux', 'r', 'mainRouter', 'http'}
+  1244→    for v in known_routers:
+  1245→        resolved[v] = (v, '')
+  1246→    # The top-level `api` subrouter is mounted at /api — seed it too.
+  1247→    # (We'll let the iteration pick it up via the PathPrefix chain.)
+  1248→
+  1249→    changed = True
+  1250→    iterations = 0
+  1251→    while changed and iterations < 10:
+  1252→        changed = False
+  1253→        iterations += 1
+  1254→        for var, parent, prefix, _ in raw_subrouters:
+  1255→            if parent in resolved:
+  1256→                parent_root, parent_prefix = resolved[parent]
+  1257→                full = parent_prefix + prefix
+  1258→                if var not in resolved or resolved[var][1] != full:
+  1259→                    resolved[var] = (parent_root, full)
+  1260→                    changed = True
+  1261→    subrouters = {v: p for v, p in resolved.items() if v not in known_routers}
+  1262→
+  1263→    # 3. Scan for HandleFunc / Handle calls.
+  1264→    for m in RE_ROUTER_CALL.finditer(content):
+  1265→        router_var = m.group(1)
+  1266→        path_str = m.group(3)
+  1267→        # Find the open paren of the args list (between the call kind
+  1268→        # and the path string).
+  1269→        open_paren_idx = content.find('(', m.start(2))
+  1270→        if open_paren_idx == -1 or open_paren_idx > m.end():
+  1271→            continue
+  1272→        args, close_idx = find_matching_paren(content, open_paren_idx)
+  1273→        if args is None:
+  1274→            continue
+  1275→        # The args look like: `"/path", <handler_expr>` — extract the
+  1276→        # handler expr by stripping the leading path string.
+  1277→        am = re.match(r'\s*"' + re.escape(path_str) + r'"\s*,\s*(.*)',
+  1278→                      args, re.DOTALL)
+  1279→        if not am:
+  1280→            am = re.match(r'\s*"[^"]*"\s*,\s*(.*)', args, re.DOTALL)
+  1281→            if not am:
+  1282→                continue
+  1283→        handler_expr = am.group(1).strip()
+  1284→
+  1285→        # Look for `.Methods("X")` after the closing paren.
+  1286→        method = 'GET'  # default
+  1287→        tail = content[close_idx:close_idx + 200]
+  1288→        mm = RE_METHODS.search(tail)
+  1289→        if mm and mm.start() < 60:
+  1290→            method = mm.group(1)
+  1291→
+  1292→        # Resolve the handler reference.
+  1293→        handler_func = _extract_handler_name(handler_expr, handler_vars)
+  1294→        if not handler_func:
+  1295→            # Fall back to the raw expr so the route isn't lost.
+  1296→            handler_func = handler_expr[:60] or '(unknown)'
+  1297→
+  1298→        # Build the full path.
+  1299→        prefix_info = subrouters.get(router_var)
+  1300→        full_prefix = prefix_info[1] if prefix_info else ''
+  1301→        full_path = full_prefix + path_str
+  1302→        full_path = re.sub(r'/+', '/', full_path)
+  1303→        if not full_path.startswith('/'):
+  1304→            full_path = '/' + full_path
+  1305→
+  1306→        routes.append(GoRoute(
+  1307→            method=method,
+  1308→            path=full_path,
+  1309→            handler_func=handler_func,
+  1310→            file=file,
+  1311→            line=line_of(content, m.start()),
+  1312→        ))
+  1313→    return routes
+  1314→
+  1315→
+  1316→def _extract_handler_name(expr: str,
+  1317→                          handler_vars: Dict[str, str]) -> Optional[str]:
+  1318→    """Extract a ``StructType.Method`` label from a handler expression.
+  1319→
+  1320→    Handles:
+  1321→      * ``authHandler.Register`` -> ``AuthHandler.Register`` (when
+  1322→        ``handler_vars`` maps ``authHandler`` -> ``AuthHandler``)
+  1323→      * ``handlers.DocsHTML`` -> ``handlers.DocsHTML`` (package-level
+  1324→        function reference)
+  1325→      * ``rateLimiter.RateLimitHandler(cfg, fn, authHandler.Login)`` ->
+  1326→        ``AuthHandler.Login`` (peels wrappers, prefers known handler
+  1327→        vars)
+  1328→      * ``authMiddleware.RequireAuth(http.HandlerFunc(
+  1329→        plansHandler.ListPlansPublic))`` -> ``PlansHandler.ListPlansPublic``
+  1330→    """
+  1331→    expr = expr.strip()
+  1332→    # Find all `var.Method` references in order of appearance.
+  1333→    refs = list(re.finditer(r'\b([a-zA-Z_]\w*)\.([A-Z]\w*)\b', expr))
+  1334→    if not refs:
+  1335→        # Maybe a bare function name: `MyHandler` passed as a value.
+  1336→        bare = re.match(r'^\s*([A-Z]\w*)\s*[\),]', expr)
+  1337→        if bare:
+  1338→            return bare.group(1)
+  1339→        return None
+  1340→    # Filter out non-handler package refs and known wrappers.
+  1341→    candidates: List[Tuple[str, str]] = []
+  1342→    for rm in refs:
+  1343→        var = rm.group(1)
+  1344→        method = rm.group(2)
+  1345→        if method in WRAPPER_FUNCS:
+  1346→            continue
+  1347→        if var in NON_HANDLER_PKGS:
+  1348→            continue
+  1349→        candidates.append((var, method))
+  1350→    if not candidates:
+  1351→        # Fall back to all refs.
+  1352→        candidates = [(rm.group(1), rm.group(2)) for rm in refs]
+  1353→    # Prefer the first candidate whose var is a known handler var.
+  1354→    for var, method in candidates:
+  1355→        if var in handler_vars:
+  1356→            return f'{handler_vars[var]}.{method}'
+  1357→    # Fall back to the LAST candidate (rate-limited routes pass the
+  1358→    # real handler as the final positional arg).
+  1359→    var, method = candidates[-1]
+  1360→    if var in handler_vars:
+  1361→        return f'{handler_vars[var]}.{method}'
+  1362→    # Heuristic: title-case the first letter of the var.
+  1363→    struct = var[0].upper() + var[1:] if var else var
+  1364→    return f'{struct}.{method}'
+  1365→
+  1366→
+  1367→# ---------------------------------------------------------------------------
+  1368→# TS type parser
+  1369→# ---------------------------------------------------------------------------
+  1370→
+  1371→# `interface Name {` or `interface Name extends X, Y {`
+  1372→RE_INTERFACE_OPEN = re.compile(
+  1373→    r'\binterface\s+(?P<name>[A-Z]\w*)\s*(?:extends\s+[^{]+)?\{'
+  1374→)
+  1375→
+  1376→# `type Name = ...` — captures name. The body may be an object literal,
+  1377→# a union, or a primitive. We only care about object literals here.
+  1378→RE_TYPE_ALIAS = re.compile(
+  1379→    r'\btype\s+(?P<name>[A-Z]\w*)\s*=\s*'
+  1380→)
+  1381→
+  1382→# A field inside an interface body: `name: type;` or `name?: type;`.
+  1383→# Type may be a union, an array, a generic, or a nested object.
+  1384→RE_TS_FIELD = re.compile(
+  1385→    r'^\s*(?P<name>[A-Za-z_]\w*)\s*(?P<opt>\?)?\s*:\s*(?P<type>[^;]+?)\s*;?\s*$'
+  1386→)
+  1387→
+  1388→
+  1389→def parse_ts_types(content: str, file: str) -> List[TSType]:
+  1390→    """Parse every interface and object-literal type alias in a .ts file."""
+  1391→    out: List[TSType] = []
+  1392→    for m in RE_INTERFACE_OPEN.finditer(content):
+  1393→        name = m.group('name')
+  1394→        line = line_of(content, m.start())
+  1395→        brace_idx = content.find('{', m.start())
+  1396→        if brace_idx == -1:
+  1397→            continue
+  1398→        body, _ = find_matching_brace(content, brace_idx, '{', '}')
+  1399→        if body is None:
+  1400→            continue
+  1401→        fields = _parse_ts_fields(body)
+  1402→        out.append(TSType(
+  1403→            name=name, file=file, line=line, kind='interface',
+  1404→            fields=fields, raw=body,
+  1405→        ))
+  1406→    for m in RE_TYPE_ALIAS.finditer(content):
+  1407→        name = m.group('name')
+  1408→        line = line_of(content, m.start())
+  1409→        # Look at what follows the `=`. If it starts with `{`, it's an
+  1410→        # object literal type. If it's a string/union literal, capture
+  1411→        # the raw type text. Otherwise skip.
+  1412→        rest = content[m.end():]
+  1413→        stripped = rest.lstrip()
+  1414→        if stripped.startswith('{'):
+  1415→            # Find the matching closing brace.
+  1416→            brace_idx = m.end() + (len(rest) - len(stripped))
+  1417→            body, _ = find_matching_brace(content, brace_idx, '{', '}')
+  1418→            if body is None:
+  1419→                continue
+  1420→            fields = _parse_ts_fields(body)
+  1421→            out.append(TSType(
+  1422→                name=name, file=file, line=line, kind='type_alias',
+  1423→                fields=fields, raw=body,
+  1424→            ))
+  1425→        else:
+  1426→            # String/union alias like `type LogSeverity = 'a' | 'b'`.
+  1427→            # Capture the raw value up to the next newline or `;`.
+  1428→            end = re.search(r'[;\n]', rest)
+  1429→            raw = rest[:end.start()] if end else rest
+  1430→            out.append(TSType(
+  1431→                name=name, file=file, line=line, kind='type_alias',
+  1432→                fields=[], raw=raw.strip(),
+  1433→            ))
+  1434→    return out
+  1435→
+  1436→
+  1437→def _parse_ts_fields(body: str) -> List[TSField]:
+  1438→    """Parse the body of an interface or object-literal type alias.
+  1439→
+  1440→    Handles both newline-separated fields (the common case in
+  1441→    ``interface X { ... }``) and semicolon-separated fields on a single
+  1442→    line (the common case in inline object types like
+  1443→    ``{ user: User; memberships: MembershipInfo[] }``).
+  1444→    """
+  1445→    fields: List[TSField] = []
+  1446→    # Split the body into individual field declarations. We split on
+  1447→    # top-level semicolons AND newlines (a field may be followed by
+  1448→    # either). Brackets `{}<>` are tracked so semicolons inside nested
+  1449→    # types or generics don't split.
+  1450→    declarations = _split_ts_declarations(body)
+  1451→    for decl in declarations:
+  1452→        s = decl.strip()
+  1453→        if not s or s.startswith('//') or s.startswith('/*'):
+  1454→            continue
+  1455→        # Skip closing braces of nested objects.
+  1456→        if s in {'}', '};', '}),', '},', '{'}:
+  1457→            continue
+  1458→        m = RE_TS_FIELD.match(s)
+  1459→        if not m:
+  1460→            continue
+  1461→        name = m.group('name')
+  1462→        is_optional = bool(m.group('opt'))
+  1463→        type_str = m.group('type').strip()
+  1464→        # If the type is an inline object that spans multiple lines
+  1465→        # (starts with `{` but doesn't end with `}`), the split logic
+  1466→        # above already kept the full object — rejoin if needed.
+  1467→        # Actually `_split_ts_declarations` keeps braces balanced, so
+  1468→        # `type_str` should already be complete.
+  1469→        struct_ref, is_array = _classify_ts_type(type_str)
+  1470→        fields.append(TSField(
+  1471→            name=name, ts_type=type_str, is_optional=is_optional,
+  1472→            struct_ref=struct_ref, is_array=is_array,
+  1473→        ))
+  1474→    return fields
+  1475→
+  1476→
+  1477→def _split_ts_declarations(body: str) -> List[str]:
+  1478→    """Split a TS interface/type body into individual field declarations.
+  1479→
+  1480→    Splits on top-level semicolons and newlines, tracking depth in
+  1481→    ``{}``, ``[]``, ``<>``, and ``()`` so nested types aren't split.
+  1482→    """
+  1483→    out: List[str] = []
+  1484→    cur: List[str] = []
+  1485→    depth = 0
+  1486→    for c in body:
+  1487→        if c in '{[<(':
+  1488→            depth += 1
+  1489→            cur.append(c)
+  1490→        elif c in '}]>)':
+  1491→            depth -= 1
+  1492→            cur.append(c)
+  1493→        elif c == ';' and depth == 0:
+  1494→            out.append(''.join(cur))
+  1495→            cur = []
+  1496→        elif c == '\n' and depth == 0:
+  1497→            out.append(''.join(cur))
+  1498→            cur = []
+  1499→        else:
+  1500→            cur.append(c)
+  1501→    if cur:
+  1502→        out.append(''.join(cur))
+  1503→    return out
+  1504→
+  1505→
+  1506→def _classify_ts_type(type_str: str) -> Tuple[Optional[str], bool]:
+  1507→    """Return ``(struct_ref, is_array)`` for a TS type expression.
+  1508→
+  1509→    * ``User`` -> (``"User"``, False)
+  1510→    * ``User[]`` -> (``"User"``, True)
+  1511→    * ``Array<User>`` -> (``"User"``, True)
+  1512→    * ``string`` / ``number`` / ``boolean`` -> (None, False)
+  1513→    * ``'a' | 'b'`` -> (None, False)  (string literal union)
+  1514→    * ``Record<string, X>`` -> (None, False)
+  1515→    * ``{ sub: type }`` -> (None, False)  (inline object)
+  1516→    """
+  1517→    t = type_str.strip()
+  1518→    # Array forms.
+  1519→    if t.endswith('[]'):
+  1520→        inner = t[:-2].strip()
+  1521→        ref = _extract_named_ref(inner)
+  1522→        return (ref, True)
+  1523→    m = re.match(r'^Array<(.+)>$', t)
+  1524→    if m:
+  1525→        inner = m.group(1).strip()
+  1526→        ref = _extract_named_ref(inner)
+  1527→        return (ref, True)
+  1528→    # Plain named type.
+  1529→    ref = _extract_named_ref(t)
+  1530→    return (ref, False)
+  1531→
+  1532→
+  1533→def _extract_named_ref(type_str: str) -> Optional[str]:
+  1534→    """If ``type_str`` is a single named identifier (e.g. ``User``,
+  1535→    ``MembershipInfo``), return it. Otherwise return None.
+  1536→    """
+  1537→    t = type_str.strip()
+  1538→    # Strip parens.
+  1539→    while t.startswith('(') and t.endswith(')'):
+  1540→        t = t[1:-1].strip()
+  1541→    if re.match(r'^[A-Z]\w*$', t):
+  1542→        return t
+  1543→    # `import('...').X` form — extract X.
+  1544→    m = re.match(r'^import\([^)]*\)\.([A-Z]\w*)$', t)
+  1545→    if m:
+  1546→        return m.group(1)
+  1547→    return None
+  1548→
+  1549→
+  1550→# ---------------------------------------------------------------------------
+  1551→# TS client parser
+  1552→# ---------------------------------------------------------------------------
+  1553→
+  1554→# `api.<method><<Type>>(url, ...)` — captures method, optional Type,
+  1555→# and the URL (string or template literal).
+  1556→RE_API_CALL = re.compile(
+  1557→    r'\bapi\.(?P<method>get|post|put|patch|delete)'
+  1558→    r'(?:\s*<\s*(?P<type>[^>]+?)\s*>)?'
+  1559→    r'\s*\(\s*'
+  1560→)
+  1561→
+  1562→# A simple URL string: `'/foo'` or `"/foo"`.
+  1563→RE_URL_STRING = re.compile(r'^\s*[\'"](?P<url>[^\'"]+)[\'"]')
+  1564→
+  1565→# A template-literal URL: `` `/foo/${id}` ``.
+  1566→RE_URL_TEMPLATE = re.compile(r'^\s*`(?P<url>[^`]+)`')
+  1567→
+  1568→
+  1569→def parse_ts_client(content: str, file: str) -> List[TSEndpoint]:
+  1570→    """Parse ``client.ts`` and extract every API endpoint.
+  1571→
+  1572→    For each ``api.<method><<Type>>(url, ...)`` call we capture:
+  1573→      * HTTP method (uppercased)
+  1574→      * URL (with ``${var}`` normalised to ``{var}`` and ``/api`` prepended)
+  1575→      * Response type (raw text)
+  1576→    """
+  1577→    endpoints: List[TSEndpoint] = []
+  1578→    # We need to also capture the surrounding API group and method name
+  1579→    # for context. Walk the file looking for `export const xxxApi = {`
+  1580→    # blocks and attribute each api.* call to the most recently seen
+  1581→    # group.
+  1582→    current_group = ''
+  1583→    current_method = ''
+  1584→    lines = content.splitlines()
+  1585→    # Build a map of line -> (group, method) for context attribution.
+  1586→    context_by_line: Dict[int, Tuple[str, str]] = {}
+  1587→    line_no = 0
+  1588→    in_group = False
+  1589→    for line in lines:
+  1590→        line_no += 1
+  1591→        # `export const authApi = {`
+  1592→        gm = re.match(r'^\s*export\s+const\s+(\w+Api)\s*=\s*\{', line)
+  1593→        if gm:
+  1594→            current_group = gm.group(1)
+  1595→            current_method = ''
+  1596→            in_group = True
+  1597→            continue
+  1598→        if in_group:
+  1599→            # `methodName: (args) =>` — capture method name.
+  1600→            mm = re.match(r'^\s*(\w+)\s*:\s*(?:async\s*)?\(', line)
+  1601→            if mm:
+  1602→                current_method = mm.group(1)
+  1603→            # Detect end of group: a line with just `};` at column 0.
+  1604→            if re.match(r'^\};?\s*$', line):
+  1605→                in_group = False
+  1606→                current_group = ''
+  1607→                current_method = ''
+  1608→            else:
+  1609→                context_by_line[line_no] = (current_group, current_method)
+  1610→
+  1611→    for m in RE_API_CALL.finditer(content):
+  1612→        method = m.group('method').upper()
+  1613→        type_str = (m.group('type') or '').strip()
+  1614→        line = line_of(content, m.start())
+  1615→        # The URL follows the open paren.
+  1616→        rest = content[m.end():]
+  1617→        url = _extract_url(rest)
+  1618→        if url is None:
+  1619→            continue
+  1620→        normalised = _normalise_ts_url(url)
+  1621→        # Classify the response type.
+  1622→        response_kind, response_fields = _classify_ts_response(type_str)
+  1623→        group, method_name = context_by_line.get(line, ('', ''))
+  1624→        endpoints.append(TSEndpoint(
+  1625→            method=method,
+  1626→            path=normalised,
+  1627→            response_type=type_str or '(unknown)',
+  1628→            response_kind=response_kind,
+  1629→            response_fields=response_fields,
+  1630→            file=file,
+  1631→            line=line,
+  1632→            api_group=group,
+  1633→            method_name=method_name,
+  1634→        ))
+  1635→    return endpoints
+  1636→
+  1637→
+  1638→def _extract_url(rest: str) -> Optional[str]:
+  1639→    """Extract the URL string (or template literal) from the start of
+  1640→    ``rest`` (the text immediately after ``api.method<TYPE>(``).
+  1641→    """
+  1642→    # Try a simple quoted string first.
+  1643→    m = RE_URL_STRING.match(rest)
+  1644→    if m:
+  1645→        return m.group('url')
+  1646→    # Try a template literal.
+  1647→    m = RE_URL_TEMPLATE.match(rest)
+  1648→    if m:
+  1649→        return m.group('url')
+  1650→    # Backtick template that may span multiple lines — find the next
+  1651→    # backtick.
+  1652→    if rest.lstrip().startswith('`'):
+  1653→        idx = rest.find('`')
+  1654→        end = rest.find('`', idx + 1)
+  1655→        if end != -1:
+  1656→            return rest[idx + 1:end]
+  1657→    return None
+  1658→
+  1659→
+  1660→def _normalise_ts_url(url: str) -> str:
+  1661→    """Normalise a TS URL to match the Go route form.
+  1662→
+  1663→    * Convert ``${var}`` to ``{var}`` (gorilla/mux syntax).
+  1664→    * Prepend ``/api`` if not already present.
+  1665→    * Collapse duplicate slashes.
+  1666→    """
+  1667→    # Replace ${var} with {var}.
+  1668→    url = re.sub(r'\$\{(\w+)\}', r'{\1}', url)
+  1669→    # Prepend /api if missing.
+  1670→    if not url.startswith('/api'):
+  1671→        if url.startswith('/'):
+  1672→            url = '/api' + url
+  1673→        else:
+  1674→            url = '/api/' + url
+  1675→    # Collapse duplicate slashes (but keep the leading double-slash if any).
+  1676→    url = re.sub(r'/+', '/', url)
+  1677→    return url
+  1678→
+  1679→
+  1680→def _classify_ts_response(type_str: str) -> Tuple[str, List[TSField]]:
+  1681→    """Classify a TS response type string and parse inline fields.
+  1682→
+  1683→    Returns ``(kind, fields)`` where kind is one of
+  1684→    ``"named"``, ``"inline"``, ``"unknown"``.
+  1685→    """
+  1686→    if not type_str:
+  1687→        return ('unknown', [])
+  1688→    t = type_str.strip()
+  1689→    # Strip a union like `AuthResponse | MFARequiredResponse` — take
+  1690→    # the first named branch.
+  1691→    if '|' in t and not t.startswith('{'):
+  1692→        bits = [b.strip() for b in t.split('|')]
+  1693→        for b in bits:
+  1694→            if re.match(r'^[A-Z]\w*$', b):
+  1695→                return ('named', [])
+  1696→        return ('unknown', [])
+  1697→    # Inline object literal: `{ user: User; memberships: MembershipInfo[] }`.
+  1698→    if t.startswith('{'):
+  1699→        # Parse the fields.
+  1700→        body = t[1:]
+  1701→        # Find the matching closing brace (the type string may have
+  1702→        # been truncated by the `<...>` regex if it contained `>` —
+  1703→        # best-effort: strip a trailing `}` if present).
+  1704→        if body.endswith('}'):
+  1705→            body = body[:-1]
+  1706→        fields = _parse_ts_fields(body)
+  1707→        return ('inline', fields)
+  1708→    # Named type.
+  1709→    if re.match(r'^[A-Z]\w*$', t):
+  1710→        return ('named', [])
+  1711→    return ('unknown', [])
+  1712→
+  1713→
+  1714→# ---------------------------------------------------------------------------
+  1715→# Shape comparison
+  1716→# ---------------------------------------------------------------------------
+  1717→
+  1718→# Go primitive types that map to TS `number`.
+  1719→GO_NUMERIC_TYPES = {
+  1720→    'int', 'int8', 'int16', 'int32', 'int64',
+  1721→    'uint', 'uint8', 'uint16', 'uint32', 'uint64',
+  1722→    'float32', 'float64',
+  1723→    'byte', 'rune',
+  1724→}
+  1725→
+  1726→# Go types that JSON-marshal as a string.
+  1727→GO_STRING_TYPES = {
+  1728→    'string', 'time.Time', 'primitive.ObjectID', 'primitive.DateTime',
+  1729→    'json.RawMessage',
+  1730→}
+  1731→
+  1732→
+  1733→def normalise_go_type(go_type: str) -> str:
+  1734→    """Normalise a Go type to a canonical form for comparison with TS.
+  1735→
+  1736→    Examples:
+  1737→      ``string``           -> ``string``
+  1738→      ``*string``          -> ``string?``
+  1739→      ``int64``            -> ``number``
+  1740→      ``*time.Time``       -> ``string?``
+  1741→      ``primitive.ObjectID`` -> ``string``
+  1742→      ``models.User``      -> ``User``
+  1743→      ``[]string``         -> ``string[]``
+  1744→      ``[]models.User``    -> ``User[]``
+  1745→      ``map[string]X``     -> ``Record<string, X>``
+  1746→    """
+  1747→    t = go_type.strip()
+  1748→    # Strip a leading `*` (pointer).
+  1749→    optional = False
+  1750→    if t.startswith('*'):
+  1751→        optional = True
+  1752→        t = t[1:].strip()
+  1753→    # Slice.
+  1754→    if t.startswith('[]'):
+  1755→        inner = t[2:].strip()
+  1756→        return normalise_go_type(inner) + '[]'
+  1757→    # Map (best-effort — we don't recurse into the value type).
+  1758→    if t.startswith('map['):
+  1759→        # Extract the value type.
+  1760→        m = re.match(r'^map\[[^\]]+\](.+)$', t)
+  1761→        if m:
+  1762→            val = normalise_go_type(m.group(1).strip())
+  1763→            return f'Record<string, {val}>'
+  1764→    # String-serialising types (check BEFORE stripping the package
+  1765→    # prefix — the set contains fully-qualified names like
+  1766→    # `time.Time` and `primitive.ObjectID`).
+  1767→    if t in GO_STRING_TYPES:
+  1768→        return 'string' + ('?' if optional else '')
+  1769→    # Package-qualified type.
+  1770→    if '.' in t:
+  1771→        return t.rsplit('.', 1)[-1] + ('?' if optional else '')
+  1772→    # Primitive mappings.
+  1773→    if t in GO_NUMERIC_TYPES:
+  1774→        return 'number' + ('?' if optional else '')
+  1775→    if t == 'bool':
+  1776→        return 'boolean' + ('?' if optional else '')
+  1777→    if t == 'interface{}' or t == 'any':
+  1778→        return 'unknown'
+  1779→    return t + ('?' if optional else '')
+  1780→
+  1781→
+  1782→def normalise_ts_type(ts_type: str) -> str:
+  1783→    """Normalise a TS type to a canonical form for comparison with Go.
+  1784→
+  1785→    Examples:
+  1786→      ``string``           -> ``string``
+  1787→      ``string | undefined`` -> ``string?``
+  1788→      ``number``           -> ``number``
+  1789→      ``User``             -> ``User``
+  1790→      ``User[]``           -> ``User[]``
+  1791→      ``'a' | 'b'``        -> ``string``  (literal union collapses to string)
+  1792→      ``Record<string, X>`` -> ``Record<string, X>``
+  1793→    """
+  1794→    t = ts_type.strip()
+  1795→    # Strip parens.
+  1796→    while t.startswith('(') and t.endswith(')'):
+  1797→        t = t[1:-1].strip()
+  1798→    # Union with undefined/null -> optional.
+  1799→    optional = False
+  1800→    if '|' in t:
+  1801→        bits = [b.strip() for b in t.split('|')]
+  1802→        if 'undefined' in bits:
+  1803→            optional = True
+  1804→            bits = [b for b in bits if b != 'undefined']
+  1805→        # If all remaining bits are string literals, collapse to string.
+  1806→        if bits and all(re.match(r"^['\"]", b) for b in bits):
+  1807→            return 'string' + ('?' if optional else '')
+  1808→        # If all remaining bits are number literals, collapse to number.
+  1809→        if bits and all(re.match(r'^-?\d+(\.\d+)?$', b) for b in bits):
+  1810→            return 'number' + ('?' if optional else '')
+  1811→        # If exactly one non-null branch remains, recurse.
+  1812→        if len(bits) == 1:
+  1813→            t = bits[0]
+  1814→        else:
+  1815→            # Mixed union — keep as a sorted union string.
+  1816→            return ' | '.join(sorted(bits)) + ('?' if optional else '')
+  1817→    # Array.
+  1818→    if t.endswith('[]'):
+  1819→        inner = t[:-2].strip()
+  1820→        return normalise_ts_type(inner) + '[]'
+  1821→    m = re.match(r'^Array<(.+)>$', t)
+  1822→    if m:
+  1823→        return normalise_ts_type(m.group(1).strip()) + '[]'
+  1824→    # String literal.
+  1825→    if t.startswith("'") or t.startswith('"'):
+  1826→        return 'string' + ('?' if optional else '')
+  1827→    # Boolean literal.
+  1828→    if t in {'true', 'false'}:
+  1829→        return 'boolean' + ('?' if optional else '')
+  1830→    # Number literal.
+  1831→    if re.match(r'^-?\d+(\.\d+)?$', t):
+  1832→        return 'number' + ('?' if optional else '')
+  1833→    return t + ('?' if optional else '')
+  1834→
+  1835→
+  1836→def types_compatible(go_type: str, ts_type: str) -> Tuple[bool, str]:
+  1837→    """Return ``(is_compatible, note)`` for a Go↔TS type pair.
+  1838→
+  1839→    The note explains the mismatch when not compatible.
+  1840→
+  1841→    A Go type of ``unknown`` (used when the response payload contains a
+  1842→    value the auditor can't statically resolve — e.g. a package-qualified
+  1843→    constant like ``version.Current``) is treated as compatible with any
+  1844→    TS type, since we can't know the actual type without type info.
+  1845→    """
+  1846→    g = normalise_go_type(go_type)
+  1847→    t = normalise_ts_type(ts_type)
+  1848→    # `unknown` Go types are compatible with anything — we can't know
+  1849→    # the actual type without full Go type inference.
+  1850→    if g == 'unknown' or go_type.strip() == 'unknown':
+  1851→        return (True, 'Go type unknown — not statically resolvable')
+  1852→    if g == t:
+  1853→        return (True, '')
+  1854→    # Strip optional markers for the comparison — optionality is
+  1855→    # handled separately (a Go field is optional if it's a pointer or
+  1856→    # omitempty; a TS field is optional if marked with `?`).
+  1857→    g_base = g.rstrip('?')
+  1858→    t_base = t.rstrip('?')
+  1859→    if g_base == t_base:
+  1860→        return (True, 'optional differs')
+  1861→    # Record<string, X> on both sides — recurse on X (best-effort: skip).
+  1862→    if g_base.startswith('Record<string,') and t_base.startswith('Record<string,'):
+  1863→        return (True, 'record values not deeply compared')
+  1864→    # Known mismatch patterns:
+  1865→    # Go int64 / number vs TS string — classic JS precision bug for IDs.
+  1866→    if g_base == 'number' and t_base == 'string':
+  1867→        return (False, f'Go {go_type} (number) vs TS {ts_type} (string) — possible ID precision bug')
+  1868→    if g_base == 'string' and t_base == 'number':
+  1869→        return (False, f'Go {go_type} (string) vs TS {ts_type} (number)')
+  1870→    if g_base == 'boolean' and t_base != 'boolean':
+  1871→        return (False, f'Go {go_type} (boolean) vs TS {ts_type}')
+  1872→    # Named struct references that differ in name.
+  1873→    if g_base and t_base and g_base[0].isupper() and t_base[0].isupper():
+  1874→        if g_base != t_base:
+  1875→            return (False, f'struct name mismatch: Go {g_base} vs TS {t_base}')
+  1876→    return (False, f'Go {g} vs TS {t}')
+  1877→
+  1878→
+  1879→# ---------------------------------------------------------------------------
+  1880→# Endpoint matching + comparison
+  1881→# ---------------------------------------------------------------------------
+  1882→
+  1883→def normalise_path_for_matching(path: str) -> str:
+  1884→    """Normalise a URL path for endpoint matching.
+  1885→
+  1886→    Strips trailing slashes (except root) and lowercases path parameter
+  1887→    names so ``/users/{userId}`` and ``/users/${userId}`` both become
+  1888→    ``/users/{userid}``.
+  1889→    """
+  1890→    p = path
+  1891→    # Strip query string.
+  1892→    if '?' in p:
+  1893→        p = p.split('?', 1)[0]
+  1894→    # Strip trailing slash (except root).
+  1895→    if len(p) > 1 and p.endswith('/'):
+  1896→        p = p[:-1]
+  1897→    # Lowercase path parameter names so {userId} and {userid} match.
+  1898→    p = re.sub(r'\{(\w+)\}', lambda m: '{' + m.group(1).lower() + '}', p)
+  1899→    return p
+  1900→
+  1901→
+  1902→def build_go_endpoint_shapes(
+  1903→    routes: List[GoRoute],
+  1904→    handlers_by_name: Dict[str, GoHandler],
+  1905→    structs_by_name: Dict[str, GoStruct],
+  1906→) -> Dict[str, List[GoResponseShape]]:
+  1907→    """Build a ``{(method, normalised_path): [GoResponseShape, ...]}`` map.
+  1908→
+  1909→    For each route, look up the handler and collect ALL its non-error
+  1910→    response shapes (handlers may have multiple success-path responses,
+  1911→    e.g. an MFA branch and a normal branch). Error responses (maps
+  1912→    with only ``message``/``error`` keys) are skipped.
+  1913→    """
+  1914→    out: Dict[str, List[GoResponseShape]] = {}
+  1915→    for r in routes:
+  1916→        key = f'{r.method} {normalise_path_for_matching(r.path)}'
+  1917→        handler = handlers_by_name.get(r.handler_func)
+  1918→        if not handler:
+  1919→            out[key] = [GoResponseShape(kind='unknown',
+  1920→                                        raw=f'(no handler found: {r.handler_func})')]
+  1921→            continue
+  1922→        if not handler.responses:
+  1923→            out[key] = [GoResponseShape(kind='unknown',
+  1924→                                        raw='(no respondWithJSON call found)')]
+  1925→            continue
+  1926→        # Collect all non-error response shapes.
+  1927→        shapes: List[GoResponseShape] = []
+  1928→        for shape in handler.responses:
+  1929→            if shape.kind == 'map_literal':
+  1930→                names = [f.name for f in shape.fields]
+  1931→                if names and all(n in {'message', 'error'} for n in names):
+  1932→                    continue
+  1933→            shapes.append(shape)
+  1934→        if not shapes:
+  1935→            shapes = [handler.responses[0]]
+  1936→        out[key] = shapes
+  1937→    return out
+  1938→
+  1939→
+  1940→def resolve_go_shape_fields(
+  1941→    shape: GoResponseShape,
+  1942→    structs_by_name: Dict[str, GoStruct],
+  1943→) -> List[GoResponseField]:
+  1944→    """Resolve a GoResponseShape into a flat list of top-level fields.
+  1945→
+  1946→    For a ``struct_literal`` shape, look up the struct's fields and
+  1947→    return them as GoResponseField entries (with ``struct_ref`` set to
+  1948→    the struct name for nested comparison).
+  1949→
+  1950→    For a ``map_literal`` shape, return the parsed fields directly.
+  1951→    """
+  1952→    if shape.kind == 'struct_literal' and shape.struct_name:
+  1953→        s = structs_by_name.get(shape.struct_name)
+  1954→        if not s:
+  1955→            return []
+  1956→        out: List[GoResponseField] = []
+  1957→        for f in s.fields:
+  1958→            if f.is_skipped:
+  1959→                continue
+  1960→            base_type = f.go_type
+  1961→            is_array = base_type.startswith('[]')
+  1962→            if is_array:
+  1963→                base_type = base_type[2:]
+  1964→            struct_ref = _strip_package(base_type)
+  1965→            # Heuristic: only treat as a struct reference if the name
+  1966→            # starts with an uppercase letter and isn't a primitive.
+  1967→            if struct_ref and not struct_ref[0].isupper():
+  1968→                struct_ref = None
+  1969→            elif struct_ref and struct_ref in GO_NUMERIC_TYPES | GO_STRING_TYPES | {'bool', 'interface{}', 'any'}:
+  1970→                struct_ref = None
+  1971→            out.append(GoResponseField(
+  1972→                name=f.json_name,
+  1973→                go_type=f.go_type,
+  1974→                struct_ref=struct_ref,
+  1975→                is_array=is_array,
+  1976→            ))
+  1977→        return out
+  1978→    if shape.kind == 'map_literal':
+  1979→        return shape.fields
+  1980→    return []
+  1981→
+  1982→
+  1983→def resolve_ts_response_fields(
+  1984→    endpoint: TSEndpoint,
+  1985→    ts_types_by_name: Dict[str, TSType],
+  1986→) -> List[TSField]:
+  1987→    """Resolve a TS endpoint's response type into a flat list of fields.
+  1988→
+  1989→    For a named type, look it up in ``ts_types_by_name`` and return
+  1990→    its fields. For an inline object, return the parsed fields
+  1991→    directly. For a union, take the first named branch.
+  1992→    """
+  1993→    if endpoint.response_kind == 'inline':
+  1994→        return endpoint.response_fields
+  1995→    if endpoint.response_kind == 'named':
+  1996→        t = ts_types_by_name.get(endpoint.response_type.strip())
+  1997→        if t:
+  1998→            return t.fields
+  1999→    return []
+  2000→
+
+[showing lines 1-2000 of 2788; use offset=2001 with limit to continue reading]

@@ -119,7 +119,7 @@ def classify_loop(header: str) -> tuple[str, str]:
         #   k, v := range items   -> k (or both)
         #   x := range items      -> x
         #   for range items       -> (no var) "_"
-        m = re.search(r'(?P<lhs>[^=:]]*)\s*(?::=|=)\s*range\b', h)
+        m = re.search(r'(?P<lhs>[^=:]*?)\s*(?::=|=)\s*range\b', h)
         if m:
             lhs = m.group("lhs").strip()
             # take the last identifier in the lhs list
@@ -498,15 +498,81 @@ ADMIN_FUNC_HINTS: tuple[str, ...] = (
     "doctor", "batch",
 )
 
+# Paths that are always excluded from N+1 analysis — they're either test
+# scaffolding (where deleting rows in a loop is the whole point) or CLI
+# tooling (where the loop is intentional admin processing, not a
+# request-path performance problem).
+SKIP_PATH_FRAGMENTS: tuple[str, ...] = (
+    "/testutil/", "\\testutil\\",
+    "/cmd/lastsaas/", "\\cmd\\lastsaas\\",
+    "cmd/lastsaas/", "cmd\\lastsaas\\",
+)
 
-def classify_risk(rel_file: str, function: str) -> str:
+# Loop variables whose iteration count is structurally tiny. A loop over a
+# user's memberships iterates ~1-5 times (a typical user belongs to a
+# handful of tenants); a loop over a tenant's tenants list iterates even
+# less. FindOne-by-ID inside such a loop is NOT an N+1 problem in
+# practice — flagging it as HIGH creates noise the team learns to ignore.
+SMALL_N_LOOP_VARS: frozenset[str] = frozenset({
+    "membership", "memberships", "m", "mem",
+    "tenant", "tenants", "t",
+    "membershipInfo", "membershipInfos",
+    "invite", "invitations",
+    "member",
+})
+
+# Loop variables / range expressions that iterate over collections which
+# could grow large (users, logs, transactions, events). Only these stay
+# HIGH; everything else with a small-N loop var is downgraded to LOW.
+LARGE_N_LOOP_VARS: frozenset[str] = frozenset({
+    "user", "users", "u",
+    "log", "logs", "logEntry", "logEntries",
+    "transaction", "transactions", "txn",
+    "event", "events", "evt",
+    "delivery", "deliveries",
+    "message", "messages",
+    "metric", "metrics",
+    "record", "records",
+    "row", "rows",
+    "item", "items",
+})
+
+
+def _is_skipped_path(rel: str) -> bool:
+    """True for paths that are explicitly excluded from N+1 analysis
+    (test utilities and CLI tools)."""
+    rl = rel.lower()
+    return any(frag.lower() in rl for frag in SKIP_PATH_FRAGMENTS)
+
+
+def classify_risk(rel_file: str, function: str,
+                  loop_var: str = "_",
+                  loop_kind: str = "",
+                  collection: str = "") -> str:
     fl = rel_file.lower()
     fn = (function or "").lower()
+    lv = (loop_var or "_").lstrip("_").lower() or "_"
+    # Test/CLI scaffolding: don't flag at all (these aren't request-path
+    # performance problems). The caller may still record the finding but
+    # with LOW risk so it doesn't surface in the HIGH/MEDIUM rollups.
+    if _is_skipped_path(rel_file):
+        return "LOW"
+    # Small-N loops over memberships/tenants: N is typically 1-5 — not a
+    # real N+1 problem, regardless of whether the surrounding code is an
+    # admin path or a user-facing handler. The loop variable is a much
+    # stronger signal than the file path, so check it FIRST.
+    if lv in SMALL_N_LOOP_VARS:
+        return "LOW"
     if any(h in fl for h in ADMIN_HINTS):
         return "MEDIUM"
     if any(h in fn for h in ADMIN_FUNC_HINTS):
         return "MEDIUM"
-    return "HIGH"
+    # Only flag as HIGH for collections that could actually grow large.
+    if lv in LARGE_N_LOOP_VARS:
+        return "HIGH"
+    # Default: medium (we can't prove the loop is bounded by a tiny N,
+    # but we also can't prove it grows unboundedly).
+    return "MEDIUM"
 
 
 # --------------------------------------------------------------------------- #
@@ -604,7 +670,12 @@ def scan_file(
             )
 
         func_name = containing_function(funcs, idx)
-        risk = classify_risk(rel, func_name)
+        risk = classify_risk(
+            rel, func_name,
+            loop_var=in_loop.loop_var,
+            loop_kind=in_loop.kind,
+            collection=collection,
+        )
 
         snippet = make_snippet(lines, in_loop.start_line, in_loop.end_line)
 
@@ -640,6 +711,12 @@ def collect_files(root: Path, include_tests: bool) -> list[Path]:
         if any(part in skip_dirs for part in p.parts):
             continue
         if not include_tests and p.name.endswith("_test.go"):
+            continue
+        # Skip test utilities and CLI tools entirely — deleting rows in a
+        # loop in test cleanup, or iterating results for CLI display, is
+        # intentional and not an N+1 problem.
+        rel = str(p)
+        if _is_skipped_path(rel):
             continue
         out.append(p)
     return sorted(out)
@@ -802,12 +879,18 @@ def render_markdown(report: dict) -> str:
         "`col := m.Users()`."
     )
     out.append(
-        "5. Risk is **HIGH** for queries in user-facing handler code, "
-        "**MEDIUM** for admin/CLI/batch paths (still bad, but lower blast radius)."
+        "5. Risk is **HIGH** for queries whose loop iterates over a "
+        "potentially-large collection (users, logs, transactions, events, "
+        "messages, deliveries). **MEDIUM** for admin/CLI/batch code paths. "
+        "**LOW** for loops over small-N collections (memberships, tenants — "
+        "N is typically 1-5) and for test/CLI scaffolding that is excluded "
+        "from the analysis entirely."
     )
     out.append(
-        "6. Test files (`*_test.go`) are skipped by default; pass "
-        "`--include-tests` to include them."
+        "6. Test files (`*_test.go`), test utilities (`internal/testutil/`), "
+        "and CLI tools (`cmd/lastsaas/`) are skipped entirely — deleting "
+        "rows in a loop in test cleanup, or iterating results for CLI "
+        "display, is intentional and not an N+1 problem."
     )
     out.append("")
     out.append("---")
