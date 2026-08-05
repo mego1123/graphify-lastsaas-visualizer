@@ -7,7 +7,7 @@
 | Metric | Value |
 | --- | --- |
 | Files scanned | 101 |
-| Total lines | 29,019 |
+| Total lines | 29,012 |
 | Total error-handling sites | **932** |
 | Properly handled | 707 |
 | Logged only (no return) | 206 |
@@ -2883,300 +2883,300 @@
 
 ### `backend/internal/api/handlers/billing.go`
 
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:617` in `GetInvoicePDF`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:616` in `GetInvoicePDF`
   ```go
-          if _, err := w.Write(buf.Bytes()); err != nil {
-                  slog.Error("failed to write invoice PDF response", "transactionId", tx.ID.Hex(), "error", err)
-                  return
-          }
+  	if _, err := w.Write(buf.Bytes()); err != nil {
+  		slog.Error("failed to write invoice PDF response", "transactionId", tx.ID.Hex(), "error", err)
+  		return
+  	}
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:881` in `computeLiveRevenue`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:880` in `computeLiveRevenue`
   ```go
-          if err != nil {
-                  slog.Warn("computeLiveRevenue: failed to parse date string", "dateStr", dateStr, "error", err)
-                  return 0
-          }
+  	if err != nil {
+  		slog.Warn("computeLiveRevenue: failed to parse date string", "dateStr", dateStr, "error", err)
+  		return 0
+  	}
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:898` in `computeLiveRevenue`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:897` in `computeLiveRevenue`
   ```go
-          if err != nil {
-                  slog.Warn("computeLiveRevenue: failed to aggregate financial transactions", "dateStr", dateStr, "error", err)
-                  return 0
-          }
+  	if err != nil {
+  		slog.Warn("computeLiveRevenue: failed to aggregate financial transactions", "dateStr", dateStr, "error", err)
+  		return 0
+  	}
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:934` in `computeLiveARR`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/billing.go:933` in `computeLiveARR`
   ```go
-          if err != nil {
-                  slog.Warn("computeLiveARR: failed to aggregate active tenant subscriptions", "error", err)
-                  return 0
-          }
+  	if err != nil {
+  		slog.Warn("computeLiveARR: failed to aggregate active tenant subscriptions", "error", err)
+  		return 0
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:72` in `Checkout`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:88` in `Checkout`
   ```go
-                  if err != nil {
-                          respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
-                          return
-                  }
+  		if err != nil {
+  			respondWithError(w, http.StatusBadRequest, "Invalid plan ID")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:139` in `Checkout`
   ```go
-                                  if memberErr != nil {
-                                          slog.Warn("Billing: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", memberErr)
-                                          memberCount = 0
-                                  }
+  				if memberErr != nil {
+  					slog.Warn("Billing: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", memberErr)
+  					memberCount = 0
+  				}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:163` in `Checkout`
   ```go
-                          if memberErr != nil {
-                                  slog.Warn("Billing: failed to count tenant members for per-seat checkout", "tenantId", tenant.ID.Hex(), "error", memberErr)
-                                  memberCount = 0
-                          }
+  			if memberErr != nil {
+  				slog.Warn("Billing: failed to count tenant members for per-seat checkout", "tenantId", tenant.ID.Hex(), "error", memberErr)
+  				memberCount = 0
+  			}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:185` in `Checkout`
   ```go
-                          if err != nil {
-                                  slog.Error("Billing: failed to get/create customer", "error", err)
-                                  respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                                  return
-                          }
+  			if err != nil {
+  				slog.Error("Billing: failed to get/create customer", "error", err)
+  				respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  				return
+  			}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:218` in `Checkout`
   ```go
-                                  if err != nil {
-                                          slog.Error("Billing: failed to create base price", "error", err)
-                                          respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                                          return
-                                  }
+  				if err != nil {
+  					slog.Error("Billing: failed to create base price", "error", err)
+  					respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  					return
+  				}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:231` in `Checkout`
   ```go
-                                          if err != nil {
-                                                  slog.Error("Billing: failed to create seat price", "error", err)
-                                                  respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                                                  return
-                                          }
+  					if err != nil {
+  						slog.Error("Billing: failed to create seat price", "error", err)
+  						respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  						return
+  					}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:253` in `Checkout`
   ```go
-                          if err != nil {
-                                  slog.Error("Billing: failed to create checkout session", "error", err)
-                                  respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                                  return
-                          }
+  			if err != nil {
+  				slog.Error("Billing: failed to create checkout session", "error", err)
+  				respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  				return
+  			}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:277` in `Checkout`
   ```go
-                  if err != nil {
-                          slog.Error("Billing: failed to get/create customer", "error", err)
-                          respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                          return
-                  }
+  		if err != nil {
+  			slog.Error("Billing: failed to get/create customer", "error", err)
+  			respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:295` in `Checkout`
   ```go
-                  if err != nil {
-                          slog.Error("Billing: failed to create checkout session", "error", err)
-                          respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                          return
-                  }
+  		if err != nil {
+  			slog.Error("Billing: failed to create checkout session", "error", err)
+  			respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:307` in `Checkout`
   ```go
-                  if err != nil {
-                          respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
-                          return
-                  }
+  		if err != nil {
+  			respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:324` in `Checkout`
   ```go
-                  if err != nil {
-                          slog.Error("Billing: failed to get/create customer", "error", err)
-                          respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                          return
-                  }
+  		if err != nil {
+  			slog.Error("Billing: failed to get/create customer", "error", err)
+  			respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:340` in `Checkout`
   ```go
-                  if err != nil {
-                          slog.Error("Billing: failed to create checkout session", "error", err)
-                          respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
-                          return
-                  }
+  		if err != nil {
+  			slog.Error("Billing: failed to create checkout session", "error", err)
+  			respondWithError(w, http.StatusInternalServerError, "Failed to create billing session")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:373` in `Portal`
   ```go
-          if err != nil {
-                  slog.Error("Billing: failed to create portal session", "error", err)
-                  respondWithError(w, http.StatusInternalServerError, "Failed to create portal session")
-                  return
-          }
+  	if err != nil {
+  		slog.Error("Billing: failed to create portal session", "error", err)
+  		respondWithError(w, http.StatusInternalServerError, "Failed to create portal session")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:397` in `ListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:396` in `ListTransactions`
   ```go
-          if pageErr != nil || page < 1 {
-                  page = 1
-          }
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:401` in `ListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:400` in `ListTransactions`
   ```go
-          if perPageErr != nil || perPage < 1 || perPage > 100 {
-                  perPage = 20
-          }
+  	if perPageErr != nil || perPage < 1 || perPage > 100 {
+  		perPage = 20
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:408` in `ListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:407` in `ListTransactions`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to count transactions")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count transactions")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:419` in `ListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:418` in `ListTransactions`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch transactions")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch transactions")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:426` in `ListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:425` in `ListTransactions`
   ```go
-          if err := cursor.All(ctx, &transactions); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode transactions")
-                  return
-          }
+  	if err := cursor.All(ctx, &transactions); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode transactions")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:452` in `GetInvoice`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:451` in `GetInvoice`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid transaction ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid transaction ID")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:481` in `GetInvoicePDF`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:480` in `GetInvoicePDF`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid transaction ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid transaction ID")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:609` in `GetInvoicePDF`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:608` in `GetInvoicePDF`
   ```go
-          if err := pdf.Output(&buf); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to generate PDF")
-                  return
-          }
+  	if err := pdf.Output(&buf); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to generate PDF")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:643` in `CancelSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:642` in `CancelSubscription`
   ```go
-          if err != nil {
-                  slog.Error("Billing: failed to cancel subscription", "error", err)
-                  respondWithError(w, http.StatusInternalServerError, "Failed to cancel subscription")
-                  return
-          }
+  	if err != nil {
+  		slog.Error("Billing: failed to cancel subscription", "error", err)
+  		respondWithError(w, http.StatusInternalServerError, "Failed to cancel subscription")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:713` in `AdminListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:712` in `AdminListTransactions`
   ```go
-          if pageErr != nil || page < 1 {
-                  page = 1
-          }
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:717` in `AdminListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:716` in `AdminListTransactions`
   ```go
-          if perPageErr != nil || perPage < 1 || perPage > 100 {
-                  perPage = 50
-          }
+  	if perPageErr != nil || perPage < 1 || perPage > 100 {
+  		perPage = 50
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:738` in `AdminListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:737` in `AdminListTransactions`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to count transactions")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count transactions")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:749` in `AdminListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:748` in `AdminListTransactions`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch transactions")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch transactions")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:756` in `AdminListTransactions`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:755` in `AdminListTransactions`
   ```go
-          if err := cursor.All(ctx, &transactions); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode transactions")
-                  return
-          }
+  	if err := cursor.All(ctx, &transactions); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode transactions")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:806` in `AdminGetMetrics`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:805` in `AdminGetMetrics`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch metrics")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch metrics")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:813` in `AdminGetMetrics`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:812` in `AdminGetMetrics`
   ```go
-          if err := cursor.All(ctx, &metrics); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode metrics")
-                  return
-          }
+  	if err := cursor.All(ctx, &metrics); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode metrics")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:953` in `AdminCancelSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:952` in `AdminCancelSubscription`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:972` in `AdminCancelSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:971` in `AdminCancelSubscription`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:984` in `AdminCancelSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:983` in `AdminCancelSubscription`
   ```go
-                  if err := h.stripe.CancelSubscriptionImmediately(ctx, tenant.StripeSubscriptionID); err != nil {
-                          slog.Error("Admin: failed to cancel subscription immediately", "error", err)
-                          respondWithError(w, http.StatusInternalServerError, "Failed to cancel subscription")
-                          return
-                  }
+  		if err := h.stripe.CancelSubscriptionImmediately(ctx, tenant.StripeSubscriptionID); err != nil {
+  			slog.Error("Admin: failed to cancel subscription immediately", "error", err)
+  			respondWithError(w, http.StatusInternalServerError, "Failed to cancel subscription")
+  			return
+  		}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:992` in `AdminCancelSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:991` in `AdminCancelSubscription`
   ```go
-                  if err != nil {
-                          slog.Error("Admin: failed to cancel subscription", "error", err)
-                          respondWithError(w, http.StatusInternalServerError, "Failed to cancel subscription")
-                          return
-                  }
+  		if err != nil {
+  			slog.Error("Admin: failed to cancel subscription", "error", err)
+  			respondWithError(w, http.StatusInternalServerError, "Failed to cancel subscription")
+  			return
+  		}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:1020` in `AdminUpdateSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:1019` in `AdminUpdateSubscription`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:1028` in `AdminUpdateSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:1027` in `AdminUpdateSubscription`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:1039` in `AdminUpdateSubscription`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/billing.go:1038` in `AdminUpdateSubscription`
   ```go
-          if err != nil || result.MatchedCount == 0 {
-                  respondWithError(w, http.StatusNotFound, "Tenant not found")
-                  return
-          }
+  	if err != nil || result.MatchedCount == 0 {
+  		respondWithError(w, http.StatusNotFound, "Tenant not found")
+  		return
+  	}
   ```
 
 ### `backend/internal/api/handlers/branding.go`
@@ -3409,108 +3409,108 @@
 
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:61` in `ListBundles`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to list credit bundles")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to list credit bundles")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:68` in `ListBundles`
   ```go
-          if err := cursor.All(r.Context(), &bundles); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode credit bundles")
-                  return
-          }
+  	if err := cursor.All(r.Context(), &bundles); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode credit bundles")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:76` in `ListBundles`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to count credit bundles")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count credit bundles")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:86` in `CreateBundle`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:90` in `CreateBundle`
   ```go
-          if err := validateBundleRequest(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, err.Error())
-                  return
-          }
+  	if err := validateBundleRequest(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, err.Error())
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:97` in `CreateBundle`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to check credit bundle name uniqueness")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check credit bundle name uniqueness")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:118` in `CreateBundle`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to create credit bundle")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to create credit bundle")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:139` in `UpdateBundle`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:155` in `UpdateBundle`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:159` in `UpdateBundle`
   ```go
-          if err := validateBundleRequest(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, err.Error())
-                  return
-          }
+  	if err := validateBundleRequest(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, err.Error())
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:167` in `UpdateBundle`
   ```go
-                  if err != nil {
-                          respondWithError(w, http.StatusInternalServerError, "Failed to check credit bundle name uniqueness")
-                          return
-                  }
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check credit bundle name uniqueness")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:186` in `UpdateBundle`
   ```go
-          if _, err := h.db.CreditBundles().UpdateByID(r.Context(), bundleID, update); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to update credit bundle")
-                  return
-          }
+  	if _, err := h.db.CreditBundles().UpdateByID(r.Context(), bundleID, update); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to update credit bundle")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:206` in `DeleteBundle`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid bundle ID")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:238` in `ListBundlesPublic`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to list credit bundles")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to list credit bundles")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/bundles.go:245` in `ListBundlesPublic`
   ```go
-          if err := cursor.All(r.Context(), &bundles); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode credit bundles")
-                  return
-          }
+  	if err := cursor.All(r.Context(), &bundles); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode credit bundles")
+  		return
+  	}
   ```
 
 ### `backend/internal/api/handlers/config.go`
@@ -3769,77 +3769,77 @@
 
 ### `backend/internal/api/handlers/logs.go`
 
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/logs.go:240` in `ExportCSV`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/logs.go:238` in `ExportCSV`
   - _statement-form call to known error-returning 'writer.Flush()'_
   ```go
-          writer.Flush()
+  	writer.Flush()
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:241` in `ExportCSV`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/logs.go:239` in `ExportCSV`
   ```go
-          if err := writer.Error(); err != nil {
-                  slog.Error("CSV writer error during log export", "error", err)
-          }
+  	if err := writer.Error(); err != nil {
+  		slog.Error("CSV writer error during log export", "error", err)
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:99` in `ListLogs`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:97` in `ListLogs`
   ```go
-          if pageErr != nil || page < 1 {
-                  page = 1
-          }
+  	if pageErr != nil || page < 1 {
+  		page = 1
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:103` in `ListLogs`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:101` in `ListLogs`
   ```go
-          if perPageErr != nil || perPage < 1 || perPage > 100 {
-                  perPage = 50
-          }
+  	if perPageErr != nil || perPage < 1 || perPage > 100 {
+  		perPage = 50
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:119` in `ListLogs`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:117` in `ListLogs`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to count logs")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count logs")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:130` in `ListLogs`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:128` in `ListLogs`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to query logs")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to query logs")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:137` in `ListLogs`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:135` in `ListLogs`
   ```go
-          if err := cursor.All(ctx, &logs); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to read logs")
-                  return
-          }
+  	if err := cursor.All(ctx, &logs); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to read logs")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:161` in `SeverityCounts`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:159` in `SeverityCounts`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to aggregate severity counts")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to aggregate severity counts")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:172` in `SeverityCounts`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:170` in `SeverityCounts`
   ```go
-          if err := cursor.All(r.Context(), &results); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to read severity counts")
-                  return
-          }
+  	if err := cursor.All(r.Context(), &results); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to read severity counts")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:201` in `ExportCSV`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:199` in `ExportCSV`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to query logs")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to query logs")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:218` in `ExportCSV`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/logs.go:216` in `ExportCSV`
   ```go
-                  if err := cursor.Decode(&log); err != nil {
-                          slog.Warn("failed to decode log row during CSV export", "error", err)
-                          continue
-                  }
+  		if err := cursor.Decode(&log); err != nil {
+  			slog.Warn("failed to decode log row during CSV export", "error", err)
+  			continue
+  		}
   ```
 
 ### `backend/internal/api/handlers/messages.go`
@@ -4370,168 +4370,168 @@
 
 - **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:280` in `InviteMember`
   ```go
-                  if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {
-                          slog.Error("Failed to update seat quantity", "tenantId", tenant.ID.Hex(), "error", err)
-                  } else {
+  		if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {
+  			slog.Error("Failed to update seat quantity", "tenantId", tenant.ID.Hex(), "error", err)
+  		} else {
   ```
 - **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:295` in `InviteMember`
   ```go
-                          if err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, tenant.Name, token); err != nil {
-                                  slog.Error("Failed to send invitation email", "to", req.Email, "error", err)
-                          }
+  			if err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, tenant.Name, token); err != nil {
+  				slog.Error("Failed to send invitation email", "to", req.Email, "error", err)
+  			}
   ```
 - **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/tenant.go:385` in `RemoveMember`
   ```go
-                          if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {
-                                  slog.Error("Failed to update seat quantity", "tenant", tenant.ID.Hex(), "error", err)
-                          } else {
+  			if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {
+  				slog.Error("Failed to update seat quantity", "tenant", tenant.ID.Hex(), "error", err)
+  			} else {
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:75` in `ListMembers`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch members")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch members")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:82` in `ListMembers`
   ```go
-          if err := cursor.All(r.Context(), &memberships); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode members")
-                  return
-          }
+  	if err := cursor.All(r.Context(), &memberships); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode members")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:142` in `InviteMember`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:176` in `InviteMember`
   ```go
-                  if err != nil {
-                          respondWithError(w, http.StatusInternalServerError, "Failed to check existing membership")
-                          return
-                  }
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to check existing membership")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:193` in `InviteMember`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to check existing invitations")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to check existing invitations")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:231` in `InviteMember`
   ```go
-                  if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {
-                          respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
-                          return
-                  }
+  		if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:237` in `InviteMember`
   ```go
-                  if err != nil {
-                          respondWithError(w, http.StatusInternalServerError, "Failed to count tenant members")
-                          return
-                  }
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to count tenant members")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:246` in `InviteMember`
   ```go
-                  if err != nil {
-                          respondWithError(w, http.StatusInternalServerError, "Failed to count pending invitations")
-                          return
-                  }
+  		if err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to count pending invitations")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:263` in `InviteMember`
   ```go
-                  if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {
-                          respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
-                          return
-                  }
+  		if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {
+  			respondWithError(w, http.StatusInternalServerError, "Failed to create invitation")
+  			return
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:272` in `InviteMember`
   ```go
-                  if err != nil {
-                          slog.Warn("InviteMember: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", err)
-                          memberCount = 0
-                  }
+  		if err != nil {
+  			slog.Warn("InviteMember: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", err)
+  			memberCount = 0
+  		}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:331` in `RemoveMember`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid user ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:374` in `RemoveMember`
   ```go
-                          if err != nil {
-                                  slog.Warn("RemoveMember: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", err)
-                                  memberCount = 0
-                          }
+  			if err != nil {
+  				slog.Warn("RemoveMember: failed to count tenant members for seat calculation", "tenantId", tenant.ID.Hex(), "error", err)
+  				memberCount = 0
+  			}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:430` in `ChangeRole`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid user ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:442` in `ChangeRole`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:460` in `ChangeRole`
   ```go
-          if err != nil || result.MatchedCount == 0 {
-                  respondWithError(w, http.StatusNotFound, "Member not found")
-                  return
-          }
+  	if err != nil || result.MatchedCount == 0 {
+  		respondWithError(w, http.StatusNotFound, "Member not found")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:497` in `TransferOwnership`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid user ID")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid user ID")
+  		return
+  	}
   ```
 - **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:512` in `TransferOwnership`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to verify target membership")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to verify target membership")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:598` in `GetActivity`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:597` in `GetActivity`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch activity")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch activity")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:605` in `GetActivity`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:604` in `GetActivity`
   ```go
-          if err := cursor.All(r.Context(), &logs); err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to decode activity")
-                  return
-          }
+  	if err := cursor.All(r.Context(), &logs); err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to decode activity")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:611` in `GetActivity`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:610` in `GetActivity`
   ```go
-          if err != nil {
-                  respondWithError(w, http.StatusInternalServerError, "Failed to count activity logs")
-                  return
-          }
+  	if err != nil {
+  		respondWithError(w, http.StatusInternalServerError, "Failed to count activity logs")
+  		return
+  	}
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:636` in `UpdateTenantSettings`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/tenant.go:635` in `UpdateTenantSettings`
   ```go
-          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
-                  return
-          }
+  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+  		return
+  	}
   ```
 
 ### `backend/internal/api/handlers/usage.go`
@@ -5984,218 +5984,218 @@
                   slog.Warn("telemetry: failed to track batch", "count", len(events), "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:319` in `FunnelMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:318` in `FunnelMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count unique visitors", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:327` in `FunnelMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:326` in `FunnelMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count registrations", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:337` in `FunnelMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:336` in `FunnelMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count plan page views", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:346` in `FunnelMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:345` in `FunnelMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count checkouts", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:355` in `FunnelMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:354` in `FunnelMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count conversions", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:363` in `FunnelMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:362` in `FunnelMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count upgrades", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:508` in `EngagementMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:507` in `EngagementMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to get active tenant IDs", "error", err)
                   return &EngagementData{}, nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:515` in `EngagementMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:514` in `EngagementMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to get user IDs for tenants", "error", err)
                   return &EngagementData{}, nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:540` in `EngagementMetrics`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:539` in `EngagementMetrics`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count total logins", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:604` in `computeKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:603` in `computeKPIs`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count active subscribers", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:610` in `computeKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:609` in `computeKPIs`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count total registrations", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:628` in `computeKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:627` in `computeKPIs`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count cancellations this month", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:635` in `computeKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:634` in `computeKPIs`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count active at month start", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:647` in `computeKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:646` in `computeKPIs`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count total trials", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:654` in `computeKPIs`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:653` in `computeKPIs`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count converted trials", "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:712` in `CustomEventSummary`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:709` in `CustomEventSummary`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to count custom events", "event", eventName, "error", err)
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:728` in `CustomEventSummary`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:725` in `CustomEventSummary`
   ```go
           if err != nil {
                   slog.Warn("telemetry: failed to query custom event trend", "event", eventName, "error", err)
                   return &CustomEventData{EventName: eventName, TotalCount: totalCount}, nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:914` in `weeklyActiveUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:911` in `weeklyActiveUsers`
   ```go
           if err != nil {
                   slog.Warn("telemetry: weeklyActiveUsers aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:962` in `monthlyActiveUsers`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:959` in `monthlyActiveUsers`
   ```go
           if err != nil {
                   slog.Warn("telemetry: monthlyActiveUsers aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1000` in `topCustomEvents`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:997` in `topCustomEvents`
   ```go
           if err != nil {
                   slog.Warn("telemetry: topCustomEvents aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1031` in `creditConsumptionTrend`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1028` in `creditConsumptionTrend`
   ```go
           if err != nil {
                   slog.Warn("telemetry: creditConsumptionTrend aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1107` in `calculateMRR`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1104` in `calculateMRR`
   ```go
           if err != nil {
                   slog.Warn("telemetry: calculateMRR aggregation failed", "error", err)
                   return 0
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1151` in `medianTimeToFirstPurchase`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1148` in `medianTimeToFirstPurchase`
   ```go
           if err != nil {
                   slog.Warn("telemetry: medianTimeToFirstPurchase aggregation failed", "error", err)
                   return 0
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1201` in `planDistribution`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1198` in `planDistribution`
   ```go
           if err != nil {
                   slog.Warn("telemetry: planDistribution aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1242` in `mrrTrend`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1239` in `mrrTrend`
   ```go
           if err != nil {
                   slog.Warn("telemetry: mrrTrend query failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1273` in `subscriberTrend`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1270` in `subscriberTrend`
   ```go
           if err != nil {
                   slog.Warn("telemetry: subscriberTrend aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1294` in `aggregateDailyPoints`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/telemetry/service.go:1291` in `aggregateDailyPoints`
   ```go
           if err != nil {
                   slog.Warn("telemetry: aggregateDailyPoints aggregation failed", "error", err)
                   return nil
           }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:452` in `RetentionCohorts`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:451` in `RetentionCohorts`
   ```go
           if err != nil {
                   return nil, err
           }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:578` in `KPIs`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:577` in `KPIs`
   ```go
                   if err != nil {
                           return nil, err
                   }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:588` in `KPIs`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:587` in `KPIs`
   ```go
           if err != nil {
                   return nil, err
           }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:765` in `ListEventTypes`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:762` in `ListEventTypes`
   ```go
           if err != nil {
                   return nil, err
           }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:804` in `countDistinct`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:801` in `countDistinct`
   ```go
           if err != nil {
                   return 0, err
           }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:825` in `getActiveTenantIDs`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:822` in `getActiveTenantIDs`
   ```go
           if err != nil {
                   return nil, err
           }
   ```
-- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:849` in `getUserIDsForTenants`
+- **[LOW] Proper handling** — `backend/internal/telemetry/service.go:846` in `getUserIDsForTenants`
   ```go
           if err != nil {
                   return nil, err

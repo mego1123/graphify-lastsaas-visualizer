@@ -6,7 +6,7 @@
     "test_files": 33,
     "non_test": {
       "files": 101,
-      "lines": 29019,
+      "lines": 29012,
       "total_error_sites": 932,
       "proper": 707,
       "logged": 206,
@@ -4209,7 +4209,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4219,7 +4219,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        respondWithError(w, http.StatusBadRequest, \"Invalid plan ID\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\trespondWithError(w, http.StatusBadRequest, \"Invalid plan ID\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -4229,7 +4229,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                                if memberErr != nil {\n                                        slog.Warn(\"Billing: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", memberErr)\n                                        memberCount = 0\n                                }",
+      "snippet": "\t\t\t\tif memberErr != nil {\n\t\t\t\t\tslog.Warn(\"Billing: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", memberErr)\n\t\t\t\t\tmemberCount = 0\n\t\t\t\t}",
       "note": ""
     },
     {
@@ -4239,7 +4239,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                        if memberErr != nil {\n                                slog.Warn(\"Billing: failed to count tenant members for per-seat checkout\", \"tenantId\", tenant.ID.Hex(), \"error\", memberErr)\n                                memberCount = 0\n                        }",
+      "snippet": "\t\t\tif memberErr != nil {\n\t\t\t\tslog.Warn(\"Billing: failed to count tenant members for per-seat checkout\", \"tenantId\", tenant.ID.Hex(), \"error\", memberErr)\n\t\t\t\tmemberCount = 0\n\t\t\t}",
       "note": ""
     },
     {
@@ -4249,7 +4249,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                        if err != nil {\n                                slog.Error(\"Billing: failed to get/create customer\", \"error\", err)\n                                respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                                return\n                        }",
+      "snippet": "\t\t\tif err != nil {\n\t\t\t\tslog.Error(\"Billing: failed to get/create customer\", \"error\", err)\n\t\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\t\treturn\n\t\t\t}",
       "note": ""
     },
     {
@@ -4259,7 +4259,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                                if err != nil {\n                                        slog.Error(\"Billing: failed to create base price\", \"error\", err)\n                                        respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                                        return\n                                }",
+      "snippet": "\t\t\t\tif err != nil {\n\t\t\t\t\tslog.Error(\"Billing: failed to create base price\", \"error\", err)\n\t\t\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\t\t\treturn\n\t\t\t\t}",
       "note": ""
     },
     {
@@ -4269,7 +4269,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                                        if err != nil {\n                                                slog.Error(\"Billing: failed to create seat price\", \"error\", err)\n                                                respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                                                return\n                                        }",
+      "snippet": "\t\t\t\t\tif err != nil {\n\t\t\t\t\t\tslog.Error(\"Billing: failed to create seat price\", \"error\", err)\n\t\t\t\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\t\t\t\treturn\n\t\t\t\t\t}",
       "note": ""
     },
     {
@@ -4279,7 +4279,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                        if err != nil {\n                                slog.Error(\"Billing: failed to create checkout session\", \"error\", err)\n                                respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                                return\n                        }",
+      "snippet": "\t\t\tif err != nil {\n\t\t\t\tslog.Error(\"Billing: failed to create checkout session\", \"error\", err)\n\t\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\t\treturn\n\t\t\t}",
       "note": ""
     },
     {
@@ -4289,7 +4289,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        slog.Error(\"Billing: failed to get/create customer\", \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\tslog.Error(\"Billing: failed to get/create customer\", \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -4299,7 +4299,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        slog.Error(\"Billing: failed to create checkout session\", \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\tslog.Error(\"Billing: failed to create checkout session\", \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -4309,7 +4309,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        respondWithError(w, http.StatusBadRequest, \"Invalid bundle ID\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\trespondWithError(w, http.StatusBadRequest, \"Invalid bundle ID\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -4319,7 +4319,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        slog.Error(\"Billing: failed to get/create customer\", \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\tslog.Error(\"Billing: failed to get/create customer\", \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -4329,7 +4329,7 @@
       "function": "Checkout",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        slog.Error(\"Billing: failed to create checkout session\", \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\tslog.Error(\"Billing: failed to create checkout session\", \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create billing session\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -4339,277 +4339,277 @@
       "function": "Portal",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                slog.Error(\"Billing: failed to create portal session\", \"error\", err)\n                respondWithError(w, http.StatusInternalServerError, \"Failed to create portal session\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\tslog.Error(\"Billing: failed to create portal session\", \"error\", err)\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create portal session\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 397,
-      "end_line": 399,
+      "line": 396,
+      "end_line": 398,
       "function": "ListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if pageErr != nil || page < 1 {\n                page = 1\n        }",
+      "snippet": "\tif pageErr != nil || page < 1 {\n\t\tpage = 1\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 401,
-      "end_line": 403,
+      "line": 400,
+      "end_line": 402,
       "function": "ListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if perPageErr != nil || perPage < 1 || perPage > 100 {\n                perPage = 20\n        }",
+      "snippet": "\tif perPageErr != nil || perPage < 1 || perPage > 100 {\n\t\tperPage = 20\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 408,
-      "end_line": 411,
+      "line": 407,
+      "end_line": 410,
       "function": "ListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to count transactions\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count transactions\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 419,
-      "end_line": 422,
+      "line": 418,
+      "end_line": 421,
       "function": "ListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to fetch transactions\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to fetch transactions\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 426,
-      "end_line": 429,
+      "line": 425,
+      "end_line": 428,
       "function": "ListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(ctx, &transactions); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode transactions\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(ctx, &transactions); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode transactions\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 452,
-      "end_line": 455,
+      "line": 451,
+      "end_line": 454,
       "function": "GetInvoice",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid transaction ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid transaction ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 481,
-      "end_line": 484,
+      "line": 480,
+      "end_line": 483,
       "function": "GetInvoicePDF",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid transaction ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid transaction ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 609,
-      "end_line": 612,
+      "line": 608,
+      "end_line": 611,
       "function": "GetInvoicePDF",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := pdf.Output(&buf); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to generate PDF\")\n                return\n        }",
+      "snippet": "\tif err := pdf.Output(&buf); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to generate PDF\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 617,
-      "end_line": 620,
+      "line": 616,
+      "end_line": 619,
       "function": "GetInvoicePDF",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "        if _, err := w.Write(buf.Bytes()); err != nil {\n                slog.Error(\"failed to write invoice PDF response\", \"transactionId\", tx.ID.Hex(), \"error\", err)\n                return\n        }",
+      "snippet": "\tif _, err := w.Write(buf.Bytes()); err != nil {\n\t\tslog.Error(\"failed to write invoice PDF response\", \"transactionId\", tx.ID.Hex(), \"error\", err)\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 643,
-      "end_line": 647,
+      "line": 642,
+      "end_line": 646,
       "function": "CancelSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                slog.Error(\"Billing: failed to cancel subscription\", \"error\", err)\n                respondWithError(w, http.StatusInternalServerError, \"Failed to cancel subscription\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\tslog.Error(\"Billing: failed to cancel subscription\", \"error\", err)\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to cancel subscription\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 713,
-      "end_line": 715,
+      "line": 712,
+      "end_line": 714,
       "function": "AdminListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if pageErr != nil || page < 1 {\n                page = 1\n        }",
+      "snippet": "\tif pageErr != nil || page < 1 {\n\t\tpage = 1\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 717,
-      "end_line": 719,
+      "line": 716,
+      "end_line": 718,
       "function": "AdminListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if perPageErr != nil || perPage < 1 || perPage > 100 {\n                perPage = 50\n        }",
+      "snippet": "\tif perPageErr != nil || perPage < 1 || perPage > 100 {\n\t\tperPage = 50\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 738,
-      "end_line": 741,
+      "line": 737,
+      "end_line": 740,
       "function": "AdminListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to count transactions\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count transactions\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 749,
-      "end_line": 752,
+      "line": 748,
+      "end_line": 751,
       "function": "AdminListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to fetch transactions\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to fetch transactions\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 756,
-      "end_line": 759,
+      "line": 755,
+      "end_line": 758,
       "function": "AdminListTransactions",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(ctx, &transactions); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode transactions\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(ctx, &transactions); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode transactions\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 806,
-      "end_line": 809,
+      "line": 805,
+      "end_line": 808,
       "function": "AdminGetMetrics",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to fetch metrics\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to fetch metrics\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 813,
-      "end_line": 816,
+      "line": 812,
+      "end_line": 815,
       "function": "AdminGetMetrics",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(ctx, &metrics); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode metrics\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(ctx, &metrics); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode metrics\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 881,
-      "end_line": 884,
+      "line": 880,
+      "end_line": 883,
       "function": "computeLiveRevenue",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "        if err != nil {\n                slog.Warn(\"computeLiveRevenue: failed to parse date string\", \"dateStr\", dateStr, \"error\", err)\n                return 0\n        }",
+      "snippet": "\tif err != nil {\n\t\tslog.Warn(\"computeLiveRevenue: failed to parse date string\", \"dateStr\", dateStr, \"error\", err)\n\t\treturn 0\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 898,
-      "end_line": 901,
+      "line": 897,
+      "end_line": 900,
       "function": "computeLiveRevenue",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "        if err != nil {\n                slog.Warn(\"computeLiveRevenue: failed to aggregate financial transactions\", \"dateStr\", dateStr, \"error\", err)\n                return 0\n        }",
+      "snippet": "\tif err != nil {\n\t\tslog.Warn(\"computeLiveRevenue: failed to aggregate financial transactions\", \"dateStr\", dateStr, \"error\", err)\n\t\treturn 0\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 934,
-      "end_line": 937,
+      "line": 933,
+      "end_line": 936,
       "function": "computeLiveARR",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "        if err != nil {\n                slog.Warn(\"computeLiveARR: failed to aggregate active tenant subscriptions\", \"error\", err)\n                return 0\n        }",
+      "snippet": "\tif err != nil {\n\t\tslog.Warn(\"computeLiveARR: failed to aggregate active tenant subscriptions\", \"error\", err)\n\t\treturn 0\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 953,
-      "end_line": 956,
+      "line": 952,
+      "end_line": 955,
       "function": "AdminCancelSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid tenant ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid tenant ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 972,
-      "end_line": 975,
+      "line": 971,
+      "end_line": 974,
       "function": "AdminCancelSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 984,
-      "end_line": 988,
+      "line": 983,
+      "end_line": 987,
       "function": "AdminCancelSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err := h.stripe.CancelSubscriptionImmediately(ctx, tenant.StripeSubscriptionID); err != nil {\n                        slog.Error(\"Admin: failed to cancel subscription immediately\", \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to cancel subscription\")\n                        return\n                }",
+      "snippet": "\t\tif err := h.stripe.CancelSubscriptionImmediately(ctx, tenant.StripeSubscriptionID); err != nil {\n\t\t\tslog.Error(\"Admin: failed to cancel subscription immediately\", \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to cancel subscription\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 992,
-      "end_line": 996,
+      "line": 991,
+      "end_line": 995,
       "function": "AdminCancelSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        slog.Error(\"Admin: failed to cancel subscription\", \"error\", err)\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to cancel subscription\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\tslog.Error(\"Admin: failed to cancel subscription\", \"error\", err)\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to cancel subscription\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 1020,
-      "end_line": 1023,
+      "line": 1019,
+      "end_line": 1022,
       "function": "AdminUpdateSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid tenant ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid tenant ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 1028,
-      "end_line": 1031,
+      "line": 1027,
+      "end_line": 1030,
       "function": "AdminUpdateSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/billing.go",
-      "line": 1039,
-      "end_line": 1042,
+      "line": 1038,
+      "end_line": 1041,
       "function": "AdminUpdateSubscription",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil || result.MatchedCount == 0 {\n                respondWithError(w, http.StatusNotFound, \"Tenant not found\")\n                return\n        }",
+      "snippet": "\tif err != nil || result.MatchedCount == 0 {\n\t\trespondWithError(w, http.StatusNotFound, \"Tenant not found\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4929,7 +4929,7 @@
       "function": "ListBundles",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to list credit bundles\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to list credit bundles\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4939,7 +4939,7 @@
       "function": "ListBundles",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(r.Context(), &bundles); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode credit bundles\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(r.Context(), &bundles); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode credit bundles\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4949,7 +4949,7 @@
       "function": "ListBundles",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to count credit bundles\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count credit bundles\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4959,7 +4959,7 @@
       "function": "CreateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4969,7 +4969,7 @@
       "function": "CreateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := validateBundleRequest(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, err.Error())\n                return\n        }",
+      "snippet": "\tif err := validateBundleRequest(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, err.Error())\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4979,7 +4979,7 @@
       "function": "CreateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to check credit bundle name uniqueness\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to check credit bundle name uniqueness\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4989,7 +4989,7 @@
       "function": "CreateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to create credit bundle\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create credit bundle\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -4999,7 +4999,7 @@
       "function": "UpdateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid bundle ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid bundle ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5009,7 +5009,7 @@
       "function": "UpdateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5019,7 +5019,7 @@
       "function": "UpdateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := validateBundleRequest(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, err.Error())\n                return\n        }",
+      "snippet": "\tif err := validateBundleRequest(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, err.Error())\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5029,7 +5029,7 @@
       "function": "UpdateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to check credit bundle name uniqueness\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to check credit bundle name uniqueness\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -5039,7 +5039,7 @@
       "function": "UpdateBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if _, err := h.db.CreditBundles().UpdateByID(r.Context(), bundleID, update); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to update credit bundle\")\n                return\n        }",
+      "snippet": "\tif _, err := h.db.CreditBundles().UpdateByID(r.Context(), bundleID, update); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to update credit bundle\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5049,7 +5049,7 @@
       "function": "DeleteBundle",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid bundle ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid bundle ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5059,7 +5059,7 @@
       "function": "ListBundlesPublic",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to list credit bundles\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to list credit bundles\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5069,7 +5069,7 @@
       "function": "ListBundlesPublic",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(r.Context(), &bundles); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode credit bundles\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(r.Context(), &bundles); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode credit bundles\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -5414,112 +5414,112 @@
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 99,
-      "end_line": 101,
+      "line": 97,
+      "end_line": 99,
       "function": "ListLogs",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if pageErr != nil || page < 1 {\n                page = 1\n        }",
+      "snippet": "\tif pageErr != nil || page < 1 {\n\t\tpage = 1\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 103,
-      "end_line": 105,
+      "line": 101,
+      "end_line": 103,
       "function": "ListLogs",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if perPageErr != nil || perPage < 1 || perPage > 100 {\n                perPage = 50\n        }",
+      "snippet": "\tif perPageErr != nil || perPage < 1 || perPage > 100 {\n\t\tperPage = 50\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 119,
-      "end_line": 122,
+      "line": 117,
+      "end_line": 120,
       "function": "ListLogs",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to count logs\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count logs\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 130,
-      "end_line": 133,
+      "line": 128,
+      "end_line": 131,
       "function": "ListLogs",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to query logs\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to query logs\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 137,
-      "end_line": 140,
+      "line": 135,
+      "end_line": 138,
       "function": "ListLogs",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(ctx, &logs); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to read logs\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(ctx, &logs); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to read logs\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 161,
-      "end_line": 164,
+      "line": 159,
+      "end_line": 162,
       "function": "SeverityCounts",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to aggregate severity counts\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to aggregate severity counts\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 172,
-      "end_line": 175,
+      "line": 170,
+      "end_line": 173,
       "function": "SeverityCounts",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(r.Context(), &results); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to read severity counts\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(r.Context(), &results); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to read severity counts\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 201,
-      "end_line": 204,
+      "line": 199,
+      "end_line": 202,
       "function": "ExportCSV",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to query logs\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to query logs\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 218,
-      "end_line": 221,
+      "line": 216,
+      "end_line": 219,
       "function": "ExportCSV",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err := cursor.Decode(&log); err != nil {\n                        slog.Warn(\"failed to decode log row during CSV export\", \"error\", err)\n                        continue\n                }",
+      "snippet": "\t\tif err := cursor.Decode(&log); err != nil {\n\t\t\tslog.Warn(\"failed to decode log row during CSV export\", \"error\", err)\n\t\t\tcontinue\n\t\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 241,
-      "end_line": 243,
+      "line": 239,
+      "end_line": 241,
       "function": "ExportCSV",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "        if err := writer.Error(); err != nil {\n                slog.Error(\"CSV writer error during log export\", \"error\", err)\n        }",
+      "snippet": "\tif err := writer.Error(); err != nil {\n\t\tslog.Error(\"CSV writer error during log export\", \"error\", err)\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/logs.go",
-      "line": 240,
-      "end_line": 240,
+      "line": 238,
+      "end_line": 238,
       "function": "ExportCSV",
       "pattern": "missing_check",
       "severity": "HIGH",
-      "snippet": "        writer.Flush()",
+      "snippet": "\twriter.Flush()",
       "note": "statement-form call to known error-returning 'writer.Flush()'"
     },
     {
@@ -6249,7 +6249,7 @@
       "function": "ListMembers",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to fetch members\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to fetch members\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6259,7 +6259,7 @@
       "function": "ListMembers",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(r.Context(), &memberships); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode members\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(r.Context(), &memberships); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode members\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6269,7 +6269,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6279,7 +6279,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to check existing membership\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to check existing membership\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -6289,7 +6289,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to check existing invitations\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to check existing invitations\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6299,7 +6299,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n                        return\n                }",
+      "snippet": "\t\tif _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -6309,7 +6309,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to count tenant members\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count tenant members\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -6319,7 +6319,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to count pending invitations\")\n                        return\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count pending invitations\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -6329,7 +6329,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n                        respondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n                        return\n                }",
+      "snippet": "\t\tif _, err := h.db.Invitations().InsertOne(r.Context(), invitation); err != nil {\n\t\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to create invitation\")\n\t\t\treturn\n\t\t}",
       "note": ""
     },
     {
@@ -6339,7 +6339,7 @@
       "function": "InviteMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                if err != nil {\n                        slog.Warn(\"InviteMember: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                        memberCount = 0\n                }",
+      "snippet": "\t\tif err != nil {\n\t\t\tslog.Warn(\"InviteMember: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t\tmemberCount = 0\n\t\t}",
       "note": ""
     },
     {
@@ -6349,7 +6349,7 @@
       "function": "InviteMember",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "                if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {\n                        slog.Error(\"Failed to update seat quantity\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                } else {",
+      "snippet": "\t\tif err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {\n\t\t\tslog.Error(\"Failed to update seat quantity\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t} else {",
       "note": ""
     },
     {
@@ -6359,7 +6359,7 @@
       "function": "InviteMember",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "                        if err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, tenant.Name, token); err != nil {\n                                slog.Error(\"Failed to send invitation email\", \"to\", req.Email, \"error\", err)\n                        }",
+      "snippet": "\t\t\tif err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, tenant.Name, token); err != nil {\n\t\t\t\tslog.Error(\"Failed to send invitation email\", \"to\", req.Email, \"error\", err)\n\t\t\t}",
       "note": ""
     },
     {
@@ -6369,7 +6369,7 @@
       "function": "RemoveMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid user ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid user ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6379,7 +6379,7 @@
       "function": "RemoveMember",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "                        if err != nil {\n                                slog.Warn(\"RemoveMember: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n                                memberCount = 0\n                        }",
+      "snippet": "\t\t\tif err != nil {\n\t\t\t\tslog.Warn(\"RemoveMember: failed to count tenant members for seat calculation\", \"tenantId\", tenant.ID.Hex(), \"error\", err)\n\t\t\t\tmemberCount = 0\n\t\t\t}",
       "note": ""
     },
     {
@@ -6389,7 +6389,7 @@
       "function": "RemoveMember",
       "pattern": "logged_only",
       "severity": "MEDIUM",
-      "snippet": "                        if err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {\n                                slog.Error(\"Failed to update seat quantity\", \"tenant\", tenant.ID.Hex(), \"error\", err)\n                        } else {",
+      "snippet": "\t\t\tif err := h.stripe.UpdateSubscriptionQuantity(r.Context(), tenant.StripeSubscriptionID, int64(newSeats)); err != nil {\n\t\t\t\tslog.Error(\"Failed to update seat quantity\", \"tenant\", tenant.ID.Hex(), \"error\", err)\n\t\t\t} else {",
       "note": ""
     },
     {
@@ -6399,7 +6399,7 @@
       "function": "ChangeRole",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid user ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid user ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6409,7 +6409,7 @@
       "function": "ChangeRole",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6419,7 +6419,7 @@
       "function": "ChangeRole",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil || result.MatchedCount == 0 {\n                respondWithError(w, http.StatusNotFound, \"Member not found\")\n                return\n        }",
+      "snippet": "\tif err != nil || result.MatchedCount == 0 {\n\t\trespondWithError(w, http.StatusNotFound, \"Member not found\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6429,7 +6429,7 @@
       "function": "TransferOwnership",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid user ID\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid user ID\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -6439,47 +6439,47 @@
       "function": "TransferOwnership",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to verify target membership\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to verify target membership\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/tenant.go",
-      "line": 598,
-      "end_line": 601,
+      "line": 597,
+      "end_line": 600,
       "function": "GetActivity",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to fetch activity\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to fetch activity\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/tenant.go",
-      "line": 605,
-      "end_line": 608,
+      "line": 604,
+      "end_line": 607,
       "function": "GetActivity",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := cursor.All(r.Context(), &logs); err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to decode activity\")\n                return\n        }",
+      "snippet": "\tif err := cursor.All(r.Context(), &logs); err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to decode activity\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/tenant.go",
-      "line": 611,
-      "end_line": 614,
+      "line": 610,
+      "end_line": 613,
       "function": "GetActivity",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err != nil {\n                respondWithError(w, http.StatusInternalServerError, \"Failed to count activity logs\")\n                return\n        }",
+      "snippet": "\tif err != nil {\n\t\trespondWithError(w, http.StatusInternalServerError, \"Failed to count activity logs\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
       "file": "backend/internal/api/handlers/tenant.go",
-      "line": 636,
-      "end_line": 639,
+      "line": 635,
+      "end_line": 638,
       "function": "UpdateTenantSettings",
       "pattern": "proper_handling",
       "severity": "LOW",
-      "snippet": "        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n                respondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n                return\n        }",
+      "snippet": "\tif err := json.NewDecoder(r.Body).Decode(&req); err != nil {\n\t\trespondWithError(w, http.StatusBadRequest, \"Invalid request body\")\n\t\treturn\n\t}",
       "note": ""
     },
     {
@@ -8564,8 +8564,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 319,
-      "end_line": 321,
+      "line": 318,
+      "end_line": 320,
       "function": "FunnelMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8574,8 +8574,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 327,
-      "end_line": 329,
+      "line": 326,
+      "end_line": 328,
       "function": "FunnelMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8584,8 +8584,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 337,
-      "end_line": 339,
+      "line": 336,
+      "end_line": 338,
       "function": "FunnelMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8594,8 +8594,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 346,
-      "end_line": 348,
+      "line": 345,
+      "end_line": 347,
       "function": "FunnelMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8604,8 +8604,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 355,
-      "end_line": 357,
+      "line": 354,
+      "end_line": 356,
       "function": "FunnelMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8614,8 +8614,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 363,
-      "end_line": 365,
+      "line": 362,
+      "end_line": 364,
       "function": "FunnelMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8624,8 +8624,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 452,
-      "end_line": 454,
+      "line": 451,
+      "end_line": 453,
       "function": "RetentionCohorts",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8634,8 +8634,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 508,
-      "end_line": 511,
+      "line": 507,
+      "end_line": 510,
       "function": "EngagementMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8644,8 +8644,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 515,
-      "end_line": 518,
+      "line": 514,
+      "end_line": 517,
       "function": "EngagementMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8654,8 +8654,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 540,
-      "end_line": 542,
+      "line": 539,
+      "end_line": 541,
       "function": "EngagementMetrics",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8664,8 +8664,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 578,
-      "end_line": 580,
+      "line": 577,
+      "end_line": 579,
       "function": "KPIs",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8674,8 +8674,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 588,
-      "end_line": 590,
+      "line": 587,
+      "end_line": 589,
       "function": "KPIs",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8684,8 +8684,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 604,
-      "end_line": 606,
+      "line": 603,
+      "end_line": 605,
       "function": "computeKPIs",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8694,8 +8694,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 610,
-      "end_line": 612,
+      "line": 609,
+      "end_line": 611,
       "function": "computeKPIs",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8704,8 +8704,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 628,
-      "end_line": 630,
+      "line": 627,
+      "end_line": 629,
       "function": "computeKPIs",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8714,8 +8714,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 635,
-      "end_line": 637,
+      "line": 634,
+      "end_line": 636,
       "function": "computeKPIs",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8724,8 +8724,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 647,
-      "end_line": 649,
+      "line": 646,
+      "end_line": 648,
       "function": "computeKPIs",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8734,8 +8734,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 654,
-      "end_line": 656,
+      "line": 653,
+      "end_line": 655,
       "function": "computeKPIs",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8744,8 +8744,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 712,
-      "end_line": 714,
+      "line": 709,
+      "end_line": 711,
       "function": "CustomEventSummary",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8754,8 +8754,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 728,
-      "end_line": 731,
+      "line": 725,
+      "end_line": 728,
       "function": "CustomEventSummary",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8764,8 +8764,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 765,
-      "end_line": 767,
+      "line": 762,
+      "end_line": 764,
       "function": "ListEventTypes",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8774,8 +8774,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 804,
-      "end_line": 806,
+      "line": 801,
+      "end_line": 803,
       "function": "countDistinct",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8784,8 +8784,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 825,
-      "end_line": 827,
+      "line": 822,
+      "end_line": 824,
       "function": "getActiveTenantIDs",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8794,8 +8794,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 849,
-      "end_line": 851,
+      "line": 846,
+      "end_line": 848,
       "function": "getUserIDsForTenants",
       "pattern": "proper_handling",
       "severity": "LOW",
@@ -8804,8 +8804,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 914,
-      "end_line": 917,
+      "line": 911,
+      "end_line": 914,
       "function": "weeklyActiveUsers",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8814,8 +8814,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 962,
-      "end_line": 965,
+      "line": 959,
+      "end_line": 962,
       "function": "monthlyActiveUsers",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8824,8 +8824,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1000,
-      "end_line": 1003,
+      "line": 997,
+      "end_line": 1000,
       "function": "topCustomEvents",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8834,8 +8834,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1031,
-      "end_line": 1034,
+      "line": 1028,
+      "end_line": 1031,
       "function": "creditConsumptionTrend",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8844,8 +8844,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1107,
-      "end_line": 1110,
+      "line": 1104,
+      "end_line": 1107,
       "function": "calculateMRR",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8854,8 +8854,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1151,
-      "end_line": 1154,
+      "line": 1148,
+      "end_line": 1151,
       "function": "medianTimeToFirstPurchase",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8864,8 +8864,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1201,
-      "end_line": 1204,
+      "line": 1198,
+      "end_line": 1201,
       "function": "planDistribution",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8874,8 +8874,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1242,
-      "end_line": 1245,
+      "line": 1239,
+      "end_line": 1242,
       "function": "mrrTrend",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8884,8 +8884,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1273,
-      "end_line": 1276,
+      "line": 1270,
+      "end_line": 1273,
       "function": "subscriberTrend",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -8894,8 +8894,8 @@
     },
     {
       "file": "backend/internal/telemetry/service.go",
-      "line": 1294,
-      "end_line": 1297,
+      "line": 1291,
+      "end_line": 1294,
       "function": "aggregateDailyPoints",
       "pattern": "logged_only",
       "severity": "MEDIUM",
@@ -9647,7 +9647,7 @@
     {
       "path": "backend/internal/api/handlers/billing.go",
       "is_test": false,
-      "lines": 1046,
+      "lines": 1045,
       "total_error_sites": 41,
       "proper": 37,
       "logged": 4,
@@ -9779,7 +9779,7 @@
     {
       "path": "backend/internal/api/handlers/logs.go",
       "is_test": false,
-      "lines": 252,
+      "lines": 250,
       "total_error_sites": 11,
       "proper": 9,
       "logged": 1,
@@ -9887,7 +9887,7 @@
     {
       "path": "backend/internal/api/handlers/tenant.go",
       "is_test": false,
-      "lines": 663,
+      "lines": 662,
       "total_error_sites": 24,
       "proper": 21,
       "logged": 3,
@@ -10871,7 +10871,7 @@
     {
       "path": "backend/internal/telemetry/service.go",
       "is_test": false,
-      "lines": 1322,
+      "lines": 1319,
       "total_error_sites": 36,
       "proper": 7,
       "logged": 29,

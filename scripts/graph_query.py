@@ -143,6 +143,30 @@ def get_all_struct_names(graph: dict) -> list[str]:
     return sorted(set(names))
 
 
+def _candidate_labels_for_function(function_name: str) -> list[str]:
+    """Return all possible graph-label forms for a function name.
+
+    Handles:
+      - Plain functions: "cmdDoctor" → ["cmdDoctor", "cmdDoctor()", "cmddoctor", "cmddoctor()"]
+      - Methods: "(*AdminHandler).ListTenants" → [".ListTenants()", ".ListTenants",
+        "ListTenants", "ListTenants()", "listtenants", ".listtenants()"]
+    """
+    candidates = [function_name, function_name + "()", function_name.lower(), function_name.lower() + "()"]
+    if ")." in function_name:
+        idx = function_name.rfind(").")
+        method = function_name[idx + 2:]
+        if method:
+            candidates.extend([
+                f".{method}()",
+                f".{method}",
+                method,
+                method + "()",
+                method.lower(),
+                f".{method.lower()}()",
+            ])
+    return candidates
+
+
 def get_function_filter_fields_with_confidence(graph: dict, function_name: str) -> dict[str, str]:
     """Get filter field names with their method/confidence level.
     
@@ -152,9 +176,11 @@ def get_function_filter_fields_with_confidence(graph: dict, function_name: str) 
     - "struct_type": InsertOne(ctx, struct) — inferred from struct type
     """
     func_node = None
+    candidates = _candidate_labels_for_function(function_name)
+    candidate_set = set(candidates)
     for n in graph.get("nodes", []):
         label = n.get("label", "")
-        if label == function_name or label == function_name + "()":
+        if label in candidate_set:
             func_node = n
             break
     

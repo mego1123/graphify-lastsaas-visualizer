@@ -7,7 +7,7 @@
 | Metric | Value |
 | --- | ---: |
 | Files scanned | 101 |
-| Total lines | 29,016 |
+| Total lines | 29,012 |
 | MongoDB queries scanned | **598** |
 | Total findings | 151 |
 | Risky findings (CRITICAL/HIGH/MEDIUM) | **25** |
@@ -611,7 +611,7 @@
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-                  if err := h.db.Plans().FindOne(ctx, bson.M{"_id": planID}).Decode(&plan); err != nil {
+  		if err := h.db.Plans().FindOne(ctx, bson.M{"_id": planID}).Decode(&plan); err != nil {
   ```
 - **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:313` in `Checkout`
   - **Field:** `_id`
@@ -619,63 +619,63 @@
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-                  if err := h.db.CreditBundles().FindOne(ctx, bson.M{"_id": bundleID, "isActive": true}).Decode(&bundle); err != nil {
+  		if err := h.db.CreditBundles().FindOne(ctx, bson.M{"_id": bundleID, "isActive": true}).Decode(&bundle); err != nil {
   ```
-- **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:458` in `GetInvoice`
+- **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:457` in `GetInvoice`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["id"])` (var `txID`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{"_id": txID, "tenantId": tenant.ID}).Decode(&tx); err != nil {
+  	if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{"_id": txID, "tenantId": tenant.ID}).Decode(&tx); err != nil {
   ```
-- **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:487` in `GetInvoicePDF`
+- **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:486` in `GetInvoicePDF`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["id"])` (var `txID`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{"_id": txID, "tenantId": tenant.ID}).Decode(&tx); err != nil {
+  	if err := h.db.FinancialTransactions().FindOne(ctx, bson.M{"_id": txID, "tenantId": tenant.ID}).Decode(&tx); err != nil {
   ```
-- **[LOW] CountDocuments** — `backend/internal/api/handlers/billing.go:724` in `AdminListTransactions`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/billing.go:723` in `AdminListTransactions`
   - **Field:** `tenantId`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(tenantID)` (var `oid`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)
+  	total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)
   ```
-- **[LOW] Find** — `backend/internal/api/handlers/billing.go:724` in `AdminListTransactions`
+- **[LOW] Find** — `backend/internal/api/handlers/billing.go:723` in `AdminListTransactions`
   - **Field:** `tenantId`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(tenantID)` (var `oid`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)
+  	cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)
   ```
-- **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:959` in `AdminCancelSubscription`
+- **[LOW] FindOne** — `backend/internal/api/handlers/billing.go:958` in `AdminCancelSubscription`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["tenantId"])` (var `tenantID`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          if err := h.db.Tenants().FindOne(ctx, bson.M{"_id": tenantID}).Decode(&tenant); err != nil {
+  	if err := h.db.Tenants().FindOne(ctx, bson.M{"_id": tenantID}).Decode(&tenant); err != nil {
   ```
-- **[LOW] UpdateOne** — `backend/internal/api/handlers/billing.go:1005` in `AdminCancelSubscription`
+- **[LOW] UpdateOne** — `backend/internal/api/handlers/billing.go:1004` in `AdminCancelSubscription`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["tenantId"])` (var `tenantID`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-                  if _, err := h.db.Tenants().UpdateOne(ctx, bson.M{"_id": tenantID}, bson.M{"$set": updates}); err != nil {
+  		if _, err := h.db.Tenants().UpdateOne(ctx, bson.M{"_id": tenantID}, bson.M{"$set": updates}); err != nil {
   ```
-- **[LOW] UpdateOne** — `backend/internal/api/handlers/billing.go:1038` in `AdminUpdateSubscription`
+- **[LOW] UpdateOne** — `backend/internal/api/handlers/billing.go:1037` in `AdminUpdateSubscription`
   - **Field:** `_id`
   - **Source:** `sanitized:primitive.ObjectIDFromHex(mux.Vars(r)["tenantId"])` (var `tenantID`)
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          result, err := h.db.Tenants().UpdateOne(ctx, bson.M{"_id": tenantID}, bson.M{"$set": updates})
+  	result, err := h.db.Tenants().UpdateOne(ctx, bson.M{"_id": tenantID}, bson.M{"$set": updates})
   ```
 
 ### `backend/internal/api/handlers/branding.go`
@@ -1131,7 +1131,7 @@
   - **Sanitized:** no
   - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          if err := h.db.Users().FindOne(r.Context(), bson.M{"email": req.Email}).Decode(&existingUser); err == nil {
+  	if err := h.db.Users().FindOne(r.Context(), bson.M{"email": req.Email}).Decode(&existingUser); err == nil {
   ```
 - **[HIGH] CountDocuments** — `backend/internal/api/handlers/tenant.go:187` in `InviteMember`
   - **Field:** `email`
@@ -1139,12 +1139,12 @@
   - **Sanitized:** no
   - _direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          invCount, err := h.db.Invitations().CountDocuments(r.Context(), bson.M{
-                  "tenantId":  tenant.ID,
-                  "email":     req.Email,
-                  "status":    models.InvitationPending,
-                  "expiresAt": bson.M{"$gt": time.Now()},
-          })
+  	invCount, err := h.db.Invitations().CountDocuments(r.Context(), bson.M{
+  		"tenantId":  tenant.ID,
+  		"email":     req.Email,
+  		"status":    models.InvitationPending,
+  		"expiresAt": bson.M{"$gt": time.Now()},
+  	})
   ```
 - **[LOW] FindOne** — `backend/internal/api/handlers/tenant.go:344` in `RemoveMember`
   - **Field:** `userId`
@@ -1152,10 +1152,10 @@
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          if err := h.db.TenantMemberships().FindOne(r.Context(), bson.M{
-                  "userId":   targetUserID,
-                  "tenantId": tenant.ID,
-          }).Decode(&targetMembership); err != nil {
+  	if err := h.db.TenantMemberships().FindOne(r.Context(), bson.M{
+  		"userId":   targetUserID,
+  		"tenantId": tenant.ID,
+  	}).Decode(&targetMembership); err != nil {
   ```
 - **[LOW] UpdateOne** — `backend/internal/api/handlers/tenant.go:456` in `ChangeRole`
   - **Field:** `userId`
@@ -1163,10 +1163,10 @@
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          result, err := h.db.TenantMemberships().UpdateOne(r.Context(),
-                  bson.M{"userId": targetUserID, "tenantId": tenant.ID},
-                  bson.M{"$set": bson.M{"role": req.Role, "updatedAt": time.Now()}},
-          )
+  	result, err := h.db.TenantMemberships().UpdateOne(r.Context(),
+  		bson.M{"userId": targetUserID, "tenantId": tenant.ID},
+  		bson.M{"$set": bson.M{"role": req.Role, "updatedAt": time.Now()}},
+  	)
   ```
 - **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:508` in `TransferOwnership`
   - **Field:** `userId`
@@ -1174,10 +1174,10 @@
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{
-                  "userId":   targetUserID,
-                  "tenantId": tenant.ID,
-          })
+  	count, err := h.db.TenantMemberships().CountDocuments(r.Context(), bson.M{
+  		"userId":   targetUserID,
+  		"tenantId": tenant.ID,
+  	})
   ```
 - **[LOW] UpdateOne** — `backend/internal/api/handlers/tenant.go:524` in `TransferOwnership`
   - **Field:** `userId`
@@ -1185,74 +1185,74 @@
   - **Sanitized:** yes, via `primitive.ObjectIDFromHex`
   - _value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),
-                  bson.M{"userId": targetUserID, "tenantId": tenant.ID},
-                  bson.M{"$set": bson.M{"role": models.RoleOwner, "updatedAt": now}},
-          ); err != nil {
+  	if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),
+  		bson.M{"userId": targetUserID, "tenantId": tenant.ID},
+  		bson.M{"$set": bson.M{"role": models.RoleOwner, "updatedAt": now}},
+  	); err != nil {
   ```
-- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:588` in `GetActivity`
+- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:587` in `GetActivity`
   - **Field:** `action.$regex`
   - **Source:** `sanitized:escapeRegexInput(...action...)` (var `action`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS — ensure input is escaped via escapeRegexInput()_
   ```go
-          cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
+  	cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
   ```
-- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:588` in `GetActivity`
+- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:587` in `GetActivity`
   - **Field:** `action`
   - **Source:** `sanitized:escapeRegexInput(...action...)` (var `action`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
+  	cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
   ```
-- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:588` in `GetActivity`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:587` in `GetActivity`
   - **Field:** `action.$regex`
   - **Source:** `sanitized:escapeRegexInput(...action...)` (var `action`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS — ensure input is escaped via escapeRegexInput()_
   ```go
-          total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
+  	total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
   ```
-- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:588` in `GetActivity`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:587` in `GetActivity`
   - **Field:** `action`
   - **Source:** `sanitized:escapeRegexInput(...action...)` (var `action`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
+  	total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
   ```
-- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:591` in `GetActivity`
+- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:590` in `GetActivity`
   - **Field:** `message.$regex`
   - **Source:** `sanitized:escapeRegexInput(...search...)` (var `search`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS — ensure input is escaped via escapeRegexInput()_
   ```go
-          cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
+  	cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
   ```
-- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:591` in `GetActivity`
+- **[LOW] Find** — `backend/internal/api/handlers/tenant.go:590` in `GetActivity`
   - **Field:** `message`
   - **Source:** `sanitized:escapeRegexInput(...search...)` (var `search`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
+  	cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)
   ```
-- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:591` in `GetActivity`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:590` in `GetActivity`
   - **Field:** `message.$regex`
   - **Source:** `sanitized:escapeRegexInput(...search...)` (var `search`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS — ensure input is escaped via escapeRegexInput()_
   ```go
-          total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
+  	total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
   ```
-- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:591` in `GetActivity`
+- **[LOW] CountDocuments** — `backend/internal/api/handlers/tenant.go:590` in `GetActivity`
   - **Field:** `message`
   - **Source:** `sanitized:escapeRegexInput(...search...)` (var `search`)
   - **Sanitized:** yes, via `escapeRegexInput`
   - _value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value — ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection_
   ```go
-          total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
+  	total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)
   ```
 
 ### `backend/internal/api/handlers/usage.go`

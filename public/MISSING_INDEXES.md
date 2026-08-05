@@ -124,14 +124,14 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 
 ### `backend/internal/api/handlers/billing.go`
 
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:737` `CountDocuments` on `financial_transactions` in `AdminListTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:736` `CountDocuments` on `financial_transactions` in `AdminListTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
   ```go
   total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)
   ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:748` `Find` on `financial_transactions` in `AdminListTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:747` `Find` on `financial_transactions` in `AdminListTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -141,7 +141,7 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 
 ### `backend/internal/api/handlers/logs.go`
 
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:200` `Find` on `system_logs` in `ExportCSV`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:198` `Find` on `system_logs` in `ExportCSV`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -237,7 +237,7 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 
 ### `backend/internal/telemetry/service.go`
 
-- **[MEDIUM] No covering index** — `backend/internal/telemetry/service.go:625` `CountDocuments` on `tenants` in `computeKPIs`
+- **[MEDIUM] No covering index** — `backend/internal/telemetry/service.go:624` `CountDocuments` on `tenants` in `computeKPIs`
   - Filter fields: `canceledAt``
   - _filter fields ['canceledAt'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `canceledAt` (or a compound index starting with it) on `tenants`.

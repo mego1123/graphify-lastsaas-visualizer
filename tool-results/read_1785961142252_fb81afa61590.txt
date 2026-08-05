@@ -1,0 +1,934 @@
+     1→// graphify_filter_tracer uses golang.org/x/tools/go/ssa to trace which
+     2→// fields get written to bson.M / bson.D filter variables in functions
+     3→// that perform MongoDB operations.
+     4→//
+     5→// For each function that contains a call to one of:
+     6→//
+     7→//      Find, FindOne, FindOneAndUpdate, FindOneAndDelete, FindOneAndReplace,
+     8→//      UpdateOne, UpdateMany, DeleteOne, DeleteMany, InsertOne, InsertMany,
+     9→//      CountDocuments, Aggregate, ReplaceOne, BulkWrite
+    10→//
+    11→// it produces one or more Finding records describing how a filter (or
+    12→// document / update) was constructed:
+    13→//
+    14→//   - "literal"     — a bson.M{...} or bson.D{...} composite literal that
+    15→//                     has at least one key. Keys are extracted from the
+    16→//                     AST so that both map-style and bson.E-style literals
+    17→//                     are handled.
+    18→//   - "map_update"  — an explicit `filter["x"] = y` write discovered via
+    19→//                     ssa.MapUpdate. MapUpdates that are part of an
+    20→//                     inline bson.M{...} literal are deduplicated against
+    21→//     the "literal" pass using source positions, so they only appear once.
+    22→//   - "struct_type" — a Call to InsertOne / InsertMany / ReplaceOne whose
+    23→//                     document argument is a struct (or slice of structs).
+    24→//                     The reported fields are the bson tag names of the
+    25→//                     struct's fields (flattened through embedded structs).
+    26→//
+    27→// Output is a JSON array of FunctionReport objects, written to stdout or
+    28→// a file with -out.
+    29→//
+    30→// Usage:
+    31→//
+    32→//      cd /path/to/go/project && go run /path/to/graphify_filter_tracer/main.go -out filters.json
+    33→package main
+    34→
+    35→import (
+    36→        "encoding/json"
+    37→        "flag"
+    38→        "fmt"
+    39→        "go/ast"
+    40→        "go/constant"
+    41→        "go/token"
+    42→        "go/types"
+    43→        "os"
+    44→        "path/filepath"
+    45→        "reflect"
+    46→        "sort"
+    47→        "strconv"
+    48→        "strings"
+    49→
+    50→        "golang.org/x/tools/go/packages"
+    51→        "golang.org/x/tools/go/ssa"
+    52→        "golang.org/x/tools/go/ssa/ssautil"
+    53→)
+    54→
+    55→// Finding describes one observation of how a filter / document was
+    56→// constructed inside a function.
+    57→type Finding struct {
+    58→        Method     string   `json:"method"`               // literal | map_update | struct_type
+    59→        Operation  string   `json:"operation,omitempty"`  // Find, FindOne, InsertOne, ...
+    60→        Fields     []string `json:"fields"`                // extracted field names
+    61→        StructType string  `json:"structType,omitempty"`  // for struct_type, e.g. "models.User"
+    62→        Variable   string   `json:"variable,omitempty"`    // for map_update, the map variable name (best-effort)
+    63→        Position   string   `json:"position"`              // file:line
+    64→}
+    65→
+    66→// FunctionReport aggregates findings for one function.
+    67→type FunctionReport struct {
+    68→        Function string    `json:"function"`
+    69→        Package  string    `json:"package"`
+    70→        File     string    `json:"file"`
+    71→        Line     int       `json:"line"`
+    72→        Findings []Finding `json:"findings"`
+    73→}
+    74→
+    75→// Config holds CLI options.
+    76→type Config struct {
+    77→        Out      string
+    78→        Patterns []string
+    79→        Verbose  bool
+    80→        Tests    bool
+    81→}
+    82→
+    83→// mongoOps is the set of method names we treat as MongoDB operations.
+    84→// The first occurrence of any of these inside a function marks that
+    85→// function as "interesting".
+    86→var mongoOps = map[string]bool{
+    87→        "Find":              true,
+    88→        "FindOne":           true,
+    89→        "FindOneAndUpdate":  true,
+    90→        "FindOneAndDelete":  true,
+    91→        "FindOneAndReplace": true,
+    92→        "UpdateOne":         true,
+    93→        "UpdateMany":        true,
+    94→        "DeleteOne":         true,
+    95→        "DeleteMany":        true,
+    96→        "InsertOne":         true,
+    97→        "InsertMany":        true,
+    98→        "CountDocuments":    true,
+    99→        "Aggregate":         true,
+   100→        "ReplaceOne":        true,
+   101→        "BulkWrite":         true,
+   102→}
+   103→
+   104→// methodsWhoseArg1IsFilter lists mongo ops where Args[dataArgIdx] is a
+   105→// filter (not a document / pipeline).
+   106→var methodsWhoseArg1IsFilter = map[string]bool{
+   107→        "Find": true, "FindOne": true,
+   108→        "FindOneAndUpdate": true, "FindOneAndDelete": true, "FindOneAndReplace": true,
+   109→        "UpdateOne": true, "UpdateMany": true,
+   110→        "DeleteOne": true, "DeleteMany": true,
+   111→        "CountDocuments": true, "ReplaceOne": true,
+   112→}
+   113→
+   114→// methodsWhoseArg1IsDocument lists mongo ops where Args[dataArgIdx] is a
+   115→// document (struct / map) being inserted or replaced — these are the
+   116→// candidates for the struct_type pass.
+   117→var methodsWhoseArg1IsDocument = map[string]bool{
+   118→        "InsertOne": true, "InsertMany": true, "ReplaceOne": true,
+   119→        "FindOneAndReplace": true,
+   120→}
+   121→
+   122→func main() {
+   123→        var (
+   124→                out     = flag.String("out", "", "write JSON output to this file instead of stdout")
+   125→                verbose = flag.Bool("v", false, "emit progress to stderr")
+   126→                tests   = flag.Bool("tests", false, "include _test.go files")
+   127→        )
+   128→        flag.Usage = func() {
+   129→                fmt.Fprintln(os.Stderr, "usage: graphify_filter_tracer [-out FILE] [-v] [-tests] [PATTERN ...]")
+   130→                fmt.Fprintln(os.Stderr, "")
+   131→                fmt.Fprintln(os.Stderr, "PATTERN defaults to \"./...\". Run from the root of the Go module you want to analyze.")
+   132→                flag.PrintDefaults()
+   133→        }
+   134→        flag.Parse()
+   135→
+   136→        cfg := Config{
+   137→                Out:      *out,
+   138→                Patterns: flag.Args(),
+   139→                Verbose:  *verbose,
+   140→                Tests:    *tests,
+   141→        }
+   142→        if len(cfg.Patterns) == 0 {
+   143→                cfg.Patterns = []string{"./..."}
+   144→        }
+   145→
+   146→        if err := run(cfg); err != nil {
+   147→                fmt.Fprintf(os.Stderr, "error: %v\n", err)
+   148→                os.Exit(1)
+   149→        }
+   150→}
+   151→
+   152→func run(cfg Config) error {
+   153→        if cfg.Verbose {
+   154→                fmt.Fprintf(os.Stderr, "loading packages: %v\n", cfg.Patterns)
+   155→        }
+   156→
+   157→        mode := packages.NeedName | packages.NeedFiles | packages.NeedTypes |
+   158→                packages.NeedTypesInfo | packages.NeedSyntax | packages.NeedDeps |
+   159→                packages.NeedImports | packages.NeedModule
+   160→
+   161→        pkgs, err := packages.Load(&packages.Config{
+   162→                Mode:       mode,
+   163→                Tests:      cfg.Tests,
+   164→                BuildFlags: []string{"-tags=!ignore"},
+   165→        }, cfg.Patterns...)
+   166→        if err != nil {
+   167→                return fmt.Errorf("packages.Load: %w", err)
+   168→        }
+   169→
+   170→        var loadErrs int
+   171→        for _, p := range pkgs {
+   172→                for _, e := range p.Errors {
+   173→                        loadErrs++
+   174→                        if cfg.Verbose {
+   175→                                fmt.Fprintf(os.Stderr, "  pkg %s: %v\n", p.ID, e)
+   176→                        }
+   177→                }
+   178→        }
+   179→        if cfg.Verbose {
+   180→                fmt.Fprintf(os.Stderr, "loaded %d packages (%d errors)\n", len(pkgs), loadErrs)
+   181→        }
+   182→
+   183→        // Build SSA only for the initial packages (deps=false). Dependency
+   184→        // packages get placeholder SSA packages with no instructions, which
+   185→        // is fine — we only walk the initial set's functions.
+   186→        prog, ssaPkgs := ssautil.Packages(pkgs, ssa.InstantiateGenerics)
+   187→        prog.Build()
+   188→        if cfg.Verbose {
+   189→                fmt.Fprintf(os.Stderr, "built SSA for %d packages\n", len(ssaPkgs))
+   190→        }
+   191→
+   192→        // Map types.Package -> bool for the initial set, so we can filter
+   193→        // out functions belonging to dependencies.
+   194→        initial := make(map[*types.Package]bool)
+   195→        // Map types.Package -> *types.Info so the AST pass can do precise
+   196→        // type resolution (e.g. detect `map[string]interface{}` literals
+   197→        // that aren't typed as bson.M).
+   198→        infoByPkg := make(map[*types.Package]*types.Info)
+   199→        for _, p := range pkgs {
+   200→                if p.Types != nil {
+   201→                        initial[p.Types] = true
+   202→                        if p.TypesInfo != nil {
+   203→                                infoByPkg[p.Types] = p.TypesInfo
+   204→                        }
+   205→                }
+   206→        }
+   207→
+   208→        fset := prog.Fset
+   209→        reports := []FunctionReport{}
+   210→
+   211→        for fn := range ssautil.AllFunctions(prog) {
+   212→                // Skip synthetic functions (anonymous wrappers, init wrappers,
+   213→                // interface thunks, etc.) — they have no source-level object.
+   214→                if fn.Object() == nil {
+   215→                        continue
+   216→                }
+   217→                // Skip functions from dependency packages.
+   218→                pkg := fn.Package()
+   219→                if pkg == nil || pkg.Pkg == nil || !initial[pkg.Pkg] {
+   220→                        continue
+   221→                }
+   222→                // Skip functions with no body (e.g. extern declarations).
+   223→                if fn.Blocks == nil || len(fn.Blocks) == 0 {
+   224→                        continue
+   225→                }
+   226→
+   227→                // Determine whether this function calls any mongo op. While
+   228→                // doing so, collect the call sites so we can later attribute
+   229→                // findings to specific operations.
+   230→                mongoCalls := collectMongoCalls(fn)
+   231→                if len(mongoCalls) == 0 {
+   232→                        continue
+   233→                }
+   234→
+   235→                pos := fset.Position(fn.Pos())
+   236→                rpt := FunctionReport{
+   237→                        Function: fn.RelString(pkg.Pkg),
+   238→                        Package:  pkg.Pkg.Path(),
+   239→                        File:     relPath(pos.Filename),
+   240→                        Line:     pos.Line,
+   241→                        Findings: []Finding{},
+   242→                }
+   243→
+   244→                info := infoByPkg[pkg.Pkg]
+   245→
+   246→                // Pass 1: AST scan for bson.M{...} / bson.D{...} / map[string]any{}
+   247→                // literals. Records source ranges of all matched literals so the
+   248→                // MapUpdate pass can dedupe inline-construction updates.
+   249→                literalRanges := scanLiterals(fn, info, fset, &rpt)
+   250→
+   251→                // Pass 2: SSA scan for MapUpdates on bson.M-typed maps.
+   252→                scanMapUpdates(fn, fset, literalRanges, &rpt)
+   253→
+   254→                // Pass 3: SSA scan for struct-typed args to InsertOne / etc.
+   255→                scanStructArgs(fn, fset, mongoCalls, &rpt)
+   256→
+   257→                // Only emit reports for functions that produced at least one
+   258→                // finding OR explicitly call a mongo op (so callers can see
+   259→                // "this function uses Mongo but we couldn't extract a filter").
+   260→                if len(rpt.Findings) > 0 {
+   261→                        reports = append(reports, rpt)
+   262→                }
+   263→        }
+   264→
+   265→        // Stable ordering.
+   266→        sort.Slice(reports, func(i, j int) bool {
+   267→                if reports[i].Package != reports[j].Package {
+   268→                        return reports[i].Package < reports[j].Package
+   269→                }
+   270→                if reports[i].File != reports[j].File {
+   271→                        return reports[i].File < reports[j].File
+   272→                }
+   273→                return reports[i].Line < reports[j].Line
+   274→        })
+   275→
+   276→        if cfg.Verbose {
+   277→                total := 0
+   278→                for _, r := range reports {
+   279→                        total += len(r.Findings)
+   280→                }
+   281→                fmt.Fprintf(os.Stderr, "emitted %d findings across %d functions\n", total, len(reports))
+   282→        }
+   283→
+   284→        buf, err := json.MarshalIndent(reports, "", "  ")
+   285→        if err != nil {
+   286→                return fmt.Errorf("marshal: %w", err)
+   287→        }
+   288→        if cfg.Out != "" {
+   289→                if err := os.WriteFile(cfg.Out, buf, 0o644); err != nil {
+   290→                        return fmt.Errorf("write %s: %w", cfg.Out, err)
+   291→                }
+   292→                if cfg.Verbose {
+   293→                        fmt.Fprintf(os.Stderr, "wrote %s (%d bytes)\n", cfg.Out, len(buf))
+   294→                }
+   295→                return nil
+   296→        }
+   297→        _, _ = os.Stdout.Write(buf)
+   298→        _, _ = os.Stdout.Write([]byte("\n"))
+   299→        return nil
+   300→}
+   301→
+   302→// mongoCall is a recorded call to one of the MongoDB operations.
+   303→type mongoCall struct {
+   304→        op   string         // method name, e.g. "Find"
+   305→        call *ssa.Call      // the SSA call instruction
+   306→        pos  token.Position // position of the call
+   307→}
+   308→
+   309→// collectMongoCalls walks every block of fn looking for *ssa.Call
+   310→// instructions whose callee (static or invoked) matches one of the
+   311→// MongoDB operation names.
+   312→func collectMongoCalls(fn *ssa.Function) []mongoCall {
+   313→        var out []mongoCall
+   314→        for _, b := range fn.Blocks {
+   315→                for _, instr := range b.Instrs {
+   316→                        call, ok := instr.(*ssa.Call)
+   317→                        if !ok {
+   318→                                continue
+   319→                        }
+   320→                        cc := call.Common()
+   321→                        name := ""
+   322→                        if cc.IsInvoke() {
+   323→                                name = cc.Method.Name()
+   324→                        } else if f := cc.StaticCallee(); f != nil {
+   325→                                name = f.Name()
+   326→                        }
+   327→                        if name == "" || !mongoOps[name] {
+   328→                                continue
+   329→                        }
+   330→                        out = append(out, mongoCall{
+   331→                                op:   name,
+   332→                                call: call,
+   333→                                pos:  fn.Prog.Fset.Position(cc.Pos()),
+   334→                        })
+   335→                }
+   336→        }
+   337→        return out
+   338→}
+   339→
+   340→// scanLiterals walks the AST of fn's body looking for composite literals
+   341→// whose type is bson.M, bson.D, or map[string]interface{} (the underlying
+   342→// type of bson.M). For each non-empty literal it emits a "literal"
+   343→// finding with the field keys. It also returns the source ranges of ALL
+   344→// matched literals (including empty ones) so the MapUpdate pass can skip
+   345→// updates that belong to a literal construction.
+   346→//
+   347→// Detection uses TypesInfo for precise type resolution when available,
+   348→// falling back to AST identifier matching (bson.M / bson.D) so the tool
+   349→// still works on packages whose TypesInfo is incomplete.
+   350→func scanLiterals(fn *ssa.Function, info *types.Info, fset *token.FileSet, rpt *FunctionReport) []literalRange {
+   351→        ranges := []literalRange{}
+   352→        syn := fn.Syntax()
+   353→        if syn == nil {
+   354→                return ranges
+   355→        }
+   356→        ast.Inspect(syn, func(n ast.Node) bool {
+   357→                lit, ok := n.(*ast.CompositeLit)
+   358→                if !ok {
+   359→                        return true
+   360→                }
+   361→                bsonKind := classifyLiteral(lit, info)
+   362→                if bsonKind == "" {
+   363→                        return true
+   364→                }
+   365→                // Record the literal's source range so the SSA MapUpdate
+   366→                // pass can skip updates that belong to this literal. This is
+   367→                // done for empty literals too, even though they have no
+   368→                // MapUpdates of their own — symmetry is cheap.
+   369→                start := fset.Position(lit.Pos())
+   370→                end := fset.Position(lit.End())
+   371→                ranges = append(ranges, literalRange{
+   372→                        file:  start.Filename,
+   373→                        start: start.Offset,
+   374→                        end:   end.Offset,
+   375→                })
+   376→                if len(lit.Elts) == 0 {
+   377→                        return true
+   378→                }
+   379→                keys := extractLiteralKeys(bsonKind, lit)
+   380→                if len(keys) == 0 {
+   381→                        return true
+   382→                }
+   383→                // Find the nearest enclosing *ast.CallExpr whose callee name
+   384→                // is a mongo op (best-effort).
+   385→                op := enclosingMongoOp(fn, lit)
+   386→                rpt.Findings = append(rpt.Findings, Finding{
+   387→                        Method:    "literal",
+   388→                        Operation: op,
+   389→                        Fields:    keys,
+   390→                        Position:  fmt.Sprintf("%s:%d", relPath(start.Filename), start.Line),
+   391→                })
+   392→                return true
+   393→        })
+   394→        return ranges
+   395→}
+   396→
+   397→// classifyLiteral returns "M" if lit's type is bson.M or
+   398→// map[string]interface{} (the underlying type of bson.M), "D" if it's
+   399→// bson.D, and "" otherwise.
+   400→func classifyLiteral(lit *ast.CompositeLit, info *types.Info) string {
+   401→        // Try precise type resolution first.
+   402→        if info != nil {
+   403→                if tv, ok := info.Types[lit]; ok {
+   404→                        return classifyType(tv.Type)
+   405→                }
+   406→                // Some literals don't have a Types entry but do have an
+   407→                // inferred type via their Type expression.
+   408→                if lit.Type != nil {
+   409→                        if tv, ok := info.Types[lit.Type]; ok {
+   410→                                return classifyType(tv.Type)
+   411→                        }
+   412→                }
+   413→        }
+   414→        // Fall back to identifier name matching.
+   415→        return matchBsonIdent(lit.Type)
+   416→}
+   417→
+   418→// classifyType inspects a types.Type and returns "M", "D", or "".
+   419→//
+   420→// Handles *types.Named (e.g. primitive.Regex), *types.Alias (e.g.
+   421→// bson.M which is `type M = map[string]interface{}`), and the raw
+   422→// underlying types (map[string]interface{} for M, []bson.E for D).
+   423→func classifyType(t types.Type) string {
+   424→        switch v := t.(type) {
+   425→        case *types.Alias:
+   426→                obj := v.Obj()
+   427→                if obj.Pkg() != nil && obj.Pkg().Path() == "go.mongodb.org/mongo-driver/bson" {
+   428→                        switch obj.Name() {
+   429→                        case "M":
+   430→                                return "M"
+   431→                        case "D":
+   432→                                return "D"
+   433→                        }
+   434→                }
+   435→                return classifyType(v.Underlying())
+   436→        case *types.Named:
+   437→                obj := v.Obj()
+   438→                if obj.Pkg() != nil && obj.Pkg().Path() == "go.mongodb.org/mongo-driver/bson" {
+   439→                        switch obj.Name() {
+   440→                        case "M":
+   441→                                return "M"
+   442→                        case "D":
+   443→                                return "D"
+   444→                        case "E":
+   445→                                // bson.E is the element type of bson.D; the literal
+   446→                                // itself is reported as bson.E but it's part of a
+   447→                                // bson.D slice. We return "" here so callers don't
+   448→                                // mis-classify a bare bson.E as a top-level filter.
+   449→                                return ""
+   450→                        }
+   451→                }
+   452→                return classifyType(v.Underlying())
+   453→        case *types.Map:
+   454→                // map[string]interface{} (or map[string]any) — the underlying
+   455→                // type of bson.M.
+   456→                basic, ok := v.Key().(*types.Basic)
+   457→                if !ok || basic.Kind() != types.String {
+   458→                        return ""
+   459→                }
+   460→                if iface, ok := v.Elem().(*types.Interface); ok && iface.NumMethods() == 0 {
+   461→                        return "M"
+   462→                }
+   463→        case *types.Slice:
+   464→                // []bson.E — the underlying type of bson.D.
+   465→                if named, ok := v.Elem().(*types.Named); ok {
+   466→                        obj := named.Obj()
+   467→                        if obj.Pkg() != nil && obj.Pkg().Path() == "go.mongodb.org/mongo-driver/bson" && obj.Name() == "E" {
+   468→                                return "D"
+   469→                        }
+   470→                }
+   471→                if alias, ok := v.Elem().(*types.Alias); ok {
+   472→                        obj := alias.Obj()
+   473→                        if obj.Pkg() != nil && obj.Pkg().Path() == "go.mongodb.org/mongo-driver/bson" && obj.Name() == "E" {
+   474→                                return "D"
+   475→                        }
+   476→                }
+   477→        }
+   478→        return ""
+   479→}
+   480→
+   481→// literalRange is the [start, end) byte-offset range of a composite
+   482→// literal in a specific file, used to deduplicate MapUpdates.
+   483→type literalRange struct {
+   484→        file       string
+   485→        start, end int
+   486→}
+   487→
+   488→// matchBsonIdent returns "M" if the AST type expression is the
+   489→// identifier `bson.M` (or `M` qualified by a `bson.` selector), "D" if
+   490→// it's `bson.D`, and "" otherwise.
+   491→func matchBsonIdent(typeExpr ast.Expr) string {
+   492→        if typeExpr == nil {
+   493→                return ""
+   494→        }
+   495→        switch t := typeExpr.(type) {
+   496→        case *ast.SelectorExpr:
+   497→                if ident, ok := t.X.(*ast.Ident); ok {
+   498→                        return matchBsonName(ident.Name, t.Sel.Name)
+   499→                }
+   500→        case *ast.Ident:
+   501→                return matchBsonName("", t.Name)
+   502→        }
+   503→        return ""
+   504→}
+   505→
+   506→// matchBsonName returns "M" for a `bson.M` / `M` qualifier, "D" for
+   507→// `bson.D` / `D`, and "" otherwise.
+   508→func matchBsonName(pkg, name string) string {
+   509→        switch name {
+   510→        case "M":
+   511→                if pkg == "" || pkg == "bson" {
+   512→                        return "M"
+   513→                }
+   514→        case "D":
+   515→                if pkg == "" || pkg == "bson" {
+   516→                        return "D"
+   517→                }
+   518→        }
+   519→        return ""
+   520→}
+   521→
+   522→// extractLiteralKeys pulls the field names out of a bson.M or bson.D
+   523→// composite literal. For bson.M (map literal), each element is a
+   524→// *ast.KeyValueExpr whose Key is a string literal. For bson.D (slice of
+   525→// bson.E), each element is itself a *ast.CompositeLit with a `Key: "..."`
+   526→// field.
+   527→func extractLiteralKeys(bsonKind string, lit *ast.CompositeLit) []string {
+   528→        keys := []string{}
+   529→        for _, el := range lit.Elts {
+   530→                switch bsonKind {
+   531→                case "M":
+   532→                        kv, ok := el.(*ast.KeyValueExpr)
+   533→                        if !ok {
+   534→                                continue
+   535→                        }
+   536→                        k := stringLiteral(kv.Key)
+   537→                        if k != "" {
+   538→                                keys = append(keys, k)
+   539→                        }
+   540→                case "D":
+   541→                        // Each element should be a *ast.CompositeLit (bson.E).
+   542→                        cl, ok := el.(*ast.CompositeLit)
+   543→                        if !ok {
+   544→                                // Could also be a *ast.KeyValueExpr in some
+   545→                                // shorthand forms — try anyway.
+   546→                                if kv, ok := el.(*ast.KeyValueExpr); ok {
+   547→                                        if k := stringLiteral(kv.Key); k != "" {
+   548→                                                keys = append(keys, k)
+   549→                                        }
+   550→                                }
+   551→                                continue
+   552→                        }
+   553→                        k := bsonEKey(cl)
+   554→                        if k != "" {
+   555→                                keys = append(keys, k)
+   556→                        }
+   557→                }
+   558→        }
+   559→        return keys
+   560→}
+   561→
+   562→// bsonEKey looks at a *ast.CompositeLit of type bson.E and returns the
+   563→// value of the `Key: "..."` field. Both `bson.E{Key: "x", Value: y}`
+   564→// and positional `{Key: "x", Value: y}` forms are handled.
+   565→func bsonEKey(cl *ast.CompositeLit) string {
+   566→        // Named-field form.
+   567→        for _, el := range cl.Elts {
+   568→                kv, ok := el.(*ast.KeyValueExpr)
+   569→                if !ok {
+   570→                        continue
+   571→                }
+   572→                key, ok := kv.Key.(*ast.Ident)
+   573→                if !ok || key.Name != "Key" {
+   574→                        continue
+   575→                }
+   576→                if s := stringLiteral(kv.Value); s != "" {
+   577→                        return s
+   578→                }
+   579→        }
+   580→        // Positional form: bson.E{"x", y} — Key is element 0.
+   581→        if len(cl.Elts) > 0 {
+   582→                if s := stringLiteral(cl.Elts[0]); s != "" {
+   583→                        return s
+   584→                }
+   585→        }
+   586→        return ""
+   587→}
+   588→
+   589→// stringLiteral returns the unquoted string value of an *ast.BasicLit
+   590→// of kind STRING, or "" if expr is not a string literal. Both
+   591→// double-quoted ("...") and back-quoted (`...`) forms are handled.
+   592→func stringLiteral(expr ast.Expr) string {
+   593→        lit, ok := expr.(*ast.BasicLit)
+   594→        if !ok || lit.Kind != token.STRING {
+   595→                return ""
+   596→        }
+   597→        s, err := strconv.Unquote(lit.Value)
+   598→        if err != nil {
+   599→                // strconv.Unquote only handles double-quoted strings; fall
+   600→                // back to stripping backticks.
+   601→                v := lit.Value
+   602→                if len(v) >= 2 && v[0] == '`' && v[len(v)-1] == '`' {
+   603→                        return v[1 : len(v)-1]
+   604→                }
+   605→                return ""
+   606→        }
+   607→        return s
+   608→}
+   609→
+   610→// enclosingMongoOp walks up the AST stack maintained by an outer
+   611→// ast.Inspect call to find the nearest enclosing *ast.CallExpr whose
+   612→// callee is a method matching one of the mongo op names. Because
+   613→// ast.Inspect doesn't expose the parent chain, we re-walk the whole
+   614→// function and check whether the literal's position is inside the call's
+   615→// argument list.
+   616→func enclosingMongoOp(fn *ssa.Function, target ast.Node) string {
+   617→        syn := fn.Syntax()
+   618→        if syn == nil {
+   619→                return ""
+   620→        }
+   621→        fset := fn.Prog.Fset
+   622→        tpos := fset.Position(target.Pos())
+   623→        tend := fset.Position(target.End())
+   624→
+   625→        best := ""
+   626→        bestStart := -1
+   627→
+   628→        ast.Inspect(syn, func(n ast.Node) bool {
+   629→                call, ok := n.(*ast.CallExpr)
+   630→                if !ok {
+   631→                        return true
+   632→                }
+   633→                name := callMethodName(call.Fun)
+   634→                if name == "" || !mongoOps[name] {
+   635→                        return true
+   636→                }
+   637→                cpos := fset.Position(call.Pos())
+   638→                cend := fset.Position(call.End())
+   639→                // Is the literal inside this call's argument list?
+   640→                if tpos.Filename == cpos.Filename &&
+   641→                        tpos.Offset >= cpos.Offset && tend.Offset <= cend.Offset {
+   642→                        // Pick the *innermost* matching call.
+   643→                        if bestStart == -1 || cpos.Offset > bestStart {
+   644→                                bestStart = cpos.Offset
+   645→                                best = name
+   646→                        }
+   647→                }
+   648→                return true
+   649→        })
+   650→        return best
+   651→}
+   652→
+   653→// callMethodName returns the method name from a call's Fun expression.
+   654→// Handles `x.Method(...)`, `x.Method().InnerMethod(...)`, and bare
+   655→// `Method(...)` calls.
+   656→func callMethodName(fun ast.Expr) string {
+   657→        sel, ok := fun.(*ast.SelectorExpr)
+   658→        if !ok {
+   659→                return ""
+   660→        }
+   661→        return sel.Sel.Name
+   662→}
+   663→
+   664→// scanMapUpdates walks the SSA blocks of fn and emits one "map_update"
+   665→// finding for each ssa.MapUpdate whose Map's type is bson.M
+   666→// (map[string]interface{}). MapUpdates whose position falls inside a
+   667→// bson.M / bson.D / map[string]interface{} literal's source range (as
+   668→// recorded by scanLiterals) are skipped — they are part of the literal
+   669→// construction and are already reported (or skipped) as literals. Only
+   670→// explicit user-written mutations like `filter["x"] = y` survive.
+   671→func scanMapUpdates(fn *ssa.Function, fset *token.FileSet, literalRanges []literalRange, rpt *FunctionReport) {
+   672→        for _, b := range fn.Blocks {
+   673→                for _, instr := range b.Instrs {
+   674→                        upd, ok := instr.(*ssa.MapUpdate)
+   675→                        if !ok {
+   676→                                continue
+   677→                        }
+   678→                        if !isBsonM(upd.Map.Type()) {
+   679→                                continue
+   680→                        }
+   681→                        pos := fset.Position(upd.Pos())
+   682→                        // Skip if this update is inside a literal we already reported
+   683→                        // or recorded as a range (e.g. `filter := bson.M{...}` whose
+   684→                        // construction SSA lowers into MakeMap + MapUpdates).
+   685→                        if inAnyRange(literalRanges, pos) {
+   686→                                continue
+   687→                        }
+   688→                        key := constString(upd.Key)
+   689→                        rpt.Findings = append(rpt.Findings, Finding{
+   690→                                Method:    "map_update",
+   691→                                Fields:    []string{key},
+   692→                                Variable:  valueName(upd.Map),
+   693→                                Position:  fmt.Sprintf("%s:%d", relPath(pos.Filename), pos.Line),
+   694→                        })
+   695→                }
+   696→        }
+   697→}
+   698→
+   699→// scanStructArgs walks the SSA blocks of fn looking for calls to
+   700→// InsertOne / InsertMany / ReplaceOne (and friends) whose document
+   701→// argument is a struct (or slice of structs). For each, it emits a
+   702→// "struct_type" finding with the struct's bson-tagged field names.
+   703→func scanStructArgs(fn *ssa.Function, fset *token.FileSet, calls []mongoCall, rpt *FunctionReport) {
+   704→        for _, mc := range calls {
+   705→                if !methodsWhoseArg1IsDocument[mc.op] {
+   706→                        continue
+   707→                }
+   708→                cc := mc.call.Common()
+   709→                argIdx := dataArgIndex(cc)
+   710→                if argIdx < 0 || argIdx >= len(cc.Args) {
+   711→                        continue
+   712→                }
+   713→                arg := cc.Args[argIdx]
+   714→                t := concreteType(arg)
+   715→                if t == nil {
+   716→                        continue
+   717→                }
+   718→                // Unwrap pointer types.
+   719→                if ptr, ok := t.(*types.Pointer); ok {
+   720→                        t = ptr.Elem()
+   721→                }
+   722→                // Unwrap named types.
+   723→                named, _ := t.(*types.Named)
+   724→                var structType *types.Struct
+   725→                var sliceElem types.Type
+   726→                if s, ok := t.Underlying().(*types.Struct); ok {
+   727→                        structType = s
+   728→                } else if sl, ok := t.Underlying().(*types.Slice); ok {
+   729→                        sliceElem = sl.Elem()
+   730→                        if ptr, ok := sliceElem.(*types.Pointer); ok {
+   731→                                sliceElem = ptr.Elem()
+   732→                        }
+   733→                        if s, ok := sliceElem.Underlying().(*types.Struct); ok {
+   734→                                structType = s
+   735→                        }
+   736→                }
+   737→                if structType == nil {
+   738→                        continue
+   739→                }
+   740→                typeName := typeString(t)
+   741→                if typeName == "" && named != nil {
+   742→                        typeName = named.Obj().Pkg().Path() + "." + named.Obj().Name()
+   743→                }
+   744→                rpt.Findings = append(rpt.Findings, Finding{
+   745→                        Method:     "struct_type",
+   746→                        Operation:  mc.op,
+   747→                        StructType: typeName,
+   748→                        Fields:     structBsonFields(structType),
+   749→                        Position:   fmt.Sprintf("%s:%d", relPath(mc.pos.Filename), mc.pos.Line),
+   750→                })
+   751→        }
+   752→}
+   753→
+   754→// concreteType returns the concrete type of v, unwrapping *ssa.MakeInterface
+   755→// (which boxes a concrete value into an empty interface). For other Value
+   756→// kinds it returns v.Type() as-is.
+   757→func concreteType(v ssa.Value) types.Type {
+   758→        if mi, ok := v.(*ssa.MakeInterface); ok {
+   759→                return mi.X.Type()
+   760→        }
+   761→        return v.Type()
+   762→}
+   763→
+   764→// dataArgIndex returns the index in CallCommon.Args of the "data"
+   765→// argument (filter, document, or pipeline) for a mongo-op call. For
+   766→// static calls to methods, Args[0] is the receiver, Args[1] is ctx,
+   767→// Args[2] is the data arg. For invoke-mode calls (interface methods),
+   768→// Args[0] is ctx, Args[1] is the data arg.
+   769→func dataArgIndex(cc *ssa.CallCommon) int {
+   770→        if cc.IsInvoke() {
+   771→                return 1
+   772→        }
+   773→        if f := cc.StaticCallee(); f != nil {
+   774→                if f.Signature != nil && f.Signature.Recv() != nil {
+   775→                        return 2
+   776→                }
+   777→                return 1
+   778→        }
+   779→        return 1
+   780→}
+   781→
+   782→// isBsonM reports whether t is the underlying type of bson.M, i.e.
+   783→// map[string]interface{} (which is map[string]<any interface>).
+   784→// Type aliases (e.g. bson.M itself, which is `type M = map[string]any`)
+   785→// are unwrapped first.
+   786→func isBsonM(t types.Type) bool {
+   787→        // Unwrap type aliases (Go 1.22+ represents `type M = ...` as
+   788→        // *types.Alias when GOEXPERIMENT=aliastypes or go >= 1.25).
+   789→        if alias, ok := t.(*types.Alias); ok {
+   790→                t = alias.Underlying()
+   791→        }
+   792→        m, ok := t.(*types.Map)
+   793→        if !ok {
+   794→                return false
+   795→        }
+   796→        // Key must be string.
+   797→        basic, ok := m.Key().(*types.Basic)
+   798→        if !ok || basic.Kind() != types.String {
+   799→                return false
+   800→        }
+   801→        // Element must be interface{} (empty interface).
+   802→        iface, ok := m.Elem().(*types.Interface)
+   803→        if !ok {
+   804→                return false
+   805→        }
+   806→        return iface.NumMethods() == 0
+   807→}
+   808→
+   809→// constString returns the string value of v if v is an *ssa.Const
+   810→// holding a string, otherwise "<dynamic>".
+   811→func constString(v ssa.Value) string {
+   812→        if c, ok := v.(*ssa.Const); ok && c.Value != nil {
+   813→                // constant.StringVal only returns a meaningful result for
+   814→                // string constants; for everything else it returns "".
+   815→                if c.Value.Kind() == constant.String {
+   816→                        return constant.StringVal(c.Value)
+   817→                }
+   818→        }
+   819→        return "<dynamic>"
+   820→}
+   821→
+   822→// valueName returns a best-effort human-readable name for an SSA value
+   823→// (e.g. "filter" for a *ssa.Alloc with Name() "filter"). Used to label
+   824→// map_update findings so the Python caller can correlate mutations
+   825→// across multiple findings.
+   826→func valueName(v ssa.Value) string {
+   827→        switch x := v.(type) {
+   828→        case *ssa.Alloc:
+   829→                return x.Comment
+   830→        case *ssa.Parameter:
+   831→                return x.Name()
+   832→        case *ssa.MakeMap:
+   833→                return "<literal>"
+   834→        }
+   835→        return ""
+   836→}
+   837→
+   838→// inAnyRange reports whether pos falls inside any of the literalRanges.
+   839→func inAnyRange(ranges []literalRange, pos token.Position) bool {
+   840→        for _, r := range ranges {
+   841→                if pos.Filename == r.file &&
+   842→                        pos.Offset >= r.start && pos.Offset < r.end {
+   843→                        return true
+   844→                }
+   845→        }
+   846→        return false
+   847→}
+   848→
+   849→// structBsonFields returns the bson tag names of all fields of s
+   850→// (recursively flattened through embedded structs).
+   851→func structBsonFields(s *types.Struct) []string {
+   852→        out := []string{}
+   853→        for i := 0; i < s.NumFields(); i++ {
+   854→                f := s.Field(i)
+   855→                tag := s.Tag(i)
+   856→                if f.Embedded() {
+   857→                        t := f.Type()
+   858→                        if ptr, ok := t.(*types.Pointer); ok {
+   859→                                t = ptr.Elem()
+   860→                        }
+   861→                        if named, ok := t.(*types.Named); ok {
+   862→                                t = named.Underlying()
+   863→                        }
+   864→                        if embedded, ok := t.(*types.Struct); ok {
+   865→                                out = append(out, structBsonFields(embedded)...)
+   866→                                continue
+   867→                        }
+   868→                }
+   869→                name := parseTag(tag, "bson")
+   870→                if name == "" {
+   871→                        name = f.Name()
+   872→                }
+   873→                out = append(out, name)
+   874→        }
+   875→        return out
+   876→}
+   877→
+   878→// parseTag is the same helper used by the struct_flattener tool. It
+   879→// uses reflect.StructTag for canonical parsing.
+   880→func parseTag(tag, key string) string {
+   881→        if tag == "" {
+   882→                return ""
+   883→        }
+   884→        v := reflect.StructTag(tag).Get(key)
+   885→        if v == "" {
+   886→                return ""
+   887→        }
+   888→        if i := strings.IndexByte(v, ','); i >= 0 {
+   889→                v = v[:i]
+   890→        }
+   891→        return v
+   892→}
+   893→
+   894→// typeString renders a types.Type as a package-qualified name where
+   895→// possible. Used for the structType field of struct_type findings.
+   896→func typeString(t types.Type) string {
+   897→        switch v := t.(type) {
+   898→        case *types.Named:
+   899→                obj := v.Obj()
+   900→                pkg := obj.Pkg()
+   901→                if pkg == nil {
+   902→                        return obj.Name()
+   903→                }
+   904→                return pkg.Path() + "." + obj.Name()
+   905→        case *types.Pointer:
+   906→                return "*" + typeString(v.Elem())
+   907→        case *types.Slice:
+   908→                return "[]" + typeString(v.Elem())
+   909→        default:
+   910→                return t.String()
+   911→        }
+   912→}
+   913→
+   914→// relPath converts an absolute file path to one relative to the current
+   915→// working directory (which, by contract, is the Go module root).
+   916→func relPath(p string) string {
+   917→        if p == "" {
+   918→                return ""
+   919→        }
+   920→        abs, err := filepath.Abs(p)
+   921→        if err != nil {
+   922→                return p
+   923→        }
+   924→        wd, err := os.Getwd()
+   925→        if err != nil {
+   926→                return p
+   927→        }
+   928→        rel, err := filepath.Rel(wd, abs)
+   929→        if err != nil || strings.HasPrefix(rel, "..") {
+   930→                return p
+   931→        }
+   932→        return rel
+   933→}
+   934→
