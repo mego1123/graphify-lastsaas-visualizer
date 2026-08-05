@@ -4,9 +4,17 @@
 Scans all .go files under the given path (default: current directory) and
 classifies each error-related construct into one of:
 
-  * proper_handling  - `if err != nil { return ..., err }`            (LOW)
-  * logged_only      - `if err != nil { log/slog/fmt.Print*(...) }`   (MEDIUM)
-  * swallowed        - `if err != nil { }` or body without return     (HIGH)
+  * proper_handling  - `if err != nil { return err }` or body that contains
+                       a recognised proper-handler pattern
+                       (http.Redirect / respondWithError / ErrNoDocuments /
+                       continue / assignment to a variable or struct field)
+                                                                       (LOW)
+  * logged_only      - `if err != nil { slog.Warn(...); return }` etc.
+                       (slog.*, log.Print*, fmt.Print*, fmt.Fprint*(os.Stderr))
+                                                                       (MEDIUM)
+  * swallowed        - `if err != nil { }` or bare `return` / `return nil`
+                       / `return errors.New("...")` with no logging and no
+                       proper-handler pattern                 (HIGH)
   * ignored          - `result, _ := someFunc()`                      (HIGH)
   * missing_check    - statement-form call to a known error-returning fn (HIGH)
   * panic_on_error   - `if err != nil { panic(err) }`                 (MEDIUM)
@@ -102,18 +110,57 @@ ERROR_RETURNING_NAMES: set[str] = {
 }
 
 # Logging-like call patterns used by the `if err != nil` body classifier.
+# NOTE: the `[^)]*` inside the first alternative is safe even when the call
+# has nested parens (e.g. `slog.Warn("m", "k", fmt.Sprintf(...))`) because
+# string literals are masked out before classification — the masked form
+# retains the inner `)` of `Sprintf(...)`, which `[^)]*` correctly stops at,
+# and the outer `)` of `Warn(...)` then closes the match.
 LOG_CALL_RE = re.compile(
     r'(?:\b(?:log|slog|fmt|syslog)\.[A-Za-z_]\w*\s*\([^)]*\)'
     r'|\.[A-Za-z_]\w*\s*\(\s*[^)]*\berr\b[^)]*\))'
 )
 
+# Explicit "logging" patterns. These acknowledge the error (printing it to
+# stdout/stderr/log stream) even when the original `err` value isn't
+# propagated. Used to reclassify what would otherwise be `swallowed` as
+# `logged_only` (MEDIUM). `fmt.Errorf` is intentionally excluded — it
+# constructs a new error rather than logging one.
+SLOG_LOG_RE = re.compile(r'\bslog\.(?:Warn|Error|Info|Debug)(?:ln|f)?\s*\(')
+LOG_PRINT_RE = re.compile(
+    r'\blog\.(?:Print|Printf|Println|Fatal|Fatalf|Fatalln|'
+    r'Panic|Panicf|Panicln)\s*\('
+)
+FMT_PRINT_RE = re.compile(
+    r'\bfmt\.(?:Print|Printf|Println|Fprint|Fprintf|Fprintln|'
+    r'Sprint|Sprintf|Sprintln)\s*\('
+)
+# Explicit stderr-write pattern (called out separately in the spec for
+# clarity; functionally a subset of FMT_PRINT_RE).
+STDERR_FMT_RE = re.compile(
+    r'\bfmt\.F(?:printf|println|print)\s*\(\s*os\.Stderr\b'
+)
+
 # Error-reporting helpers (HTTP response writers, etc.) — used to recognize
 # the standard `if err != nil { respondWithError(...); return }` pattern.
+# Per the audit spec these are treated as `proper_handling` (LOW): the error
+# is reported to the client and the request is short-circuited.
 ERROR_REPORT_RE = re.compile(
     r'\b(?:respondWithError|http\.Error|writeError|sendError|WriteError|'
     r'ReturnError|FailWith|abortWithStatus|abortWithError|c\.AbortWithStatusJSON|'
     r'c\.JSON)\s*\('
 )
+
+# Patterns indicating the error triggers a corrective/terminal action —
+# even when the original `err` is not propagated, the site is correctly
+# handled (state change, control-flow response, or HTTP redirect).
+HTTP_REDIRECT_RE = re.compile(r'\bhttp\.Redirect\s*\(')
+ERRNO_DOCS_RE = re.compile(r'\b(?:mongo\.)?ErrNoDocuments\b')
+CONTINUE_RE = re.compile(r'\bcontinue\b')
+# Assignment statement — `var = value` or `obj.field = value` (single line).
+# Excludes `==` (comparison) and `:=` (short variable declaration). Catches
+# defensive patterns like `page = 1` (input clamping) and
+# `delivery.Success = false` (failure flagging).
+ASSIGNMENT_RE = re.compile(r'^[ \t]*\w[\w.]*\s*=(?!=)', re.MULTILINE)
 
 # Terminal error handling — program exits with non-zero status after reporting.
 TERMINAL_EXIT_RE = re.compile(r'\bos\.Exit\s*\(\s*[1-9]')
@@ -132,7 +179,11 @@ IF_NIL_RE = re.compile(r'\bif\b[^{]*!=\s*nil\b[^{]*\{')
 IGNORED_RE = re.compile(r'\b\w+\s*,\s*_\s*(?::=|=)\s*[\w.]+\s*\(')
 
 # `if err != nil` body classification
-RETURN_ERR_RE = re.compile(r'\breturn\b[^;]*\berr\b')
+# RETURN_ERR_RE is case-insensitive so it also catches `return res.Err()`
+# or `return cursor.Err()` — common patterns where the error is fetched via
+# a method call rather than a bare identifier. `\berr\b` still requires `err`
+# to be a complete word (so `ferrisWheel` is not matched).
+RETURN_ERR_RE = re.compile(r'\breturn\b[^;]*\berr\b', re.IGNORECASE)
 RETURN_NEW_ERR_RE = re.compile(
     r'\breturn\b\s+(?:fmt\.Errorf|errors\.Wrap|errors\.Wrapf|errors\.New)\s*\('
 )
@@ -369,7 +420,45 @@ def is_err_ident(name: str) -> bool:
 
 
 def classify_err_body(body_masked: str) -> str:
-    """Classify the body of `if X != nil { body }`."""
+    """Classify the body of `if X != nil { body }`.
+
+    The body passed in is the **full** masked content between the opening
+    `{` and the matching `}` (not just the snippet, which is capped at 6
+    lines for display). This lets us recognise valid handler patterns that
+    span multiple lines (e.g. an `http.Redirect` call followed by a
+    `return`, or an `if err == mongo.ErrNoDocuments` check followed by a
+    fallback path).
+
+    Classification order (each step short-circuits):
+
+      1.  Empty body                                  -> swallowed
+      2.  `panic(...)`                                -> panic_on_error
+      3.  Terminal exit (`os.Exit(non-zero)`,
+         `log.Fatal*`, `t.Fatal*`)                    -> proper_handling
+      4.  `return ...err...` (case-insensitive,
+          catches `return err`, `return fmt.Errorf("...: %w", err)`,
+          `return res.Err()`, etc.)                   -> proper_handling
+      5.  Proper-handler patterns (any of):
+            - `http.Redirect(...)`
+            - `respondWithError(...)` / `http.Error(...)`
+              / `writeError(...)` / etc.
+            - `mongo.ErrNoDocuments` / `ErrNoDocuments` check
+            - `continue` statement (batch processing)
+            - Assignment to a variable or struct field
+              (`page = 1`, `delivery.Success = false`, ...) -> proper_handling
+      6.  Logging patterns (any of):
+            - `slog.Warn/Error/Info/Debug(...)`
+            - `log.Print*/Fatal*/Panic*(...)`
+            - `fmt.Print*/Fprint*/Sprint*(...)`
+              (excludes `fmt.Errorf` — that's error construction)
+            - `fmt.Fprint*(os.Stderr, ...)`           -> logged_only
+      7.  `return` (bare or new error like
+          `return errors.New("oops")`)                -> swallowed
+      8.  `t.Error*` (no return, no other handler)    -> logged_only
+      9.  Body consists ONLY of logging calls
+          (fallback `LOG_CALL_RE` sweep)              -> logged_only
+      10. Anything else                               -> swallowed
+    """
     stripped = body_masked.strip()
     if not stripped:
         return "swallowed"
@@ -382,26 +471,46 @@ def classify_err_body(body_masked: str) -> str:
     # Test termination — `t.Fatal*` reports the failure and stops the test.
     if TEST_FATAL_RE.search(stripped):
         return "proper_handling"
-    # Returns the captured err directly (or wraps it via fmt.Errorf/errors.Wrap)
+    # Returns the captured err directly (or wraps it via fmt.Errorf/errors.Wrap).
+    # Case-insensitive so it also catches `return res.Err()` / `return cursor.Err()`.
     if RETURN_ERR_RE.search(stripped):
         return "proper_handling"
+
+    # ----- valid handler patterns (reclassify what would otherwise be
+    #       "swallowed"). These are checked BEFORE the has_return branches
+    #       below so that bodies like
+    #         `if err != nil { slog.Warn(...); return }`
+    #       or
+    #         `if err != nil { http.Redirect(...); return }`
+    #       are recognised as acknowledged/handled rather than swallowed.
+    if (
+        HTTP_REDIRECT_RE.search(stripped)
+        or ERROR_REPORT_RE.search(stripped)
+        or ERRNO_DOCS_RE.search(stripped)
+        or CONTINUE_RE.search(stripped)
+        or ASSIGNMENT_RE.search(stripped)
+    ):
+        return "proper_handling"
+
+    if (
+        SLOG_LOG_RE.search(stripped)
+        or LOG_PRINT_RE.search(stripped)
+        or FMT_PRINT_RE.search(stripped)
+        or STDERR_FMT_RE.search(stripped)
+    ):
+        return "logged_only"
+
     # Returns a *new* error (no `err` in the return expression).
     # The original error is dropped — call it swallowed but note it.
     if RETURN_NEW_ERR_RE.search(stripped):
         return "swallowed"
+
     has_return = RETURN_ANY_RE.search(stripped) is not None
-    # Error reported via HTTP/response helper + return — error info is sent
-    # to the client/consumer, but the original `err` is not propagated.
-    if has_return and ERROR_REPORT_RE.search(stripped):
-        return "logged_only"
     # Bare `return` or `return <non-err>` — original error dropped
     if has_return:
         return "swallowed"
-    # No return at all. Check for non-terminal test/HTTP/log reporting:
-    # `t.Error*`, `respondWithError`, `http.Error`, etc.
+    # No return at all. Check for non-terminal test reporting (`t.Error*`).
     if TEST_ERROR_RE.search(stripped):
-        return "logged_only"
-    if ERROR_REPORT_RE.search(stripped):
         return "logged_only"
     # Otherwise: if only logging calls remain, it's logged_only;
     # else the error is genuinely swallowed.
@@ -909,10 +1018,34 @@ def render_markdown(report: dict) -> str:
     out.append("")
     out.append(
         "1. **`if X != nil { ... }` blocks** are located via brace matching "
-        "(strings and comments are masked out first). The block body is then "
-        "classified as: `proper_handling` (returns `err` or wraps it), "
-        "`panic_on_error`, `logged_only` (only log calls, no return), or "
-        "`swallowed` (anything else)."
+        "(strings and comments are masked out first). The **full** block body "
+        "is then classified in priority order:"
+    )
+    out.append(
+        "    - **`proper_handling`** (LOW) — body returns the error directly "
+        "(`return err`, `return fmt.Errorf(\"...: %w\", err)`, `return res.Err()`), "
+        "OR terminates the process / test (`os.Exit(non-zero)`, `log.Fatal*`, "
+        "`t.Fatal*`), OR contains a recognised proper-handler pattern: "
+        "`http.Redirect`, `respondWithError`/`http.Error`/`writeError`/etc., "
+        "an `ErrNoDocuments`/`mongo.ErrNoDocuments` check, a `continue` "
+        "statement (batch processing), or an assignment to a variable / "
+        "struct field (`page = 1`, `delivery.Success = false`, …)."
+    )
+    out.append(
+        "    - **`panic_on_error`** (MEDIUM) — body calls `panic(...)`."
+    )
+    out.append(
+        "    - **`logged_only`** (MEDIUM) — body acknowledges the error via "
+        "`slog.Warn/Error/Info/Debug`, `log.Print*`/`Fatal*`/`Panic*`, "
+        "`fmt.Print*`/`Fprint*`/`Sprint*`, or `fmt.Fprint*(os.Stderr, ...)`, "
+        "without propagating the original `err`. (`fmt.Errorf` is excluded — "
+        "that's error construction, not logging.)"
+    )
+    out.append(
+        "    - **`swallowed`** (HIGH) — body is empty, or only contains a "
+        "bare `return` / `return nil` / `return <non-err>` (including "
+        "`return errors.New(\"...\")` which drops the original error), and "
+        "matches none of the proper-handler or logging patterns above."
     )
     out.append(
         "2. **Ignored errors** are detected as `result, _ := someFunc(...)` "

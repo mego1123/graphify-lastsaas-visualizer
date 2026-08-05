@@ -1,0 +1,2302 @@
+{
+  "root": "/home/z/my-project/repos/lastsaas/backend",
+  "total_queries_scanned": 413,
+  "total_findings": 48,
+  "severity_breakdown": {
+    "MEDIUM": 27,
+    "HIGH": 21
+  },
+  "type_breakdown": [
+    {
+      "type": "multi_tenant_unfiltered",
+      "count": 28
+    },
+    {
+      "type": "no_index",
+      "count": 19
+    },
+    {
+      "type": "no_collection_indexes",
+      "count": 1
+    }
+  ],
+  "collection_breakdown": [
+    {
+      "collection": "tenant_memberships",
+      "count": 10
+    },
+    {
+      "collection": "tenants",
+      "count": 8
+    },
+    {
+      "collection": "system_logs",
+      "count": 7
+    },
+    {
+      "collection": "financial_transactions",
+      "count": 6
+    },
+    {
+      "collection": "messages",
+      "count": 3
+    },
+    {
+      "collection": "users",
+      "count": 2
+    },
+    {
+      "collection": "announcements",
+      "count": 2
+    },
+    {
+      "collection": "credit_bundles",
+      "count": 2
+    },
+    {
+      "collection": "webhooks",
+      "count": 2
+    },
+    {
+      "collection": "api_keys",
+      "count": 2
+    },
+    {
+      "collection": "telemetry_events",
+      "count": 1
+    },
+    {
+      "collection": "plans",
+      "count": 1
+    },
+    {
+      "collection": "webhook_deliveries",
+      "count": 1
+    },
+    {
+      "collection": "refresh_tokens",
+      "count": 1
+    }
+  ],
+  "top_files": [
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "count": 7
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "count": 5
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "count": 4
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "count": 4
+    },
+    {
+      "file": "internal/api/handlers/admin.go",
+      "count": 4
+    },
+    {
+      "file": "cmd/lastsaas/main.go",
+      "count": 3
+    },
+    {
+      "file": "internal/api/handlers/logs.go",
+      "count": 3
+    },
+    {
+      "file": "internal/api/handlers/messages.go",
+      "count": 3
+    },
+    {
+      "file": "internal/api/handlers/webhooks.go",
+      "count": 3
+    },
+    {
+      "file": "cmd/lastsaas/cmd_logs.go",
+      "count": 2
+    },
+    {
+      "file": "internal/api/handlers/announcements.go",
+      "count": 2
+    },
+    {
+      "file": "internal/api/handlers/promotions.go",
+      "count": 2
+    },
+    {
+      "file": "internal/api/handlers/apikeys.go",
+      "count": 2
+    },
+    {
+      "file": "cmd/lastsaas/cmd_stats.go",
+      "count": 1
+    },
+    {
+      "file": "cmd/lastsaas/cmd_financial.go",
+      "count": 1
+    },
+    {
+      "file": "internal/api/handlers/bundles.go",
+      "count": 1
+    },
+    {
+      "file": "internal/api/handlers/auth.go",
+      "count": 1
+    }
+  ],
+  "index_inventory": [
+    {
+      "collection": "api_keys",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "createdAt",
+        "createdBy",
+        "keyHash"
+      ],
+      "leading_fields": [
+        "createdBy",
+        "keyHash"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "keyHash"
+          ],
+          "leading_field": "keyHash",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:221"
+        },
+        {
+          "fields": [
+            "createdBy",
+            "createdAt"
+          ],
+          "leading_field": "createdBy",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:223"
+        }
+      ]
+    },
+    {
+      "collection": "audit_log",
+      "index_count": 3,
+      "has_unique": false,
+      "indexed_fields": [
+        "createdAt",
+        "tenantId",
+        "userId"
+      ],
+      "leading_fields": [
+        "createdAt",
+        "tenantId",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:126"
+        },
+        {
+          "fields": [
+            "userId",
+            "createdAt"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:128"
+        },
+        {
+          "fields": [
+            "tenantId",
+            "createdAt"
+          ],
+          "leading_field": "tenantId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:129"
+        }
+      ]
+    },
+    {
+      "collection": "auth_codes",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "code",
+        "expiresAt"
+      ],
+      "leading_fields": [
+        "code",
+        "expiresAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "code"
+          ],
+          "leading_field": "code",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:274"
+        },
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:276"
+        }
+      ]
+    },
+    {
+      "collection": "branding_assets",
+      "index_count": 1,
+      "has_unique": true,
+      "indexed_fields": [
+        "key"
+      ],
+      "leading_fields": [
+        "key"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "key"
+          ],
+          "leading_field": "key",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:242"
+        }
+      ]
+    },
+    {
+      "collection": "config_vars",
+      "index_count": 1,
+      "has_unique": true,
+      "indexed_fields": [
+        "name"
+      ],
+      "leading_fields": [
+        "name"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "name"
+          ],
+          "leading_field": "name",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:152"
+        }
+      ]
+    },
+    {
+      "collection": "credit_bundles",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "name",
+        "sortOrder"
+      ],
+      "leading_fields": [
+        "name",
+        "sortOrder"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "name"
+          ],
+          "leading_field": "name",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:165"
+        },
+        {
+          "fields": [
+            "sortOrder"
+          ],
+          "leading_field": "sortOrder",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:167"
+        }
+      ]
+    },
+    {
+      "collection": "custom_pages",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "isPublished",
+        "slug",
+        "sortOrder"
+      ],
+      "leading_fields": [
+        "isPublished",
+        "slug"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "slug"
+          ],
+          "leading_field": "slug",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:248"
+        },
+        {
+          "fields": [
+            "isPublished",
+            "sortOrder"
+          ],
+          "leading_field": "isPublished",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:250"
+        }
+      ]
+    },
+    {
+      "collection": "daily_metrics",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "createdAt",
+        "date"
+      ],
+      "leading_fields": [
+        "createdAt",
+        "date"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "date"
+          ],
+          "leading_field": "date",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:186"
+        },
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:188"
+        }
+      ]
+    },
+    {
+      "collection": "event_definitions",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "name",
+        "parentId"
+      ],
+      "leading_fields": [
+        "name",
+        "parentId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "name"
+          ],
+          "leading_field": "name",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:300"
+        },
+        {
+          "fields": [
+            "parentId"
+          ],
+          "leading_field": "parentId",
+          "unique": false,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:302"
+        }
+      ]
+    },
+    {
+      "collection": "financial_transactions",
+      "index_count": 3,
+      "has_unique": true,
+      "indexed_fields": [
+        "createdAt",
+        "invoiceNumber",
+        "tenantId",
+        "userId"
+      ],
+      "leading_fields": [
+        "invoiceNumber",
+        "tenantId",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "tenantId",
+            "createdAt"
+          ],
+          "leading_field": "tenantId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:172"
+        },
+        {
+          "fields": [
+            "userId",
+            "createdAt"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:174"
+        },
+        {
+          "fields": [
+            "invoiceNumber"
+          ],
+          "leading_field": "invoiceNumber",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:175"
+        }
+      ]
+    },
+    {
+      "collection": "invitations",
+      "index_count": 3,
+      "has_unique": true,
+      "indexed_fields": [
+        "email",
+        "expiresAt",
+        "tenantId",
+        "token"
+      ],
+      "leading_fields": [
+        "expiresAt",
+        "tenantId",
+        "token"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "tenantId",
+            "email"
+          ],
+          "leading_field": "tenantId",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:118"
+        },
+        {
+          "fields": [
+            "token"
+          ],
+          "leading_field": "token",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:120"
+        },
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:121"
+        }
+      ]
+    },
+    {
+      "collection": "leader_locks",
+      "index_count": 1,
+      "has_unique": false,
+      "indexed_fields": [
+        "expiresAt"
+      ],
+      "leading_fields": [
+        "expiresAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:193"
+        }
+      ]
+    },
+    {
+      "collection": "messages",
+      "index_count": 2,
+      "has_unique": false,
+      "indexed_fields": [
+        "createdAt",
+        "read",
+        "userId"
+      ],
+      "leading_fields": [
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "userId",
+            "createdAt"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:134"
+        },
+        {
+          "fields": [
+            "userId",
+            "read"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:136"
+        }
+      ]
+    },
+    {
+      "collection": "oauth_states",
+      "index_count": 1,
+      "has_unique": false,
+      "indexed_fields": [
+        "expiresAt"
+      ],
+      "leading_fields": [
+        "expiresAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:105"
+        }
+      ]
+    },
+    {
+      "collection": "plans",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "isSystem",
+        "name"
+      ],
+      "leading_fields": [
+        "isSystem",
+        "name"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "name"
+          ],
+          "leading_field": "name",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:158"
+        },
+        {
+          "fields": [
+            "isSystem"
+          ],
+          "leading_field": "isSystem",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:160"
+        }
+      ]
+    },
+    {
+      "collection": "rate_limits",
+      "index_count": 1,
+      "has_unique": false,
+      "indexed_fields": [
+        "expiresAt"
+      ],
+      "leading_fields": [
+        "expiresAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/middleware/ratelimit.go:99"
+        }
+      ]
+    },
+    {
+      "collection": "refresh_tokens",
+      "index_count": 2,
+      "has_unique": false,
+      "indexed_fields": [
+        "expiresAt",
+        "userId"
+      ],
+      "leading_fields": [
+        "expiresAt",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "userId"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:90"
+        },
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:92"
+        }
+      ]
+    },
+    {
+      "collection": "revoked_tokens",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "expiresAt",
+        "tokenHash"
+      ],
+      "leading_fields": [
+        "expiresAt",
+        "tokenHash"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:111"
+        },
+        {
+          "fields": [
+            "tokenHash"
+          ],
+          "leading_field": "tokenHash",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:113"
+        }
+      ]
+    },
+    {
+      "collection": "sso_connections",
+      "index_count": 1,
+      "has_unique": true,
+      "indexed_fields": [
+        "tenantId"
+      ],
+      "leading_fields": [
+        "tenantId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "tenantId"
+          ],
+          "leading_field": "tenantId",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:268"
+        }
+      ]
+    },
+    {
+      "collection": "stripe_mappings",
+      "index_count": 1,
+      "has_unique": true,
+      "indexed_fields": [
+        "entityId",
+        "entityType"
+      ],
+      "leading_fields": [
+        "entityType"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "entityType",
+            "entityId"
+          ],
+          "leading_field": "entityType",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:180"
+        }
+      ]
+    },
+    {
+      "collection": "system_logs",
+      "index_count": 6,
+      "has_unique": false,
+      "indexed_fields": [
+        "category",
+        "createdAt",
+        "message",
+        "severity",
+        "tenantId",
+        "userId"
+      ],
+      "leading_fields": [
+        "category",
+        "createdAt",
+        "message",
+        "severity",
+        "tenantId",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:141"
+        },
+        {
+          "fields": [
+            "severity",
+            "createdAt"
+          ],
+          "leading_field": "severity",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:143"
+        },
+        {
+          "fields": [
+            "category",
+            "createdAt"
+          ],
+          "leading_field": "category",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:144"
+        },
+        {
+          "fields": [
+            "message"
+          ],
+          "leading_field": "message",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": true,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:145"
+        },
+        {
+          "fields": [
+            "userId",
+            "createdAt"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:146"
+        },
+        {
+          "fields": [
+            "tenantId",
+            "createdAt"
+          ],
+          "leading_field": "tenantId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:147"
+        }
+      ]
+    },
+    {
+      "collection": "system_metrics",
+      "index_count": 2,
+      "has_unique": false,
+      "indexed_fields": [
+        "nodeId",
+        "timestamp"
+      ],
+      "leading_fields": [
+        "nodeId",
+        "timestamp"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "timestamp"
+          ],
+          "leading_field": "timestamp",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:214"
+        },
+        {
+          "fields": [
+            "nodeId",
+            "timestamp"
+          ],
+          "leading_field": "nodeId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:216"
+        }
+      ]
+    },
+    {
+      "collection": "system_nodes",
+      "index_count": 3,
+      "has_unique": true,
+      "indexed_fields": [
+        "lastSeen",
+        "machineId",
+        "startedAt"
+      ],
+      "leading_fields": [
+        "lastSeen",
+        "machineId",
+        "startedAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "machineId"
+          ],
+          "leading_field": "machineId",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:206"
+        },
+        {
+          "fields": [
+            "lastSeen"
+          ],
+          "leading_field": "lastSeen",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:208"
+        },
+        {
+          "fields": [
+            "startedAt"
+          ],
+          "leading_field": "startedAt",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:209"
+        }
+      ]
+    },
+    {
+      "collection": "telemetry_events",
+      "index_count": 6,
+      "has_unique": false,
+      "indexed_fields": [
+        "category",
+        "createdAt",
+        "eventName",
+        "properties",
+        "sessionId",
+        "userId"
+      ],
+      "leading_fields": [
+        "category",
+        "createdAt",
+        "eventName",
+        "properties",
+        "sessionId",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "eventName",
+            "createdAt"
+          ],
+          "leading_field": "eventName",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:289"
+        },
+        {
+          "fields": [
+            "category",
+            "createdAt"
+          ],
+          "leading_field": "category",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:291"
+        },
+        {
+          "fields": [
+            "userId",
+            "createdAt"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:292"
+        },
+        {
+          "fields": [
+            "sessionId",
+            "createdAt"
+          ],
+          "leading_field": "sessionId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:293"
+        },
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:294"
+        },
+        {
+          "fields": [
+            "properties",
+            "createdAt"
+          ],
+          "leading_field": "properties",
+          "unique": false,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:295"
+        }
+      ]
+    },
+    {
+      "collection": "tenant_memberships",
+      "index_count": 3,
+      "has_unique": true,
+      "indexed_fields": [
+        "role",
+        "tenantId",
+        "userId"
+      ],
+      "leading_fields": [
+        "tenantId",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "userId",
+            "tenantId"
+          ],
+          "leading_field": "userId",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:82"
+        },
+        {
+          "fields": [
+            "tenantId",
+            "role"
+          ],
+          "leading_field": "tenantId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:84"
+        },
+        {
+          "fields": [
+            "userId"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:85"
+        }
+      ]
+    },
+    {
+      "collection": "tenants",
+      "index_count": 6,
+      "has_unique": true,
+      "indexed_fields": [
+        "billingStatus",
+        "isActive",
+        "isRoot",
+        "name",
+        "planId",
+        "slug",
+        "trialUsedAt"
+      ],
+      "leading_fields": [
+        "billingStatus",
+        "isRoot",
+        "name",
+        "planId",
+        "slug",
+        "trialUsedAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "slug"
+          ],
+          "leading_field": "slug",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:71"
+        },
+        {
+          "fields": [
+            "isRoot"
+          ],
+          "leading_field": "isRoot",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:73"
+        },
+        {
+          "fields": [
+            "name"
+          ],
+          "leading_field": "name",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:74"
+        },
+        {
+          "fields": [
+            "billingStatus",
+            "isActive"
+          ],
+          "leading_field": "billingStatus",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:75"
+        },
+        {
+          "fields": [
+            "planId"
+          ],
+          "leading_field": "planId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:76"
+        },
+        {
+          "fields": [
+            "trialUsedAt"
+          ],
+          "leading_field": "trialUsedAt",
+          "unique": false,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:77"
+        }
+      ]
+    },
+    {
+      "collection": "usage_events",
+      "index_count": 3,
+      "has_unique": false,
+      "indexed_fields": [
+        "createdAt",
+        "tenantId",
+        "type"
+      ],
+      "leading_fields": [
+        "createdAt",
+        "tenantId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "tenantId",
+            "createdAt"
+          ],
+          "leading_field": "tenantId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:281"
+        },
+        {
+          "fields": [
+            "tenantId",
+            "type",
+            "createdAt"
+          ],
+          "leading_field": "tenantId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:283"
+        },
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:284"
+        }
+      ]
+    },
+    {
+      "collection": "users",
+      "index_count": 5,
+      "has_unique": true,
+      "indexed_fields": [
+        "displayName",
+        "email",
+        "githubId",
+        "googleId",
+        "microsoftId"
+      ],
+      "leading_fields": [
+        "displayName",
+        "email",
+        "githubId",
+        "googleId",
+        "microsoftId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "email"
+          ],
+          "leading_field": "email",
+          "unique": true,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:61"
+        },
+        {
+          "fields": [
+            "googleId"
+          ],
+          "leading_field": "googleId",
+          "unique": false,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:63"
+        },
+        {
+          "fields": [
+            "githubId"
+          ],
+          "leading_field": "githubId",
+          "unique": false,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:64"
+        },
+        {
+          "fields": [
+            "microsoftId"
+          ],
+          "leading_field": "microsoftId",
+          "unique": false,
+          "ttl": false,
+          "sparse": true,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:65"
+        },
+        {
+          "fields": [
+            "displayName"
+          ],
+          "leading_field": "displayName",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:66"
+        }
+      ]
+    },
+    {
+      "collection": "verification_tokens",
+      "index_count": 3,
+      "has_unique": false,
+      "indexed_fields": [
+        "expiresAt",
+        "token",
+        "type",
+        "userId"
+      ],
+      "leading_fields": [
+        "expiresAt",
+        "token",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "userId",
+            "type"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:97"
+        },
+        {
+          "fields": [
+            "token"
+          ],
+          "leading_field": "token",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:99"
+        },
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:100"
+        }
+      ]
+    },
+    {
+      "collection": "webauthn_credentials",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "credentialId",
+        "userId"
+      ],
+      "leading_fields": [
+        "credentialId",
+        "userId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "userId"
+          ],
+          "leading_field": "userId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:255"
+        },
+        {
+          "fields": [
+            "credentialId"
+          ],
+          "leading_field": "credentialId",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:257"
+        }
+      ]
+    },
+    {
+      "collection": "webauthn_sessions",
+      "index_count": 1,
+      "has_unique": false,
+      "indexed_fields": [
+        "expiresAt"
+      ],
+      "leading_fields": [
+        "expiresAt"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "expiresAt"
+          ],
+          "leading_field": "expiresAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:262"
+        }
+      ]
+    },
+    {
+      "collection": "webhook_deliveries",
+      "index_count": 2,
+      "has_unique": false,
+      "indexed_fields": [
+        "createdAt",
+        "webhookId"
+      ],
+      "leading_fields": [
+        "createdAt",
+        "webhookId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "webhookId",
+            "createdAt"
+          ],
+          "leading_field": "webhookId",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:235"
+        },
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:237"
+        }
+      ]
+    },
+    {
+      "collection": "webhook_events",
+      "index_count": 2,
+      "has_unique": true,
+      "indexed_fields": [
+        "createdAt",
+        "eventId"
+      ],
+      "leading_fields": [
+        "createdAt",
+        "eventId"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "eventId"
+          ],
+          "leading_field": "eventId",
+          "unique": true,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:199"
+        },
+        {
+          "fields": [
+            "createdAt"
+          ],
+          "leading_field": "createdAt",
+          "unique": false,
+          "ttl": true,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:201"
+        }
+      ]
+    },
+    {
+      "collection": "webhooks",
+      "index_count": 2,
+      "has_unique": false,
+      "indexed_fields": [
+        "createdAt",
+        "createdBy",
+        "events",
+        "isActive"
+      ],
+      "leading_fields": [
+        "createdBy",
+        "events"
+      ],
+      "indexes": [
+        {
+          "fields": [
+            "createdBy",
+            "createdAt"
+          ],
+          "leading_field": "createdBy",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:228"
+        },
+        {
+          "fields": [
+            "events",
+            "isActive"
+          ],
+          "leading_field": "events",
+          "unique": false,
+          "ttl": false,
+          "sparse": false,
+          "text": false,
+          "source": "repos/lastsaas/backend/internal/db/mongodb.go:230"
+        }
+      ]
+    }
+  ],
+  "collections_queried_without_indexes": [
+    "announcements",
+    "branding_config",
+    "system_config"
+  ],
+  "findings": [
+    {
+      "file": "cmd/lastsaas/main.go",
+      "line": 831,
+      "function": "cmdTransferRootOwner",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "_, err = database.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "cmd/lastsaas/main.go",
+      "line": 841,
+      "function": "cmdTransferRootOwner",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "_, err = database.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "cmd/lastsaas/main.go",
+      "line": 847,
+      "function": "cmdTransferRootOwner",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "database.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "cmd/lastsaas/cmd_stats.go",
+      "line": 31,
+      "function": "cmdStats",
+      "collection": "users",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])",
+      "snippet": "activeUsers, err := database.Users().CountDocuments(ctx, bson.M{\"isActive\": true})",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `users`."
+    },
+    {
+      "file": "cmd/lastsaas/cmd_logs.go",
+      "line": 140,
+      "function": "queryLogs",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := database.SystemLogs().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "cmd/lastsaas/cmd_logs.go",
+      "line": 193,
+      "function": "logsFollow",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := database.SystemLogs().Find(ctx, followFilter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "cmd/lastsaas/cmd_financial.go",
+      "line": 254,
+      "function": "cmdFinancialTransactions",
+      "collection": "financial_transactions",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := database.FinancialTransactions().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "line": 320,
+      "function": "FunnelMetrics",
+      "collection": "users",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "createdAt"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['createdAt'] are not covered by any index on `users` (indexed leading fields: ['displayName', 'email', 'githubId', 'googleId', 'microsoftId'])",
+      "snippet": "registrations, err := s.db.Users().CountDocuments(ctx, bson.M{",
+      "suggestion": "Add an index on `createdAt` (or a compound index starting with it) on `users`."
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "line": 347,
+      "function": "FunnelMetrics",
+      "collection": "financial_transactions",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "type",
+        "createdAt"
+      ],
+      "severity": "HIGH",
+      "finding_type": "no_index",
+      "reason": "filter fields ['type', 'createdAt'] are not covered by any index on `financial_transactions` (indexed leading fields: ['invoiceNumber', 'tenantId', 'userId'])",
+      "snippet": "conversions, err := s.db.FinancialTransactions().CountDocuments(ctx, bson.M{",
+      "suggestion": "Add an index on `type` (or a compound index starting with it) on `financial_transactions`."
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "line": 621,
+      "function": "computeKPIs",
+      "collection": "tenants",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "canceledAt"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['canceledAt'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "canceledThisMonth, err := s.db.Tenants().CountDocuments(ctx, bson.M{",
+      "suggestion": "Add an index on `canceledAt` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "line": 703,
+      "function": "CustomEventSummary",
+      "collection": "telemetry_events",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `telemetry_events` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "totalCount, err := s.db.TelemetryEvents().CountDocuments(ctx, filter)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/announcements.go",
+      "line": 33,
+      "function": "ListPublic",
+      "collection": "announcements",
+      "operation": "Find",
+      "filter_fields": [
+        "isPublished"
+      ],
+      "severity": "HIGH",
+      "finding_type": "no_collection_indexes",
+      "reason": "collection `announcements` has no declared indexes \u2014 every query scans the full collection",
+      "snippet": "cursor, err := h.db.Announcements().Find(r.Context(), bson.M{\"isPublished\": true}, opts)",
+      "suggestion": "Add an index on the most-filtered field(s) of `announcements` (e.g. `isPublished` based on this query)."
+    },
+    {
+      "file": "internal/api/handlers/announcements.go",
+      "line": 54,
+      "function": "ListAll",
+      "collection": "announcements",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `announcements` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.Announcements().Find(r.Context(), bson.M{}, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "line": 403,
+      "function": "ListTransactions",
+      "collection": "financial_transactions",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "line": 414,
+      "function": "ListTransactions",
+      "collection": "financial_transactions",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "line": 733,
+      "function": "AdminListTransactions",
+      "collection": "financial_transactions",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "line": 744,
+      "function": "AdminListTransactions",
+      "collection": "financial_transactions",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/bundles.go",
+      "line": 236,
+      "function": "ListBundlesPublic",
+      "collection": "credit_bundles",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])",
+      "snippet": "cursor, err := h.db.CreditBundles().Find(r.Context(), bson.M{\"isActive\": true}, opts)",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`."
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "line": 456,
+      "function": "ChangeRole",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "result, err := h.db.TenantMemberships().UpdateOne(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "line": 524,
+      "function": "TransferOwnership",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "line": 534,
+      "function": "TransferOwnership",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "if _, err := h.db.TenantMemberships().UpdateOne(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "line": 593,
+      "function": "GetActivity",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.SystemLogs().Find(r.Context(), filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "line": 606,
+      "function": "GetActivity",
+      "collection": "system_logs",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "total, err := h.db.SystemLogs().CountDocuments(r.Context(), filter)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/logs.go",
+      "line": 113,
+      "function": "ListLogs",
+      "collection": "system_logs",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "total, err = h.db.SystemLogs().CountDocuments(ctx, filter)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/logs.go",
+      "line": 125,
+      "function": "ListLogs",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/logs.go",
+      "line": 196,
+      "function": "ExportCSV",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/messages.go",
+      "line": 36,
+      "function": "ListMessages",
+      "collection": "messages",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `messages` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.Messages().Find(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/messages.go",
+      "line": 64,
+      "function": "UnreadCount",
+      "collection": "messages",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `messages` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "count, err := h.db.Messages().CountDocuments(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/messages.go",
+      "line": 88,
+      "function": "MarkRead",
+      "collection": "messages",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `messages` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "result, err := h.db.Messages().UpdateOne(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/promotions.go",
+      "line": 200,
+      "function": "ListEligibleProducts",
+      "collection": "plans",
+      "operation": "Find",
+      "filter_fields": [
+        "isArchived"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isArchived'] are not covered by any index on `plans` (indexed leading fields: ['isSystem', 'name'])",
+      "snippet": "planCursor, err := h.db.Plans().Find(ctx, bson.M{\"isArchived\": bson.M{\"$ne\": true}})",
+      "suggestion": "Add an index on `isArchived` (or a compound index starting with it) on `plans`."
+    },
+    {
+      "file": "internal/api/handlers/promotions.go",
+      "line": 226,
+      "function": "ListEligibleProducts",
+      "collection": "credit_bundles",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])",
+      "snippet": "bundleCursor, err := h.db.CreditBundles().Find(ctx, bson.M{\"isActive\": true})",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`."
+    },
+    {
+      "file": "internal/api/handlers/webhooks.go",
+      "line": 45,
+      "function": "ListWebhooks",
+      "collection": "webhooks",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])",
+      "snippet": "cursor, err := h.db.Webhooks().Find(ctx, bson.M{\"isActive\": true}, opts)",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `webhooks`."
+    },
+    {
+      "file": "internal/api/handlers/webhooks.go",
+      "line": 88,
+      "function": "ListWebhooks",
+      "collection": "webhooks",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])",
+      "snippet": "total, err := h.db.Webhooks().CountDocuments(ctx, bson.M{\"isActive\": true})",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `webhooks`."
+    },
+    {
+      "file": "internal/api/handlers/webhooks.go",
+      "line": 111,
+      "function": "GetWebhook",
+      "collection": "webhook_deliveries",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "HIGH",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `webhook_deliveries` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.WebhookDeliveries().Find(r.Context(),",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/admin.go",
+      "line": 1186,
+      "function": "UpdateUserRole",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "h.db.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/admin.go",
+      "line": 1193,
+      "function": "UpdateUserRole",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "result, err := h.db.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/admin.go",
+      "line": 1414,
+      "function": "DeleteUser",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "result, err := h.db.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/admin.go",
+      "line": 2032,
+      "function": "ChangeRootMemberRole",
+      "collection": "tenant_memberships",
+      "operation": "UpdateOne",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `tenant_memberships` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "result, err := h.db.TenantMemberships().UpdateOne(ctx,",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 391,
+      "function": "handleInvoicePaid",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": subscriptionID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 482,
+      "function": "handleInvoicePaymentFailed",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": subscriptionID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 551,
+      "function": "handleSubscriptionUpdated",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": sub.ID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 613,
+      "function": "handleSubscriptionDeleted",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": sub.ID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 675,
+      "function": "handleChargeRefunded",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeCustomerId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": charge.Customer.ID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 726,
+      "function": "handleDisputeCreated",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeCustomerId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": customerID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 771,
+      "function": "handleDisputeClosed",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeCustomerId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": customerID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/auth.go",
+      "line": 503,
+      "function": "Refresh",
+      "collection": "refresh_tokens",
+      "operation": "FindOne",
+      "filter_fields": [
+        "tokenHash"
+      ],
+      "severity": "HIGH",
+      "finding_type": "no_index",
+      "reason": "filter fields ['tokenHash'] are not covered by any index on `refresh_tokens` (indexed leading fields: ['expiresAt', 'userId'])",
+      "snippet": "err = h.db.RefreshTokens().FindOne(r.Context(), bson.M{",
+      "suggestion": "Add an index on `tokenHash` (or a compound index starting with it) on `refresh_tokens`."
+    },
+    {
+      "file": "internal/api/handlers/apikeys.go",
+      "line": 45,
+      "function": "ListAPIKeys",
+      "collection": "api_keys",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `api_keys` (indexed leading fields: ['createdBy', 'keyHash'])",
+      "snippet": "cursor, err := h.db.APIKeys().Find(r.Context(), bson.M{\"isActive\": true}, opts)",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `api_keys`."
+    },
+    {
+      "file": "internal/api/handlers/apikeys.go",
+      "line": 60,
+      "function": "ListAPIKeys",
+      "collection": "api_keys",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `api_keys` (indexed leading fields: ['createdBy', 'keyHash'])",
+      "snippet": "total, err := h.db.APIKeys().CountDocuments(r.Context(), bson.M{\"isActive\": true})",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `api_keys`."
+    }
+  ]
+}

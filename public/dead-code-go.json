@@ -1,0 +1,353 @@
+{
+  "root": "/home/z/my-project/repos/lastsaas/backend",
+  "total_functions_scanned": 709,
+  "total_findings": 21,
+  "kind_breakdown": [
+    {
+      "kind": "exported",
+      "count": 18
+    },
+    {
+      "kind": "unexported",
+      "count": 3
+    }
+  ],
+  "top_files": [
+    {
+      "file": "internal/apierror/apierror.go",
+      "count": 7
+    },
+    {
+      "file": "internal/db/mongodb.go",
+      "count": 4
+    },
+    {
+      "file": "cmd/lastsaas/output.go",
+      "count": 2
+    },
+    {
+      "file": "internal/testutil/testutil.go",
+      "count": 2
+    },
+    {
+      "file": "internal/configstore/validate.go",
+      "count": 1
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "count": 1
+    },
+    {
+      "file": "internal/db/schema.go",
+      "count": 1
+    },
+    {
+      "file": "internal/syslog/syslog.go",
+      "count": 1
+    },
+    {
+      "file": "internal/api/handlers/bootstrap.go",
+      "count": 1
+    },
+    {
+      "file": "internal/api/handlers/plans.go",
+      "count": 1
+    }
+  ],
+  "findings": [
+    {
+      "name": "statusClr",
+      "file": "cmd/lastsaas/output.go",
+      "line": 72,
+      "end_line": 77,
+      "function_kind": "unexported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func statusClr(ok bool) string {\n        if ok {\n                return clr(cGreen, \"OK\")",
+      "severity": "LOW",
+      "note": "unexported function with no references anywhere in the codebase \u2014 safe to remove"
+    },
+    {
+      "name": "warnClr",
+      "file": "cmd/lastsaas/output.go",
+      "line": 79,
+      "end_line": 79,
+      "function_kind": "unexported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func warnClr(text string) string { return clr(cYellow, text) }\n\nfunc printJSON(v interface{}) {",
+      "severity": "LOW",
+      "note": "unexported function with no references anywhere in the codebase \u2014 safe to remove"
+    },
+    {
+      "name": "SetConfigDir",
+      "file": "internal/testutil/testutil.go",
+      "line": 185,
+      "end_line": 191,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 2,
+      "total_refs": 2,
+      "snippet": "func SetConfigDir(t *testing.T) {\n        t.Helper()\n        findAndSetConfigDir()",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "ParseJSON",
+      "file": "internal/testutil/testutil.go",
+      "line": 360,
+      "end_line": 366,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func ParseJSON(t *testing.T, resp *http.Response, target interface{}) {\n        t.Helper()\n        defer resp.Body.Close()",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "ValidateEnumValue",
+      "file": "internal/configstore/validate.go",
+      "line": 51,
+      "end_line": 82,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 1,
+      "total_refs": 1,
+      "snippet": "func ValidateEnumValue(value, optionsJSON string) error {\n\tif optionsJSON == \"\" {\n\t\treturn fmt.Errorf(\"enum type requires options\")",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "BadRequest",
+      "file": "internal/apierror/apierror.go",
+      "line": 65,
+      "end_line": 67,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func BadRequest(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusBadRequest, CodeBadRequest, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "Unauthorized",
+      "file": "internal/apierror/apierror.go",
+      "line": 70,
+      "end_line": 72,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func Unauthorized(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusUnauthorized, CodeUnauthorized, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "Forbidden",
+      "file": "internal/apierror/apierror.go",
+      "line": 75,
+      "end_line": 77,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func Forbidden(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusForbidden, CodeForbidden, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "Conflict",
+      "file": "internal/apierror/apierror.go",
+      "line": 85,
+      "end_line": 87,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func Conflict(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusConflict, CodeConflict, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "Validation",
+      "file": "internal/apierror/apierror.go",
+      "line": 90,
+      "end_line": 92,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func Validation(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusBadRequest, CodeValidation, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "Internal",
+      "file": "internal/apierror/apierror.go",
+      "line": 95,
+      "end_line": 97,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func Internal(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusInternalServerError, CodeInternal, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "RateLimited",
+      "file": "internal/apierror/apierror.go",
+      "line": 100,
+      "end_line": 102,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func RateLimited(w http.ResponseWriter, r *http.Request, message string) {\n        Write(w, http.StatusTooManyRequests, CodeRateLimited, message, r)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "TrackPageView",
+      "file": "internal/telemetry/service.go",
+      "line": 196,
+      "end_line": 204,
+      "function_kind": "exported",
+      "receiver_type": "*Service",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (s *Service) TrackPageView(ctx context.Context, sessionID, page string, userID *primitive.ObjectID) error {\n        return s.Track(ctx, models.TelemetryEvent{\n                EventName:  models.TelemetryPageView,",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "AuditLog",
+      "file": "internal/db/mongodb.go",
+      "line": 369,
+      "end_line": 371,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) AuditLog() *mongo.Collection {\n\treturn m.Database.Collection(\"audit_log\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "WebAuthnCredentials",
+      "file": "internal/db/mongodb.go",
+      "line": 449,
+      "end_line": 451,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) WebAuthnCredentials() *mongo.Collection {\n\treturn m.Database.Collection(\"webauthn_credentials\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "WebAuthnSessions",
+      "file": "internal/db/mongodb.go",
+      "line": 453,
+      "end_line": 455,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) WebAuthnSessions() *mongo.Collection {\n\treturn m.Database.Collection(\"webauthn_sessions\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "SSOConnections",
+      "file": "internal/db/mongodb.go",
+      "line": 457,
+      "end_line": 459,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) SSOConnections() *mongo.Collection {\n\treturn m.Database.Collection(\"sso_connections\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "AllSchemas",
+      "file": "internal/db/schema.go",
+      "line": 18,
+      "end_line": 37,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 1,
+      "total_refs": 1,
+      "snippet": "func AllSchemas() []CollectionSchema {\n\treturn []CollectionSchema{\n\t\tusersSchema(),",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "CriticalWithUser",
+      "file": "internal/syslog/syslog.go",
+      "line": 206,
+      "end_line": 208,
+      "function_kind": "exported",
+      "receiver_type": "*Logger",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (l *Logger) CriticalWithUser(ctx context.Context, message string, userID primitive.ObjectID) {\n\tl.log(ctx, models.LogCritical, message, &userID)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "IsInitialized",
+      "file": "internal/api/handlers/bootstrap.go",
+      "line": 44,
+      "end_line": 48,
+      "function_kind": "exported",
+      "receiver_type": "*BootstrapHandler",
+      "external_refs": 0,
+      "same_file_refs": 4,
+      "total_refs": 4,
+      "snippet": "func (h *BootstrapHandler) IsInitialized() bool {\n\th.mu.RLock()\n\tdefer h.mu.RUnlock()",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "lookupPlanForTenant",
+      "file": "internal/api/handlers/plans.go",
+      "line": 814,
+      "end_line": 822,
+      "function_kind": "unexported",
+      "receiver_type": "*PlansHandler",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (h *PlansHandler) lookupPlanForTenant(ctx context.Context, tenant *models.Tenant) (*models.Plan, error) {\n\tvar plan models.Plan\n\tif tenant.PlanID != nil {",
+      "severity": "LOW",
+      "note": "unexported function with no references anywhere in the codebase \u2014 safe to remove"
+    }
+  ]
+}

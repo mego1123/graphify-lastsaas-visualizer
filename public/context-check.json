@@ -1,0 +1,1481 @@
+{
+  "root": "/home/z/my-project/repos/lastsaas",
+  "summary": {
+    "total_files": 134,
+    "non_test_files": 101,
+    "test_files": 33,
+    "non_test_lines": 28969,
+    "test_lines": 8984,
+    "operations_scanned": 1023,
+    "proper_context": 1022,
+    "improper_context": 1,
+    "total_findings": 1,
+    "high_risk_findings": 0,
+    "low_risk_findings": 1,
+    "by_risk": {
+      "HIGH": 0,
+      "LOW": 1
+    },
+    "test": {
+      "operations_scanned": 56,
+      "proper_context": 47,
+      "improper_context": 9
+    }
+  },
+  "top_files": [
+    {
+      "file": "backend/cmd/server/main.go",
+      "operations": 4,
+      "proper": 3,
+      "improper": 1,
+      "findings": 1,
+      "high": 0,
+      "low": 1
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_db.go",
+      "operations": 2,
+      "proper": 2,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_doctor.go",
+      "operations": 7,
+      "proper": 7,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_financial.go",
+      "operations": 21,
+      "proper": 21,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_health.go",
+      "operations": 10,
+      "proper": 10,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_logs.go",
+      "operations": 6,
+      "proper": 6,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_mcp.go",
+      "operations": 0,
+      "proper": 0,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_stats.go",
+      "operations": 12,
+      "proper": 12,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_tenants.go",
+      "operations": 21,
+      "proper": 21,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/cmd_users.go",
+      "operations": 18,
+      "proper": 18,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/main.go",
+      "operations": 62,
+      "proper": 62,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/output.go",
+      "operations": 0,
+      "proper": 0,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/cmd/lastsaas/process.go",
+      "operations": 0,
+      "proper": 0,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/admin.go",
+      "operations": 142,
+      "proper": 142,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/announcements.go",
+      "operations": 11,
+      "proper": 11,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/apikeys.go",
+      "operations": 7,
+      "proper": 7,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/auth.go",
+      "operations": 154,
+      "proper": 154,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/billing.go",
+      "operations": 37,
+      "proper": 37,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/bootstrap.go",
+      "operations": 4,
+      "proper": 4,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/branding.go",
+      "operations": 29,
+      "proper": 29,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/bundles.go",
+      "operations": 20,
+      "proper": 20,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/config.go",
+      "operations": 5,
+      "proper": 5,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/docs.go",
+      "operations": 0,
+      "proper": 0,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/event_definitions.go",
+      "operations": 32,
+      "proper": 32,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    },
+    {
+      "file": "backend/internal/api/handlers/health.go",
+      "operations": 1,
+      "proper": 1,
+      "improper": 0,
+      "findings": 0,
+      "high": 0,
+      "low": 0
+    }
+  ],
+  "by_operation": {
+    "FindOne": 1
+  },
+  "by_context_used": {
+    "context.Background()": 1
+  },
+  "findings": [
+    {
+      "file": "backend/cmd/server/main.go",
+      "line": 801,
+      "end_line": 801,
+      "function": "main",
+      "operation": "FindOne",
+      "context_used": "context.Background()",
+      "is_http_handler": false,
+      "in_goroutine": false,
+      "risk": "LOW",
+      "snippet": "                                if err := database.BrandingConfig().FindOne(context.Background(), bson.M{}).Decode(&bc); err == nil && bc.AppName != \"\" {",
+      "note": "DB operation in non-HTTP function 'main' uses context.Background(). Acceptable for CLI commands, startup code, and constructors."
+    }
+  ],
+  "file_stats": [
+    {
+      "path": "backend/cmd/lastsaas/cmd_db.go",
+      "is_test": false,
+      "lines": 129,
+      "operations_scanned": 2,
+      "proper_context": 2,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_doctor.go",
+      "is_test": false,
+      "lines": 154,
+      "operations_scanned": 7,
+      "proper_context": 7,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_financial.go",
+      "is_test": false,
+      "lines": 389,
+      "operations_scanned": 21,
+      "proper_context": 21,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_health.go",
+      "is_test": false,
+      "lines": 159,
+      "operations_scanned": 10,
+      "proper_context": 10,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_logs.go",
+      "is_test": false,
+      "lines": 228,
+      "operations_scanned": 6,
+      "proper_context": 6,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_mcp.go",
+      "is_test": false,
+      "lines": 897,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_stats.go",
+      "is_test": false,
+      "lines": 138,
+      "operations_scanned": 12,
+      "proper_context": 12,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_tenants.go",
+      "is_test": false,
+      "lines": 372,
+      "operations_scanned": 21,
+      "proper_context": 21,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/cmd_users.go",
+      "is_test": false,
+      "lines": 396,
+      "operations_scanned": 18,
+      "proper_context": 18,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/main.go",
+      "is_test": false,
+      "lines": 978,
+      "operations_scanned": 62,
+      "proper_context": 62,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/output.go",
+      "is_test": false,
+      "lines": 150,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/lastsaas/process.go",
+      "is_test": false,
+      "lines": 352,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/cmd/server/main.go",
+      "is_test": false,
+      "lines": 859,
+      "operations_scanned": 4,
+      "proper_context": 3,
+      "improper_context": 1,
+      "findings": 1
+    },
+    {
+      "path": "backend/internal/api/handlers/admin.go",
+      "is_test": false,
+      "lines": 2092,
+      "operations_scanned": 142,
+      "proper_context": 142,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/admin_test.go",
+      "is_test": true,
+      "lines": 565,
+      "operations_scanned": 11,
+      "proper_context": 4,
+      "improper_context": 7,
+      "findings": 7
+    },
+    {
+      "path": "backend/internal/api/handlers/announcements.go",
+      "is_test": false,
+      "lines": 174,
+      "operations_scanned": 11,
+      "proper_context": 11,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/apikeys.go",
+      "is_test": false,
+      "lines": 188,
+      "operations_scanned": 7,
+      "proper_context": 7,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/apikeys_test.go",
+      "is_test": true,
+      "lines": 196,
+      "operations_scanned": 3,
+      "proper_context": 3,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/auth.go",
+      "is_test": false,
+      "lines": 2412,
+      "operations_scanned": 154,
+      "proper_context": 154,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/auth_test.go",
+      "is_test": true,
+      "lines": 453,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/billing.go",
+      "is_test": false,
+      "lines": 1042,
+      "operations_scanned": 37,
+      "proper_context": 37,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/billing_test.go",
+      "is_test": true,
+      "lines": 266,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/bootstrap.go",
+      "is_test": false,
+      "lines": 94,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/branding.go",
+      "is_test": false,
+      "lines": 646,
+      "operations_scanned": 29,
+      "proper_context": 29,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/bundles.go",
+      "is_test": false,
+      "lines": 252,
+      "operations_scanned": 20,
+      "proper_context": 20,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/config.go",
+      "is_test": false,
+      "lines": 206,
+      "operations_scanned": 5,
+      "proper_context": 5,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/docs.go",
+      "is_test": false,
+      "lines": 1198,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/event_definitions.go",
+      "is_test": false,
+      "lines": 473,
+      "operations_scanned": 32,
+      "proper_context": 32,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/health.go",
+      "is_test": false,
+      "lines": 165,
+      "operations_scanned": 1,
+      "proper_context": 1,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/helpers.go",
+      "is_test": false,
+      "lines": 67,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/isolation_test.go",
+      "is_test": true,
+      "lines": 354,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/logs.go",
+      "is_test": false,
+      "lines": 248,
+      "operations_scanned": 12,
+      "proper_context": 12,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/logs_test.go",
+      "is_test": true,
+      "lines": 278,
+      "operations_scanned": 7,
+      "proper_context": 7,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/messages.go",
+      "is_test": false,
+      "lines": 97,
+      "operations_scanned": 5,
+      "proper_context": 5,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/openapi.go",
+      "is_test": false,
+      "lines": 231,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/plans.go",
+      "is_test": false,
+      "lines": 822,
+      "operations_scanned": 54,
+      "proper_context": 54,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/plans_test.go",
+      "is_test": true,
+      "lines": 436,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/pm.go",
+      "is_test": false,
+      "lines": 122,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/promotions.go",
+      "is_test": false,
+      "lines": 522,
+      "operations_scanned": 27,
+      "proper_context": 27,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/telemetry.go",
+      "is_test": false,
+      "lines": 229,
+      "operations_scanned": 3,
+      "proper_context": 3,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/tenant.go",
+      "is_test": false,
+      "lines": 659,
+      "operations_scanned": 40,
+      "proper_context": 40,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/tenant_test.go",
+      "is_test": true,
+      "lines": 600,
+      "operations_scanned": 3,
+      "proper_context": 3,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/testhelpers_test.go",
+      "is_test": true,
+      "lines": 261,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/usage.go",
+      "is_test": false,
+      "lines": 209,
+      "operations_scanned": 10,
+      "proper_context": 10,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/webhook.go",
+      "is_test": false,
+      "lines": 889,
+      "operations_scanned": 53,
+      "proper_context": 53,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/webhooks.go",
+      "is_test": false,
+      "lines": 473,
+      "operations_scanned": 22,
+      "proper_context": 22,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/api/handlers/webhooks_test.go",
+      "is_test": true,
+      "lines": 341,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/apicounter/counter.go",
+      "is_test": false,
+      "lines": 13,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/apicounter/counter_test.go",
+      "is_test": true,
+      "lines": 53,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/apierror/apierror.go",
+      "is_test": false,
+      "lines": 102,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/github_oauth.go",
+      "is_test": false,
+      "lines": 117,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/google_oauth.go",
+      "is_test": false,
+      "lines": 78,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/jwt.go",
+      "is_test": false,
+      "lines": 177,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/jwt_test.go",
+      "is_test": true,
+      "lines": 227,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/microsoft_oauth.go",
+      "is_test": false,
+      "lines": 73,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/oauth_test.go",
+      "is_test": true,
+      "lines": 576,
+      "operations_scanned": 1,
+      "proper_context": 1,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/password.go",
+      "is_test": false,
+      "lines": 109,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/password_test.go",
+      "is_test": true,
+      "lines": 56,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/totp.go",
+      "is_test": false,
+      "lines": 149,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/totp_test.go",
+      "is_test": true,
+      "lines": 250,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/ua_parser.go",
+      "is_test": false,
+      "lines": 68,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/auth/ua_parser_test.go",
+      "is_test": true,
+      "lines": 109,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/config/config.go",
+      "is_test": false,
+      "lines": 221,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/config/config_test.go",
+      "is_test": true,
+      "lines": 372,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/configstore/seed.go",
+      "is_test": false,
+      "lines": 393,
+      "operations_scanned": 2,
+      "proper_context": 2,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/configstore/store.go",
+      "is_test": false,
+      "lines": 134,
+      "operations_scanned": 6,
+      "proper_context": 6,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/configstore/validate.go",
+      "is_test": false,
+      "lines": 95,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/datadog/client.go",
+      "is_test": false,
+      "lines": 809,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/db/mongodb.go",
+      "is_test": false,
+      "lines": 483,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/db/schema.go",
+      "is_test": false,
+      "lines": 630,
+      "operations_scanned": 1,
+      "proper_context": 1,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/email/resend.go",
+      "is_test": false,
+      "lines": 297,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/events/emitter.go",
+      "is_test": false,
+      "lines": 52,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/events/emitter_test.go",
+      "is_test": true,
+      "lines": 63,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/health/health.go",
+      "is_test": false,
+      "lines": 377,
+      "operations_scanned": 5,
+      "proper_context": 5,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/health/integrations.go",
+      "is_test": false,
+      "lines": 280,
+      "operations_scanned": 1,
+      "proper_context": 1,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/health/query.go",
+      "is_test": false,
+      "lines": 137,
+      "operations_scanned": 16,
+      "proper_context": 16,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/metrics/metrics.go",
+      "is_test": false,
+      "lines": 295,
+      "operations_scanned": 15,
+      "proper_context": 15,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/apiversion.go",
+      "is_test": false,
+      "lines": 15,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/auth.go",
+      "is_test": false,
+      "lines": 192,
+      "operations_scanned": 10,
+      "proper_context": 10,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/auth_test.go",
+      "is_test": true,
+      "lines": 522,
+      "operations_scanned": 2,
+      "proper_context": 0,
+      "improper_context": 2,
+      "findings": 2
+    },
+    {
+      "path": "backend/internal/middleware/bodylimit.go",
+      "is_test": false,
+      "lines": 14,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/bodylimit_test.go",
+      "is_test": true,
+      "lines": 69,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/metrics.go",
+      "is_test": false,
+      "lines": 120,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/metrics_test.go",
+      "is_test": true,
+      "lines": 170,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/middleware_test.go",
+      "is_test": true,
+      "lines": 182,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/ratelimit.go",
+      "is_test": false,
+      "lines": 271,
+      "operations_scanned": 5,
+      "proper_context": 5,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/ratelimit_test.go",
+      "is_test": true,
+      "lines": 183,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/rbac.go",
+      "is_test": false,
+      "lines": 37,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/recovery.go",
+      "is_test": false,
+      "lines": 27,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/requestid.go",
+      "is_test": false,
+      "lines": 42,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/security.go",
+      "is_test": false,
+      "lines": 38,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/tenant.go",
+      "is_test": false,
+      "lines": 155,
+      "operations_scanned": 6,
+      "proper_context": 6,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/middleware/tenant_test.go",
+      "is_test": true,
+      "lines": 275,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/announcement.go",
+      "is_test": false,
+      "lines": 17,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/api_key.go",
+      "is_test": false,
+      "lines": 30,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/billing.go",
+      "is_test": false,
+      "lines": 77,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/branding.go",
+      "is_test": false,
+      "lines": 91,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/config_var.go",
+      "is_test": false,
+      "lines": 36,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/credit_bundle.go",
+      "is_test": false,
+      "lines": 18,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/event_definition.go",
+      "is_test": false,
+      "lines": 17,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/health.go",
+      "is_test": false,
+      "lines": 116,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/invitation.go",
+      "is_test": false,
+      "lines": 26,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/membership.go",
+      "is_test": false,
+      "lines": 39,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/membership_test.go",
+      "is_test": true,
+      "lines": 49,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/message.go",
+      "is_test": false,
+      "lines": 17,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/models_test.go",
+      "is_test": true,
+      "lines": 150,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/plan.go",
+      "is_test": false,
+      "lines": 58,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/sso_connection.go",
+      "is_test": false,
+      "lines": 28,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/system.go",
+      "is_test": false,
+      "lines": 15,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/system_log.go",
+      "is_test": false,
+      "lines": 40,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/telemetry.go",
+      "is_test": false,
+      "lines": 38,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/tenant.go",
+      "is_test": false,
+      "lines": 29,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/tokens.go",
+      "is_test": false,
+      "lines": 71,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/usage_event.go",
+      "is_test": false,
+      "lines": 17,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/user.go",
+      "is_test": false,
+      "lines": 60,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/webauthn_credential.go",
+      "is_test": false,
+      "lines": 20,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/models/webhook.go",
+      "is_test": false,
+      "lines": 107,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/planstore/seed.go",
+      "is_test": false,
+      "lines": 44,
+      "operations_scanned": 2,
+      "proper_context": 2,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/stripe/stripe.go",
+      "is_test": false,
+      "lines": 412,
+      "operations_scanned": 6,
+      "proper_context": 6,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/stripe/stripe_test.go",
+      "is_test": true,
+      "lines": 641,
+      "operations_scanned": 1,
+      "proper_context": 1,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/syslog/syslog.go",
+      "is_test": false,
+      "lines": 274,
+      "operations_scanned": 5,
+      "proper_context": 5,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/syslog/syslog_test.go",
+      "is_test": true,
+      "lines": 316,
+      "operations_scanned": 8,
+      "proper_context": 8,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/telemetry/service.go",
+      "is_test": false,
+      "lines": 1314,
+      "operations_scanned": 78,
+      "proper_context": 78,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/testutil/testutil.go",
+      "is_test": false,
+      "lines": 490,
+      "operations_scanned": 17,
+      "proper_context": 17,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/validation/validate.go",
+      "is_test": false,
+      "lines": 100,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/validation/validate_test.go",
+      "is_test": true,
+      "lines": 312,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/version/check.go",
+      "is_test": false,
+      "lines": 94,
+      "operations_scanned": 8,
+      "proper_context": 8,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/version/version.go",
+      "is_test": false,
+      "lines": 49,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/version/version_test.go",
+      "is_test": true,
+      "lines": 102,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/webhooks/crypto.go",
+      "is_test": false,
+      "lines": 88,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/webhooks/crypto_test.go",
+      "is_test": true,
+      "lines": 194,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/webhooks/dispatcher.go",
+      "is_test": false,
+      "lines": 426,
+      "operations_scanned": 5,
+      "proper_context": 5,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/webhooks/dispatcher_integration_test.go",
+      "is_test": true,
+      "lines": 296,
+      "operations_scanned": 4,
+      "proper_context": 4,
+      "improper_context": 0,
+      "findings": 0
+    },
+    {
+      "path": "backend/internal/webhooks/dispatcher_test.go",
+      "is_test": true,
+      "lines": 67,
+      "operations_scanned": 0,
+      "proper_context": 0,
+      "improper_context": 0,
+      "findings": 0
+    }
+  ]
+}

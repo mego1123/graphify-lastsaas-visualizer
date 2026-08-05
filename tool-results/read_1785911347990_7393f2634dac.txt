@@ -1,0 +1,1033 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify_errors — audit Go source code for error handling patterns.
+     3→
+     4→Scans all .go files under the given path (default: current directory) and
+     5→classifies each error-related construct into one of:
+     6→
+     7→  * proper_handling  - `if err != nil { return ..., err }`            (LOW)
+     8→  * logged_only      - `if err != nil { log/slog/fmt.Print*(...) }`   (MEDIUM)
+     9→  * swallowed        - `if err != nil { }` or body without return     (HIGH)
+    10→  * ignored          - `result, _ := someFunc()`                      (HIGH)
+    11→  * missing_check    - statement-form call to a known error-returning fn (HIGH)
+    12→  * panic_on_error   - `if err != nil { panic(err) }`                 (MEDIUM)
+    13→
+    14→For each finding the script records file, line, containing function,
+    15→pattern type, code snippet, and severity. A summary gives total errors
+    16→checked, % properly handled, and the most problematic files.
+    17→
+    18→Test files (`*_test.go`) are scanned separately and only their aggregate
+    19→statistics are reported, so the main findings list reflects production code.
+    20→
+    21→Usage:
+    22→    python graphify_errors.py [path] [--out report.md] [--json] [--include-tests]
+    23→
+    24→Outputs:
+    25→    - JSON written to /home/z/my-project/public/error-audit.json (best effort)
+    26→    - Markdown written to /home/z/my-project/public/ERROR_AUDIT.md (best effort)
+    27→    - Markdown written to --out path if specified
+    28→    - JSON to stdout if --json given
+    29→
+    30→Test target: /home/z/my-project/repos/lastsaas/backend
+    31→"""
+    32→from __future__ import annotations
+    33→
+    34→import argparse
+    35→import json
+    36→import re
+    37→import sys
+    38→from collections import Counter
+    39→from dataclasses import asdict, dataclass, field
+    40→from pathlib import Path
+    41→from typing import Optional
+    42→
+    43→# --------------------------------------------------------------------------- #
+    44→# Constants
+    45→# --------------------------------------------------------------------------- #
+    46→
+    47→PATTERN_SEVERITY: dict[str, str] = {
+    48→    "proper_handling": "LOW",
+    49→    "logged_only":     "MEDIUM",
+    50→    "swallowed":       "HIGH",
+    51→    "ignored":         "HIGH",
+    52→    "missing_check":   "HIGH",
+    53→    "panic_on_error":  "MEDIUM",
+    54→}
+    55→
+    56→PATTERN_LABEL: dict[str, str] = {
+    57→    "proper_handling": "Proper handling",
+    58→    "logged_only":     "Logged only (no return)",
+    59→    "swallowed":       "Swallowed error",
+    60→    "ignored":         "Ignored error (`_`)",
+    61→    "missing_check":   "Missing error check",
+    62→    "panic_on_error":  "Panic on error",
+    63→}
+    64→
+    65→# Methods/functions that almost always return an error in idiomatic Go.
+    66→# Used by the `missing_check` heuristic. Conservative list — keeps false
+    67→# positives low while still catching the common offenders (DB/IO/codec).
+    68→ERROR_RETURNING_NAMES: set[str] = {
+    69→    # io / fs / os
+    70→    # NOTE: WriteString omitted — strings.Builder/bytes.Buffer.WriteString
+    71→    # always return a nil error and would dominate the report with false
+    72→    # positives. Write is kept because io.Writer implementations (os.File,
+    73→    # http.ResponseWriter, etc.) can fail.
+    74→    "Close", "Write", "Read", "ReadAll", "ReadFile",
+    75→    "WriteFile", "Sync", "Flush", "Seek", "Copy", "CopyN", "CopyBuffer",
+    76→    "Open", "Create", "OpenFile", "Mkdir", "MkdirAll",
+    77→    "Remove", "RemoveAll", "Rename", "Chmod", "Chown",
+    78→    # encoding
+    79→    "Marshal", "Unmarshal", "MarshalJSON", "UnmarshalJSON",
+    80→    "Encode", "Decode",
+    81→    # mongodb driver — direct error returners only (cursor/single-result
+    82→    # builders like FindOne/Find/Aggregate return result types, not errors,
+    83→    # and are excluded to avoid false positives).
+    84→    "InsertOne", "InsertMany", "UpdateOne", "UpdateMany", "UpdateByID",
+    85→    "ReplaceOne", "DeleteOne", "DeleteMany", "BulkWrite",
+    86→    "CountDocuments", "EstimatedDocumentCount",
+    87→    "Drop", "CreateCollection", "CreateIndex",
+    88→    # database/sql
+    89→    "Exec", "Query", "QueryRow", "QueryContext", "ExecContext",
+    90→    "Begin", "BeginTx", "Commit", "Rollback", "Prepare", "PrepareContext",
+    91→    "Scan",
+    92→    # net/http client
+    93→    "Do", "Send", "Post", "PostForm", "Head",
+    94→    # net
+    95→    "Connect", "Ping", "PingContext", "Disconnect", "Dial", "Listen",
+    96→    # crypto / templates / misc
+    97→    "Sign", "Verify", "Encrypt", "Decrypt",
+    98→    "Parse", "ParseFile", "ParseBytes", "Validate",
+    99→    "Render", "Execute", "ExecuteTemplate",
+   100→    "Save", "Load",
+   101→    "Compress", "Decompress",
+   102→}
+   103→
+   104→# Logging-like call patterns used by the `if err != nil` body classifier.
+   105→LOG_CALL_RE = re.compile(
+   106→    r'(?:\b(?:log|slog|fmt|syslog)\.[A-Za-z_]\w*\s*\([^)]*\)'
+   107→    r'|\.[A-Za-z_]\w*\s*\(\s*[^)]*\berr\b[^)]*\))'
+   108→)
+   109→
+   110→# Error-reporting helpers (HTTP response writers, etc.) — used to recognize
+   111→# the standard `if err != nil { respondWithError(...); return }` pattern.
+   112→ERROR_REPORT_RE = re.compile(
+   113→    r'\b(?:respondWithError|http\.Error|writeError|sendError|WriteError|'
+   114→    r'ReturnError|FailWith|abortWithStatus|abortWithError|c\.AbortWithStatusJSON|'
+   115→    r'c\.JSON)\s*\('
+   116→)
+   117→
+   118→# Terminal error handling — program exits with non-zero status after reporting.
+   119→TERMINAL_EXIT_RE = re.compile(r'\bos\.Exit\s*\(\s*[1-9]')
+   120→LOG_FATAL_RE = re.compile(r'\blog\.Fatal(?:ln|f)?\s*\(')
+   121→# Testing helpers — `t.Fatal*` stops the test (terminal); `t.Error*` marks
+   122→# failure but continues (treated as logged_only).
+   123→TEST_FATAL_RE = re.compile(r'\bt\.Fatal(?:ln|f)?\s*\(')
+   124→TEST_ERROR_RE = re.compile(r'\bt\.Error(?:ln|f)?\s*\(')
+   125→
+   126→# Regex helpers ------------------------------------------------------------- #
+   127→
+   128→# Match `if ... != nil ... {` (allows init statement with `;`).
+   129→IF_NIL_RE = re.compile(r'\bif\b[^{]*!=\s*nil\b[^{]*\{')
+   130→
+   131→# Discarded error: `result, _ := F(` or `_, _ := F(`
+   132→IGNORED_RE = re.compile(r'\b\w+\s*,\s*_\s*(?::=|=)\s*[\w.]+\s*\(')
+   133→
+   134→# `if err != nil` body classification
+   135→RETURN_ERR_RE = re.compile(r'\breturn\b[^;]*\berr\b')
+   136→RETURN_NEW_ERR_RE = re.compile(
+   137→    r'\breturn\b\s+(?:fmt\.Errorf|errors\.Wrap|errors\.Wrapf|errors\.New)\s*\('
+   138→)
+   139→RETURN_ANY_RE = re.compile(r'\breturn\b')
+   140→PANIC_RE = re.compile(r'\bpanic\s*\(')
+   141→
+   142→# Function declaration: ^func [recv]? Name(
+   143→FUNC_DECL_RE = re.compile(
+   144→    r'^[ \t]*func(?:[ \t]+\([^)]*\))?[ \t]+(?P<name>\w+)[ \t]*\(',
+   145→    re.MULTILINE,
+   146→)
+   147→
+   148→# Skip lines starting with these keywords for missing_check
+   149→CONTROL_KW_RE = re.compile(
+   150→    r'^(?:if|for|switch|case|return|break|continue|go|defer|select|'
+   151→    r'var|const|type|struct|interface|package|import|func|map|chan|range|'
+   152→    r'default|fallthrough|else)\b'
+   153→)
+   154→
+   155→
+   156→# --------------------------------------------------------------------------- #
+   157→# Data classes
+   158→# --------------------------------------------------------------------------- #
+   159→
+   160→@dataclass
+   161→class Finding:
+   162→    file: str
+   163→    line: int
+   164→    end_line: int
+   165→    function: str
+   166→    pattern: str
+   167→    severity: str
+   168→    snippet: str
+   169→    note: str = ""
+   170→
+   171→
+   172→@dataclass
+   173→class FileStats:
+   174→    path: str
+   175→    is_test: bool
+   176→    lines: int = 0
+   177→    total_error_sites: int = 0
+   178→    proper: int = 0
+   179→    logged: int = 0
+   180→    swallowed: int = 0
+   181→    ignored: int = 0
+   182→    missing: int = 0
+   183→    panic: int = 0
+   184→
+   185→    @property
+   186→    def problematic(self) -> int:
+   187→        return self.swallowed + self.ignored + self.missing
+   188→
+   189→    @property
+   190→    def pct_proper(self) -> float:
+   191→        return (100.0 * self.proper / self.total_error_sites) if self.total_error_sites else 0.0
+   192→
+   193→
+   194→@dataclass
+   195→class FuncRange:
+   196→    name: str
+   197→    start_line: int  # 1-indexed
+   198→    end_line: int    # 1-indexed
+   199→    is_init: bool
+   200→
+   201→
+   202→# --------------------------------------------------------------------------- #
+   203→# Lexer-ish helpers
+   204→# --------------------------------------------------------------------------- #
+   205→
+   206→def mask_source(src: str) -> str:
+   207→    """Replace string literals and comments with spaces.
+   208→
+   209→    Length and newlines are preserved so character offsets still line up
+   210→    with the original source — only the *content* of strings/comments is
+   211→    blanked out. This makes brace/paren matching safe.
+   212→    """
+   213→    out = list(src)
+   214→    i = 0
+   215→    n = len(src)
+   216→    while i < n:
+   217→        c = src[i]
+   218→        # Line comment
+   219→        if c == '/' and i + 1 < n and src[i + 1] == '/':
+   220→            while i < n and src[i] != '\n':
+   221→                out[i] = ' '
+   222→                i += 1
+   223→            continue
+   224→        # Block comment
+   225→        if c == '/' and i + 1 < n and src[i + 1] == '*':
+   226→            out[i] = ' '
+   227→            out[i + 1] = ' '
+   228→            i += 2
+   229→            while i < n:
+   230→                if src[i] == '*' and i + 1 < n and src[i + 1] == '/':
+   231→                    out[i] = ' '
+   232→                    out[i + 1] = ' '
+   233→                    i += 2
+   234→                    break
+   235→                if src[i] != '\n':
+   236→                    out[i] = ' '
+   237→                i += 1
+   238→            continue
+   239→        # Rune literal '...'
+   240→        if c == '\'':
+   241→            out[i] = ' '
+   242→            i += 1
+   243→            while i < n and src[i] not in ('\'', '\n'):
+   244→                if src[i] == '\\' and i + 1 < n:
+   245→                    out[i] = ' '
+   246→                    out[i + 1] = ' '
+   247→                    i += 2
+   248→                    continue
+   249→                out[i] = ' '
+   250→                i += 1
+   251→            if i < n and src[i] == '\'':
+   252→                out[i] = ' '
+   253→                i += 1
+   254→            continue
+   255→        # Double-quoted string "..."
+   256→        if c == '"':
+   257→            out[i] = ' '
+   258→            i += 1
+   259→            while i < n and src[i] not in ('"', '\n'):
+   260→                if src[i] == '\\' and i + 1 < n:
+   261→                    out[i] = ' '
+   262→                    out[i + 1] = ' '
+   263→                    i += 2
+   264→                    continue
+   265→                out[i] = ' '
+   266→                i += 1
+   267→            if i < n and src[i] == '"':
+   268→                out[i] = ' '
+   269→                i += 1
+   270→            continue
+   271→        # Back-quoted raw string `...`
+   272→        if c == '`':
+   273→            out[i] = ' '
+   274→            i += 1
+   275→            while i < n and src[i] != '`':
+   276→                if src[i] != '\n':
+   277→                    out[i] = ' '
+   278→                i += 1
+   279→            if i < n and src[i] == '`':
+   280→                out[i] = ' '
+   281→                i += 1
+   282→            continue
+   283→        i += 1
+   284→    return ''.join(out)
+   285→
+   286→
+   287→def find_matching_brace(masked: str, open_pos: int) -> int:
+   288→    """Given position of `{` in masked source, return matching `}` position."""
+   289→    depth = 0
+   290→    i = open_pos
+   291→    n = len(masked)
+   292→    while i < n:
+   293→        c = masked[i]
+   294→        if c == '{':
+   295→            depth += 1
+   296→        elif c == '}':
+   297→            depth -= 1
+   298→            if depth == 0:
+   299→                return i
+   300→        i += 1
+   301→    return -1
+   302→
+   303→
+   304→def parse_functions(masked: str) -> list[FuncRange]:
+   305→    """Find named top-level function/method declarations and their body ranges."""
+   306→    funcs: list[FuncRange] = []
+   307→    for m in FUNC_DECL_RE.finditer(masked):
+   308→        name = m.group('name')
+   309→        # Walk forward from end of match (right after `(`) to find the body `{`.
+   310→        i = m.end()
+   311→        n = len(masked)
+   312→        depth_paren = 1  # we're inside `(` already (match ends after `(`)
+   313→        brace_pos = -1
+   314→        while i < n:
+   315→            c = masked[i]
+   316→            if c == '(':
+   317→                depth_paren += 1
+   318→            elif c == ')':
+   319→                depth_paren -= 1
+   320→            elif c == '{' and depth_paren == 0:
+   321→                brace_pos = i
+   322→                break
+   323→            i += 1
+   324→        if brace_pos < 0:
+   325→            continue
+   326→        close_pos = find_matching_brace(masked, brace_pos)
+   327→        if close_pos < 0:
+   328→            continue
+   329→        start_line = masked[:m.start()].count('\n') + 1
+   330→        end_line = masked[:close_pos].count('\n') + 1
+   331→        funcs.append(FuncRange(
+   332→            name=name,
+   333→            start_line=start_line,
+   334→            end_line=end_line,
+   335→            is_init=(name == "init"),
+   336→        ))
+   337→    return funcs
+   338→
+   339→
+   340→def containing_function(funcs: list[FuncRange], line: int) -> str:
+   341→    """Innermost named function whose body contains `line`."""
+   342→    best: Optional[FuncRange] = None
+   343→    best_span = None
+   344→    for f in funcs:
+   345→        if f.start_line <= line <= f.end_line:
+   346→            span = f.end_line - f.start_line
+   347→            if best is None or span < best_span:
+   348→                best = f
+   349→                best_span = span
+   350→    return best.name if best else "<top-level>"
+   351→
+   352→
+   353→# --------------------------------------------------------------------------- #
+   354→# Pattern classification
+   355→# --------------------------------------------------------------------------- #
+   356→
+   357→def is_err_ident(name: str) -> bool:
+   358→    """Heuristic: does this identifier look like an error variable?"""
+   359→    if not name:
+   360→        return False
+   361→    n = name.lower()
+   362→    return (
+   363→        n == "err"
+   364→        or n == "e"
+   365→        or n.startswith("err")
+   366→        or n.endswith("err")
+   367→        or n.endswith("error")
+   368→    )
+   369→
+   370→
+   371→def classify_err_body(body_masked: str) -> str:
+   372→    """Classify the body of `if X != nil { body }`."""
+   373→    stripped = body_masked.strip()
+   374→    if not stripped:
+   375→        return "swallowed"
+   376→    if PANIC_RE.search(stripped):
+   377→        return "panic_on_error"
+   378→    # Terminal CLI error handling: program exits with non-zero status after
+   379→    # reporting the error. The error info is preserved and the program fails.
+   380→    if TERMINAL_EXIT_RE.search(stripped) or LOG_FATAL_RE.search(stripped):
+   381→        return "proper_handling"
+   382→    # Test termination — `t.Fatal*` reports the failure and stops the test.
+   383→    if TEST_FATAL_RE.search(stripped):
+   384→        return "proper_handling"
+   385→    # Returns the captured err directly (or wraps it via fmt.Errorf/errors.Wrap)
+   386→    if RETURN_ERR_RE.search(stripped):
+   387→        return "proper_handling"
+   388→    # Returns a *new* error (no `err` in the return expression).
+   389→    # The original error is dropped — call it swallowed but note it.
+   390→    if RETURN_NEW_ERR_RE.search(stripped):
+   391→        return "swallowed"
+   392→    has_return = RETURN_ANY_RE.search(stripped) is not None
+   393→    # Error reported via HTTP/response helper + return — error info is sent
+   394→    # to the client/consumer, but the original `err` is not propagated.
+   395→    if has_return and ERROR_REPORT_RE.search(stripped):
+   396→        return "logged_only"
+   397→    # Bare `return` or `return <non-err>` — original error dropped
+   398→    if has_return:
+   399→        return "swallowed"
+   400→    # No return at all. Check for non-terminal test/HTTP/log reporting:
+   401→    # `t.Error*`, `respondWithError`, `http.Error`, etc.
+   402→    if TEST_ERROR_RE.search(stripped):
+   403→        return "logged_only"
+   404→    if ERROR_REPORT_RE.search(stripped):
+   405→        return "logged_only"
+   406→    # Otherwise: if only logging calls remain, it's logged_only;
+   407→    # else the error is genuinely swallowed.
+   408→    no_logs = LOG_CALL_RE.sub('', stripped)
+   409→    no_logs = re.sub(r'[\s;{}]+', '', no_logs)
+   410→    if not no_logs:
+   411→        return "logged_only"
+   412→    return "swallowed"
+   413→
+   414→
+   415→# --------------------------------------------------------------------------- #
+   416→# Snippet helper
+   417→# --------------------------------------------------------------------------- #
+   418→
+   419→def make_snippet(lines: list[str], start: int, end: int, max_lines: int = 6) -> str:
+   420→    """Extract snippet from lines (1-indexed) for display."""
+   421→    if start < 1:
+   422→        start = 1
+   423→    if end > len(lines):
+   424→        end = len(lines)
+   425→    if end < start:
+   426→        end = start
+   427→    chunk = lines[start - 1:end]
+   428→    if len(chunk) > max_lines:
+   429→        chunk = chunk[:max_lines] + [f"... ({end - start - max_lines + 1} more lines)"]
+   430→    return "\n".join(line.rstrip() for line in chunk)
+   431→
+   432→
+   433→def extract_outermost_method(stripped: str) -> Optional[tuple[str, str]]:
+   434→    """For a statement-form call line, find the outermost call.
+   435→
+   436→    Returns ``(call_target, method_name)`` where ``call_target`` is the
+   437→    full dotted prefix up to and including the method, and ``method_name``
+   438→    is the last identifier before the outermost ``(``.
+   439→
+   440→    Returns ``None`` if the line is not a clean statement-form call
+   441→    (i.e. if there's anything significant after the outermost ``)``).
+   442→    """
+   443→    depth_paren = 0
+   444→    depth_bracket = 0
+   445→    depth_brace = 0
+   446→    last_call_paren = -1
+   447→    for i, c in enumerate(stripped):
+   448→        if c == '(':
+   449→            if (
+   450→                depth_paren == 0
+   451→                and depth_bracket == 0
+   452→                and depth_brace == 0
+   453→                and i > 0
+   454→            ):
+   455→                j = i - 1
+   456→                while j >= 0 and stripped[j].isspace():
+   457→                    j -= 1
+   458→                if j >= 0 and (
+   459→                    stripped[j].isalnum()
+   460→                    or stripped[j] == '_'
+   461→                    or stripped[j] == ')'
+   462→                ):
+   463→                    last_call_paren = i
+   464→            depth_paren += 1
+   465→        elif c == ')':
+   466→            depth_paren -= 1
+   467→            if depth_paren < 0:
+   468→                return None
+   469→        elif c == '[':
+   470→            depth_bracket += 1
+   471→        elif c == ']':
+   472→            depth_bracket -= 1
+   473→            if depth_bracket < 0:
+   474→                return None
+   475→        elif c == '{':
+   476→            depth_brace += 1
+   477→        elif c == '}':
+   478→            depth_brace -= 1
+   479→            if depth_brace < 0:
+   480→                return None
+   481→    if depth_paren != 0 or depth_bracket != 0 or depth_brace != 0:
+   482→        return None  # unbalanced
+   483→    if last_call_paren < 0:
+   484→        return None
+   485→    # Find matching `)` for the outermost call.
+   486→    depth = 1
+   487→    end_pos = -1
+   488→    for i in range(last_call_paren + 1, len(stripped)):
+   489→        c = stripped[i]
+   490→        if c == '(':
+   491→            depth += 1
+   492→        elif c == ')':
+   493→            depth -= 1
+   494→            if depth == 0:
+   495→                end_pos = i
+   496→                break
+   497→    if end_pos < 0:
+   498→        return None
+   499→    # Anything after the outermost `)` must be just `;` or whitespace.
+   500→    rest = stripped[end_pos + 1:].strip()
+   501→    rest = rest.lstrip(';').strip()
+   502→    if rest:
+   503→        return None
+   504→    # Walk back over the identifier (method name) before this `(`.
+   505→    j = last_call_paren - 1
+   506→    while j >= 0 and stripped[j].isspace():
+   507→        j -= 1
+   508→    end_ident = j + 1
+   509→    while j >= 0 and (stripped[j].isalnum() or stripped[j] == '_'):
+   510→        j -= 1
+   511→    method = stripped[j + 1:end_ident]
+   512→    if not method or not method[0].isalpha():
+   513→        return None
+   514→    # The full call target is everything up to and including `method`.
+   515→    target = stripped[:last_call_paren].strip()
+   516→    return (target, method)
+   517→
+   518→
+   519→# --------------------------------------------------------------------------- #
+   520→# Per-file audit
+   521→# --------------------------------------------------------------------------- #
+   522→
+   523→def audit_file(path: Path, project_root: Path) -> tuple[list[Finding], FileStats]:
+   524→    """Audit a single .go file. Returns (findings, stats)."""
+   525→    try:
+   526→        src = path.read_text(encoding='utf-8', errors='replace')
+   527→    except Exception:
+   528→        return [], FileStats(path=str(path), is_test=path.name.endswith("_test.go"))
+   529→
+   530→    try:
+   531→        rel_path = str(path.relative_to(project_root))
+   532→        if rel_path == ".":
+   533→            rel_path = path.name
+   534→    except ValueError:
+   535→        rel_path = str(path)
+   536→
+   537→    is_test = path.name.endswith("_test.go")
+   538→    masked = mask_source(src)
+   539→    lines = src.splitlines()
+   540→    funcs = parse_functions(masked)
+   541→    stats = FileStats(
+   542→        path=rel_path,
+   543→        is_test=is_test,
+   544→        lines=len(lines),
+   545→    )
+   546→    findings: list[Finding] = []
+   547→
+   548→    # Track line numbers inside any `if X != nil { ... }` block so the
+   549→    # missing_check scan can skip them (avoid double-counting).
+   550→    err_block_lines: set[int] = set()
+   551→
+   552→    # ----- 1. `if X != nil { ... }` blocks --------------------------------- #
+   553→    for m in IF_NIL_RE.finditer(masked):
+   554→        # The full match text includes init + condition + `{`.
+   555→        match_text = m.group(0)
+   556→        # Condition is what's after the last `;` (if any).
+   557→        cond = match_text.rsplit(';', 1)[-1] if ';' in match_text else match_text
+   558→        if not any(is_err_ident(tok) for tok in re.findall(r'\b\w+\b', cond)):
+   559→            continue
+   560→
+   561→        # `{` is the last character of the match.
+   562→        brace_pos = m.end() - 1
+   563→        close_pos = find_matching_brace(masked, brace_pos)
+   564→        if close_pos < 0:
+   565→            continue
+   566→
+   567→        body_masked = masked[brace_pos + 1:close_pos]
+   568→        start_line = masked[:m.start()].count('\n') + 1
+   569→        end_line = masked[:close_pos].count('\n') + 1
+   570→
+   571→        for ln in range(start_line, end_line + 1):
+   572→            err_block_lines.add(ln)
+   573→
+   574→        pattern = classify_err_body(body_masked)
+   575→        severity = PATTERN_SEVERITY[pattern]
+   576→        func_name = containing_function(funcs, start_line)
+   577→        snippet = make_snippet(lines, start_line, end_line)
+   578→
+   579→        findings.append(Finding(
+   580→            file=rel_path,
+   581→            line=start_line,
+   582→            end_line=end_line,
+   583→            function=func_name,
+   584→            pattern=pattern,
+   585→            severity=severity,
+   586→            snippet=snippet,
+   587→        ))
+   588→
+   589→        stats.total_error_sites += 1
+   590→        if pattern == "proper_handling":
+   591→            stats.proper += 1
+   592→        elif pattern == "logged_only":
+   593→            stats.logged += 1
+   594→        elif pattern == "swallowed":
+   595→            stats.swallowed += 1
+   596→        elif pattern == "panic_on_error":
+   597→            stats.panic += 1
+   598→
+   599→    # ----- 2. `result, _ := F(...)` ignored errors ------------------------- #
+   600→    for m in IGNORED_RE.finditer(masked):
+   601→        line_num = masked[:m.start()].count('\n') + 1
+   602→        line_text = lines[line_num - 1] if line_num <= len(lines) else ""
+   603→        # Skip `for k, _ := range m` and similar non-error discards.
+   604→        if re.search(r'\brange\b', line_text):
+   605→            continue
+   606→        # Skip if line is inside an err block (would be double-counted)
+   607→        if line_num in err_block_lines:
+   608→            continue
+   609→        func_name = containing_function(funcs, line_num)
+   610→        snippet = make_snippet(lines, line_num, line_num)
+   611→        findings.append(Finding(
+   612→            file=rel_path,
+   613→            line=line_num,
+   614→            end_line=line_num,
+   615→            function=func_name,
+   616→            pattern="ignored",
+   617→            severity=PATTERN_SEVERITY["ignored"],
+   618→            snippet=snippet,
+   619→            note="error explicitly discarded with `_`",
+   620→        ))
+   621→        stats.total_error_sites += 1
+   622→        stats.ignored += 1
+   623→
+   624→    # ----- 3. missing_check: statement-form calls -------------------------- #
+   625→    for line_idx, raw_line in enumerate(lines, start=1):
+   626→        if line_idx in err_block_lines:
+   627→            continue
+   628→        # Strip trailing `// ...` comment (but keep `/* */` — rare on stmts).
+   629→        code_part = re.sub(r'//.*$', '', raw_line).rstrip()
+   630→        stripped = code_part.strip()
+   631→        if not stripped:
+   632→            continue
+   633→        if stripped.startswith(('defer ', 'defer(', 'go ', 'go(')):
+   634→            continue
+   635→        if CONTROL_KW_RE.match(stripped):
+   636→            continue
+   637→        # Skip assignments — `result := F()` (single return) is hard to judge
+   638→        # without type info. Focus on bare statement-form calls.
+   639→        if ':=' in stripped or re.match(r'^[\w.,\s\[\]{}*<>-]+=\s*\S', stripped):
+   640→            continue
+   641→        # Skip lines with nolint-style comments
+   642→        if '//nolint' in raw_line or '//nosec' in raw_line:
+   643→            continue
+   644→        low = raw_line.lower()
+   645→        if '//ok' in low or '// ok' in low:
+   646→            continue
+   647→
+   648→        call = extract_outermost_method(stripped)
+   649→        if call is None:
+   650→            continue
+   651→        call_target, method = call
+   652→        # Only flag method calls (with a `.` receiver). Free-function calls
+   653→        # like `Write(...)` or `Close(...)` are almost always custom helpers
+   654→        # whose signature we can't infer, so skip them to avoid noise.
+   655→        if '.' not in call_target:
+   656→            continue
+   657→        if method not in ERROR_RETURNING_NAMES:
+   658→            continue
+   659→
+   660→        func_name = containing_function(funcs, line_idx)
+   661→        snippet = make_snippet(lines, line_idx, line_idx)
+   662→        findings.append(Finding(
+   663→            file=rel_path,
+   664→            line=line_idx,
+   665→            end_line=line_idx,
+   666→            function=func_name,
+   667→            pattern="missing_check",
+   668→            severity=PATTERN_SEVERITY["missing_check"],
+   669→            snippet=snippet,
+   670→            note=f"statement-form call to known error-returning '{call_target}()'",
+   671→        ))
+   672→        stats.total_error_sites += 1
+   673→        stats.missing += 1
+   674→
+   675→    return findings, stats
+   676→
+   677→
+   678→# --------------------------------------------------------------------------- #
+   679→# Aggregation / reporting
+   680→# --------------------------------------------------------------------------- #
+   681→
+   682→def collect_files(root: Path) -> list[Path]:
+   683→    """All .go files under root, excluding vendor / generated dirs.
+   684→
+   685→    `root` may be a single .go file or a directory.
+   686→    """
+   687→    skip_dirs = {"vendor", "node_modules", ".git", "graphify-out", "testdata"}
+   688→    if root.is_file():
+   689→        return [root] if root.suffix == ".go" else []
+   690→    out: list[Path] = []
+   691→    for p in root.rglob("*.go"):
+   692→        if any(part in skip_dirs for part in p.parts):
+   693→            continue
+   694→        out.append(p)
+   695→    return sorted(out)
+   696→
+   697→
+   698→def audit_project(root: Path) -> dict:
+   699→    """Audit all .go files under root and return the combined report dict."""
+   700→    files = collect_files(root)
+   701→    all_findings: list[Finding] = []
+   702→    all_stats: list[FileStats] = []
+   703→
+   704→    for path in files:
+   705→        findings, stats = audit_file(path, root)
+   706→        all_stats.append(stats)
+   707→        # Only include detailed findings from NON-test files in the main list.
+   708→        if not stats.is_test:
+   709→            all_findings.extend(findings)
+   710→
+   711→    # ----- summary --------------------------------------------------------- #
+   712→    non_test_stats = [s for s in all_stats if not s.is_test]
+   713→    test_stats = [s for s in all_stats if s.is_test]
+   714→
+   715→    def totals(stats: list[FileStats]) -> dict:
+   716→        return {
+   717→            "files": len(stats),
+   718→            "lines": sum(s.lines for s in stats),
+   719→            "total_error_sites": sum(s.total_error_sites for s in stats),
+   720→            "proper": sum(s.proper for s in stats),
+   721→            "logged": sum(s.logged for s in stats),
+   722→            "swallowed": sum(s.swallowed for s in stats),
+   723→            "ignored": sum(s.ignored for s in stats),
+   724→            "missing": sum(s.missing for s in stats),
+   725→            "panic": sum(s.panic for s in stats),
+   726→        }
+   727→
+   728→    nt = totals(non_test_stats)
+   729→    tt = totals(test_stats)
+   730→    pct_proper = (
+   731→        100.0 * nt["proper"] / nt["total_error_sites"]
+   732→        if nt["total_error_sites"] else 0.0
+   733→    )
+   734→
+   735→    # Most problematic files (non-test) by total problematic count.
+   736→    problematic_files = sorted(
+   737→        [s for s in non_test_stats if s.problematic > 0],
+   738→        key=lambda s: (-s.problematic, -s.total_error_sites, s.path),
+   739→    )[:15]
+   740→
+   741→    pattern_breakdown = Counter(f.pattern for f in all_findings)
+   742→    severity_breakdown = Counter(f.severity for f in all_findings)
+   743→
+   744→    return {
+   745→        "root": str(root),
+   746→        "summary": {
+   747→            "total_files": len(files),
+   748→            "non_test_files": len(non_test_stats),
+   749→            "test_files": len(test_stats),
+   750→            "non_test": nt,
+   751→            "test": tt,
+   752→            "pct_proper_handled": round(pct_proper, 2),
+   753→        },
+   754→        "pattern_breakdown": dict(pattern_breakdown),
+   755→        "severity_breakdown": dict(severity_breakdown),
+   756→        "most_problematic_files": [
+   757→            {
+   758→                "file": s.path,
+   759→                "problematic_count": s.problematic,
+   760→                "total_error_sites": s.total_error_sites,
+   761→                "breakdown": {
+   762→                    "swallowed": s.swallowed,
+   763→                    "ignored": s.ignored,
+   764→                    "missing_check": s.missing,
+   765→                    "logged_only": s.logged,
+   766→                    "panic_on_error": s.panic,
+   767→                    "proper_handling": s.proper,
+   768→                },
+   769→            }
+   770→            for s in problematic_files
+   771→        ],
+   772→        "findings": [asdict(f) for f in all_findings],
+   773→        "file_stats": [asdict(s) for s in all_stats],
+   774→    }
+   775→
+   776→
+   777→# --------------------------------------------------------------------------- #
+   778→# Markdown rendering
+   779→# --------------------------------------------------------------------------- #
+   780→
+   781→def render_markdown(report: dict) -> str:
+   782→    """Render the audit report as a markdown document."""
+   783→    s = report["summary"]
+   784→    nt = s["non_test"]
+   785→    tt = s["test"]
+   786→    pb = report["pattern_breakdown"]
+   787→    sev = report["severity_breakdown"]
+   788→    findings = report["findings"]
+   789→    problematic = report["most_problematic_files"]
+   790→
+   791→    out: list[str] = []
+   792→    out.append("# Error Handling Audit")
+   793→    out.append("")
+   794→    out.append(f"**Target:** `{report['root']}`")
+   795→    out.append("")
+   796→    out.append("## Summary (non-test files)")
+   797→    out.append("")
+   798→    out.append("| Metric | Value |")
+   799→    out.append("| --- | --- |")
+   800→    out.append(f"| Files scanned | {s['non_test_files']} |")
+   801→    out.append(f"| Total lines | {nt['lines']:,} |")
+   802→    out.append(f"| Total error-handling sites | **{nt['total_error_sites']}** |")
+   803→    out.append(f"| Properly handled | {nt['proper']} |")
+   804→    out.append(f"| Logged only (no return) | {nt['logged']} |")
+   805→    out.append(f"| Swallowed errors | {nt['swallowed']} |")
+   806→    out.append(f"| Ignored errors (`_`) | {nt['ignored']} |")
+   807→    out.append(f"| Missing error checks | {nt['missing']} |")
+   808→    out.append(f"| Panic on error | {nt['panic']} |")
+   809→    out.append(f"| % properly handled | **{s['pct_proper_handled']}%** |")
+   810→    out.append("")
+   811→
+   812→    out.append("## Pattern Breakdown (non-test files)")
+   813→    out.append("")
+   814→    out.append("| Pattern | Count | Severity |")
+   815→    out.append("| --- | ---: | --- |")
+   816→    for pat in ["proper_handling", "logged_only", "swallowed",
+   817→                "ignored", "missing_check", "panic_on_error"]:
+   818→        count = pb.get(pat, 0)
+   819→        out.append(
+   820→            f"| {PATTERN_LABEL[pat]} | {count} | {PATTERN_SEVERITY[pat]} |"
+   821→        )
+   822→    out.append("")
+   823→
+   824→    out.append("## Severity Breakdown (non-test files)")
+   825→    out.append("")
+   826→    out.append("| Severity | Count |")
+   827→    out.append("| --- | ---: |")
+   828→    for sv in ["HIGH", "MEDIUM", "LOW"]:
+   829→        out.append(f"| {sv} | {sev.get(sv, 0)} |")
+   830→    out.append("")
+   831→
+   832→    out.append("## Most Problematic Files (non-test)")
+   833→    out.append("")
+   834→    if not problematic:
+   835→        out.append("_No problematic files — all error sites are properly handled._")
+   836→    else:
+   837→        out.append(
+   838→            "| File | Issues | Sites | Swallowed | Ignored | Missing | Logged | Panic |"
+   839→        )
+   840→        out.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+   841→        for p in problematic:
+   842→            b = p["breakdown"]
+   843→            out.append(
+   844→                f"| `{p['file']}` | {p['problematic_count']} | "
+   845→                f"{p['total_error_sites']} | {b['swallowed']} | {b['ignored']} | "
+   846→                f"{b['missing_check']} | {b['logged_only']} | {b['panic_on_error']} |"
+   847→            )
+   848→    out.append("")
+   849→
+   850→    # Group findings by file
+   851→    by_file: dict[str, list[dict]] = {}
+   852→    for f in findings:
+   853→        by_file.setdefault(f["file"], []).append(f)
+   854→
+   855→    out.append("## Detailed Findings (non-test files)")
+   856→    out.append("")
+   857→    if not by_file:
+   858→        out.append("_No issues to report._")
+   859→    else:
+   860→        for file in sorted(by_file):
+   861→            file_findings = by_file[file]
+   862→            # Sort: HIGH first, then MEDIUM, then LOW; by line within each
+   863→            sev_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+   864→            file_findings.sort(key=lambda f: (sev_order[f["severity"]], f["line"]))
+   865→            out.append(f"### `{file}`")
+   866→            out.append("")
+   867→            for f in file_findings:
+   868→                out.append(
+   869→                    f"- **[{f['severity']}] {PATTERN_LABEL[f['pattern']]}** — "
+   870→                    f"`{f['file']}:{f['line']}` in `{f['function']}`"
+   871→                )
+   872→                if f["note"]:
+   873→                    out.append(f"  - _{f['note']}_")
+   874→                # Snippet as a fenced code block
+   875→                snippet = f["snippet"].rstrip()
+   876→                out.append("  ```go")
+   877→                for line in snippet.splitlines():
+   878→                    out.append(f"  {line}")
+   879→                out.append("  ```")
+   880→            out.append("")
+   881→
+   882→    # Test file summary
+   883→    out.append("## Test File Error Handling (summary)")
+   884→    out.append("")
+   885→    out.append("| Metric | Value |")
+   886→    out.append("| --- | --- |")
+   887→    out.append(f"| Test files scanned | {s['test_files']} |")
+   888→    out.append(f"| Total lines | {tt['lines']:,} |")
+   889→    out.append(f"| Total error-handling sites | {tt['total_error_sites']} |")
+   890→    out.append(f"| Properly handled | {tt['proper']} |")
+   891→    out.append(f"| Logged only | {tt['logged']} |")
+   892→    out.append(f"| Swallowed | {tt['swallowed']} |")
+   893→    out.append(f"| Ignored (`_`) | {tt['ignored']} |")
+   894→    out.append(f"| Missing checks | {tt['missing']} |")
+   895→    out.append(f"| Panic on error | {tt['panic']} |")
+   896→    pct_test = (
+   897→        100.0 * tt["proper"] / tt["total_error_sites"]
+   898→        if tt["total_error_sites"] else 0.0
+   899→    )
+   900→    out.append(f"| % properly handled | {round(pct_test, 2)}% |")
+   901→    out.append("")
+   902→
+   903→    out.append("## Methodology")
+   904→    out.append("")
+   905→    out.append(
+   906→        "The audit scans every `.go` file (excluding `vendor/`, `node_modules/`, "
+   907→        "`.git/`, `graphify-out/`, `testdata/`) and applies these heuristics:"
+   908→    )
+   909→    out.append("")
+   910→    out.append(
+   911→        "1. **`if X != nil { ... }` blocks** are located via brace matching "
+   912→        "(strings and comments are masked out first). The block body is then "
+   913→        "classified as: `proper_handling` (returns `err` or wraps it), "
+   914→        "`panic_on_error`, `logged_only` (only log calls, no return), or "
+   915→        "`swallowed` (anything else)."
+   916→    )
+   917→    out.append(
+   918→        "2. **Ignored errors** are detected as `result, _ := someFunc(...)` "
+   919→        "patterns where the last return value is discarded with `_`. "
+   920→        "`for k, _ := range m` is excluded."
+   921→    )
+   922→    out.append(
+   923→        "3. **Missing error checks** are detected as statement-form calls "
+   924→        "(not assigned, not preceded by `defer`/`go`) to a known "
+   925→        "error-returning method such as `Close`, `Write`, `InsertOne`, "
+   926→        "`UpdateOne`, `Marshal`, etc. This is heuristic and may produce "
+   927→        "false positives — review each finding."
+   928→    )
+   929→    out.append("")
+   930→    out.append(
+   931→        "Severity: **HIGH** for swallowed/ignored/missing, **MEDIUM** for "
+   932→        "logged-only and panic-on-error, **LOW** for proper handling."
+   933→    )
+   934→    out.append("")
+   935→
+   936→    return "\n".join(out)
+   937→
+   938→
+   939→# --------------------------------------------------------------------------- #
+   940→# CLI
+   941→# --------------------------------------------------------------------------- #
+   942→
+   943→def main(argv: Optional[list[str]] = None) -> int:
+   944→    parser = argparse.ArgumentParser(
+   945→        description="Audit Go source code for error handling patterns.",
+   946→    )
+   947→    parser.add_argument(
+   948→        "path",
+   949→        nargs="?",
+   950→        default=".",
+   951→        help="Path to scan (file or directory). Default: current directory.",
+   952→    )
+   953→    parser.add_argument(
+   954→        "--out",
+   955→        default=None,
+   956→        help="Write markdown report to this path (in addition to public/ERROR_AUDIT.md).",
+   957→    )
+   958→    parser.add_argument(
+   959→        "--json",
+   960→        action="store_true",
+   961→        help="Print the JSON report to stdout.",
+   962→    )
+   963→    parser.add_argument(
+   964→        "--include-tests",
+   965→        action="store_true",
+   966→        help="Include test-file findings in the detailed findings list.",
+   967→    )
+   968→    args = parser.parse_args(argv)
+   969→
+   970→    root = Path(args.path).resolve()
+   971→    if not root.exists():
+   972→        print(f"ERROR: path not found: {root}", file=sys.stderr)
+   973→        return 2
+   974→
+   975→    report = audit_project(root)
+   976→
+   977→    if args.include_tests:
+   978→        # Promote test-file findings into the main findings list as well.
+   979→        test_findings = [
+   980→            f for f in (report["findings"]) if False  # already only non-test
+   981→        ]
+   982→        # (Already non-test only; this option is a no-op for now since the
+   983→        # detailed list is intentionally non-test only. Test stats are
+   984→        # always reported in the summary.)
+   985→
+   986→    # Always write JSON + MD to /home/z/my-project/public/ if writable.
+   987→    public_dir = Path("/home/z/my-project/public")
+   988→    json_path = public_dir / "error-audit.json"
+   989→    md_path = public_dir / "ERROR_AUDIT.md"
+   990→    try:
+   991→        public_dir.mkdir(parents=True, exist_ok=True)
+   992→        json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+   993→    except Exception as e:
+   994→        print(f"WARN: could not write {json_path}: {e}", file=sys.stderr)
+   995→    try:
+   996→        md_path.write_text(render_markdown(report), encoding="utf-8")
+   997→    except Exception as e:
+   998→        print(f"WARN: could not write {md_path}: {e}", file=sys.stderr)
+   999→
+  1000→    # Optional --out markdown
+  1001→    if args.out:
+  1002→        out_path = Path(args.out)
+  1003→        try:
+  1004→            out_path.parent.mkdir(parents=True, exist_ok=True)
+  1005→            out_path.write_text(render_markdown(report), encoding="utf-8")
+  1006→            print(f"Markdown report written to {out_path}", file=sys.stderr)
+  1007→        except Exception as e:
+  1008→            print(f"ERROR: could not write --out file: {e}", file=sys.stderr)
+  1009→            return 1
+  1010→
+  1011→    if args.json:
+  1012→        print(json.dumps(report, indent=2))
+  1013→
+  1014→    # Brief stderr summary
+  1015→    nt = report["summary"]["non_test"]
+  1016→    print(
+  1017→        f"Audited {report['summary']['non_test_files']} non-test Go files "
+  1018→        f"({nt['total_error_sites']} error sites, "
+  1019→        f"{report['summary']['pct_proper_handled']}% properly handled).",
+  1020→        file=sys.stderr,
+  1021→    )
+  1022→    print(
+  1023→        f"HIGH severity findings: {report['severity_breakdown'].get('HIGH', 0)}  "
+  1024→        f"MEDIUM: {report['severity_breakdown'].get('MEDIUM', 0)}  "
+  1025→        f"LOW: {report['severity_breakdown'].get('LOW', 0)}",
+  1026→        file=sys.stderr,
+  1027→    )
+  1028→    return 0
+  1029→
+  1030→
+  1031→if __name__ == "__main__":
+  1032→    raise SystemExit(main())
+  1033→

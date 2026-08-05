@@ -1,0 +1,996 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify middleware — Go HTTP middleware chain visualizer.
+     3→
+     4→Scans all .go files in a repository and:
+     5→
+     6→  1. Detects middleware usage patterns:
+     7→       - `router.Use(...)` / `r.Use(...)` / `api.Use(...)` — gorilla/mux style
+     8→       - `middleware.Func(...)` factory calls
+     9→       - Manual nesting: `handler := m1(m2(m3(finalHandler)))`
+    10→       - `http.Handler` wrapping (`http.HandlerFunc(...)`, `c.Handler(...)`)
+    11→       - Method-style: `metricsCollector.Middleware(router)`
+    12→       - `rateLimiter.RateLimitHandler(config, keyFunc, handler)`
+    13→
+    14→  2. Reconstructs the execution order for every chain site. The outermost
+    15→     wrapper runs first; the innermost (the actual handler) runs last.
+    16→
+    17→  3. For each middleware, identifies:
+    18→       - name, file, doc comment
+    19→       - whether it runs *before* the handler (does work then calls
+    20→         `next.ServeHTTP`)
+    21→       - whether it runs *after* the handler (calls `next.ServeHTTP` first,
+    22→         then does work — e.g. metrics, panic recovery via `defer`)
+    23→       - whether it short-circuits (returns early without invoking
+    24→         `next.ServeHTTP`, e.g. on auth failure or rate-limit exceeded)
+    25→
+    26→  4. Emits a visual chain for every router, e.g.:
+    27→
+    28→       Request → Recovery → BodySizeLimit → SecurityHeaders → CORS → Metrics → Router → Handler → Response
+    29→
+    30→Usage:
+    31→  python graphify_middleware.py [path] [--out report.md] [--json]
+    32→"""
+    33→from __future__ import annotations
+    34→
+    35→import argparse
+    36→import json
+    37→import os
+    38→import re
+    39→import sys
+    40→from dataclasses import asdict, dataclass, field
+    41→from pathlib import Path
+    42→from typing import Dict, List, Optional, Set, Tuple
+    43→
+    44→# ---------------------------------------------------------------------------
+    45→# Regexes
+    46→# ---------------------------------------------------------------------------
+    47→
+    48→# `router.Use(...)` — capture router variable name and the call inside.
+    49→# Tolerates optional `(` after the identifier (for `r.Use(middleware.Foo(...))`).
+    50→RE_USE_CALL = re.compile(
+    51→    r"\b(?P<router>[a-zA-Z_]\w*)\.Use\(\s*(?P<arg>[^)]+?(?:\([^)]*\)[^)]*)*)\s*\)"
+    52→)
+    53→
+    54→# A middleware factory call: `middleware.RequireRole(models.RoleAdmin)` or
+    55→# `middleware.RequireActiveBilling()` — captures the function name.
+    56→RE_MIDDLEWARE_CALL = re.compile(
+    57→    r"\bmiddleware\.(?P<name>[A-Z]\w*)\s*\("
+    58→)
+    59→
+    60→# A method-style middleware call: `authMiddleware.RequireAuth` (no parens —
+    61→# it's already a function value) or `metricsCollector.Middleware(...)`.
+    62→RE_RECEIVER_METHOD = re.compile(
+    63→    r"\b(?P<recv>[a-z]\w*)\.(?P<method>[A-Z]\w*)\b"
+    64→)
+    65→
+    66→# RateLimitHandler call: `rateLimiter.RateLimitHandler(config, keyFunc, handler)`.
+    67→RE_RATELIMIT_HANDLER = re.compile(
+    68→    r"\b(?P<recv>[a-z]\w*)\.RateLimitHandler\("
+    69→)
+    70→
+    71→# `func Name(next http.Handler) http.Handler` — a top-level middleware function.
+    72→RE_MIDDLEWARE_FUNC_DEF = re.compile(
+    73→    r"func\s+(?P<name>[A-Z]\w*)\s*\(\s*next\s+\*?http\.Handler\s*\)\s+http\.Handler"
+    74→)
+    75→
+    76→# `func (recv *Type) Method(next http.Handler) http.Handler` — method-style.
+    77→RE_MIDDLEWARE_METHOD_DEF = re.compile(
+    78→    r"func\s+\(\s*(?P<recv>\w+)\s+\*?(?P<type>[A-Z]\w*)\s*\)\s+"
+    79→    r"(?P<method>[A-Z]\w*)\s*\(\s*next\s+\*?http\.Handler\s*\)\s+http\.Handler"
+    80→)
+    81→
+    82→# `func Name(next http.HandlerFunc) http.HandlerFunc` — chi-style middleware.
+    83→RE_MIDDLEWARE_HANDLERFUNC_DEF = re.compile(
+    84→    r"func\s+(?P<name>[A-Z]\w*)\s*\(\s*next\s+http\.HandlerFunc\s*\)\s+http\.HandlerFunc"
+    85→)
+    86→
+    87→# `func (recv *Type) Method(...) func(http.Handler) http.Handler` — factory
+    88→# style that returns a middleware closure (e.g. RequireRole, RequireActiveBilling).
+    89→RE_MIDDLEWARE_FACTORY_DEF = re.compile(
+    90→    r"func\s+\(\s*(?P<recv>\w+)\s+\*?(?P<type>[A-Z]\w*)\s*\)\s+"
+    91→    r"(?P<method>[A-Z]\w*)\s*\([^)]*\)\s*func\s*\(\s*http\.Handler\s*\)\s*http\.Handler"
+    92→)
+    93→
+    94→# Top-level factory: `func RequireRole(minRole X) func(http.Handler) http.Handler`.
+    95→RE_MIDDLEWARE_FACTORY_FUNC_DEF = re.compile(
+    96→    r"func\s+(?P<name>[A-Z]\w*)\s*\([^)]*\)\s*func\s*\(\s*http\.Handler\s*\)\s*http\.Handler"
+    97→)
+    98→
+    99→# http.Handler wrap: `http.HandlerFunc(func(w, r) { ... })` — we don't dive
+   100→# in, just note the wrap exists.
+   101→RE_HTTP_HANDLER_FUNC = re.compile(r"\bhttp\.HandlerFunc\(")
+   102→
+   103→# Detect `next.ServeHTTP(` to determine whether the middleware forwards.
+   104→RE_NEXT_CALL = re.compile(r"\bnext\.ServeHTTP\(")
+   105→
+   106→# Detect an early return (a `return` statement that does NOT come after the
+   107→# `next.ServeHTTP` call). We use this to decide short-circuit behaviour.
+   108→RE_RETURN = re.compile(r"^\s*return\b", re.MULTILINE)
+   109→
+   110→# Detect http.Error writes — strong signal of a short-circuit.
+   111→RE_HTTP_ERROR = re.compile(
+   112→    r"http\.Error\([^)]+,\s*http\.Status(?:Unauthorized|Forbidden|TooManyRequests|"
+   113→    r"BadRequest|NotFound|PaymentRequired|InternalServerError|ServiceUnavailable|"
+   114→    r"RequestTimeout|Conflict|Gone)"
+   115→)
+   116→
+   117→# Detect a `WriteHeader(` followed by an HTTP error code, indicating a
+   118→# short-circuit response.
+   119→RE_WRITEHEADER_ERR = re.compile(
+   120→    r"WriteHeader\(\s*http\.Status(?:Unauthorized|Forbidden|TooManyRequests|"
+   121→    r"BadRequest|NotFound|PaymentRequired|InternalServerError|ServiceUnavailable)\s*\)"
+   122→)
+   123→
+   124→# Doc comment capture (one or more `//` lines immediately above a definition).
+   125→RE_DOC_LINE = re.compile(r"^\s*//\s*(?P<text>.*)$")
+   126→
+   127→# Package declaration.
+   128→RE_PACKAGE = re.compile(r"^\s*package\s+(\w+)", re.MULTILINE)
+   129→
+   130→
+   131→# ---------------------------------------------------------------------------
+   132→# Data classes
+   133→# ---------------------------------------------------------------------------
+   134→
+   135→@dataclass
+   136→class MiddlewareDef:
+   137→    name: str
+   138→    file: str
+   139→    package: str
+   140→    line: int
+   141→    doc: str
+   142→    is_method: bool = False          # method on a struct (vs free function)
+   143→    receiver_type: Optional[str] = None
+   144→    is_factory: bool = False         # returns `func(http.Handler) http.Handler`
+   145→    short_circuits: bool = False
+   146→    runs_before: bool = False        # work done before next.ServeHTTP
+   147→    runs_after: bool = False         # work done after next.ServeHTTP (or via defer)
+   148→    raw_signature: str = ""
+   149→
+   150→
+   151→@dataclass
+   152→class ChainSite:
+   153→    router: str
+   154→    file: str
+   155→    line: int
+   156→    pattern: str                     # "use", "manual-wrap", "ratelimit"
+   157→    links: List[str]                 # ordered middleware names (outermost first)
+   158→    raw: str = ""
+   159→
+   160→
+   161→# ---------------------------------------------------------------------------
+   162→# File walking
+   163→# ---------------------------------------------------------------------------
+   164→
+   165→def find_go_files(repo: Path, include_tests: bool = False) -> List[Path]:
+   166→    skip_dirs = {"vendor", "node_modules", ".git", "graphify-out", "dist", "build"}
+   167→    out: List[Path] = []
+   168→    for p in repo.rglob("*.go"):
+   169→        if any(part in skip_dirs for part in p.parts):
+   170→            continue
+   171→        if not include_tests and p.name.endswith("_test.go"):
+   172→            continue
+   173→        out.append(p)
+   174→    return sorted(out)
+   175→
+   176→
+   177→def line_of(content: str, idx: int) -> int:
+   178→    return content.count("\n", 0, idx) + 1
+   179→
+   180→
+   181→def preceding_doc(content: str, idx: int) -> str:
+   182→    lines = content[:idx].splitlines()
+   183→    out: List[str] = []
+   184→    for line in reversed(lines):
+   185→        m = RE_DOC_LINE.match(line)
+   186→        if m:
+   187→            out.append(m.group("text").strip())
+   188→        elif line.strip() == "":
+   189→            continue
+   190→        else:
+   191→            break
+   192→    return " ".join(reversed(out)).strip()
+   193→
+   194→
+   195→# ---------------------------------------------------------------------------
+   196→# Middleware definition parsing
+   197→# ---------------------------------------------------------------------------
+   198→
+   199→def parse_middleware_defs(content: str, file: str, package: str) -> List[MiddlewareDef]:
+   200→    out: List[MiddlewareDef] = []
+   201→    # We need to find the function body for each definition so we can decide
+   202→    # short-circuit / before / after behaviour.
+   203→    for m in list(RE_MIDDLEWARE_METHOD_DEF.finditer(content)):
+   204→        out.append(_build_def(content, file, package, m, name=m.group("method"),
+   205→                             is_method=True, receiver_type=m.group("type"),
+   206→                             is_factory=False, raw=m.group(0)))
+   207→    for m in list(RE_MIDDLEWARE_FUNC_DEF.finditer(content)):
+   208→        out.append(_build_def(content, file, package, m, name=m.group("name"),
+   209→                             is_method=False, receiver_type=None,
+   210→                             is_factory=False, raw=m.group(0)))
+   211→    for m in list(RE_MIDDLEWARE_HANDLERFUNC_DEF.finditer(content)):
+   212→        out.append(_build_def(content, file, package, m, name=m.group("name"),
+   213→                             is_method=False, receiver_type=None,
+   214→                             is_factory=False, raw=m.group(0)))
+   215→    for m in list(RE_MIDDLEWARE_FACTORY_DEF.finditer(content)):
+   216→        out.append(_build_def(content, file, package, m, name=m.group("method"),
+   217→                             is_method=True, receiver_type=m.group("type"),
+   218→                             is_factory=True, raw=m.group(0)))
+   219→    for m in list(RE_MIDDLEWARE_FACTORY_FUNC_DEF.finditer(content)):
+   220→        out.append(_build_def(content, file, package, m, name=m.group("name"),
+   221→                             is_method=False, receiver_type=None,
+   222→                             is_factory=True, raw=m.group(0)))
+   223→    return out
+   224→
+   225→
+   226→def _build_def(
+   227→    content: str,
+   228→    file: str,
+   229→    package: str,
+   230→    match: re.Match,
+   231→    *,
+   232→    name: str,
+   233→    is_method: bool,
+   234→    receiver_type: Optional[str],
+   235→    is_factory: bool,
+   236→    raw: str,
+   237→) -> MiddlewareDef:
+   238→    """Construct a MiddlewareDef, scanning the function body for behaviour."""
+   239→    # Find the body: from the `(` of the params to the closing `{...}`.
+   240→    brace_idx = content.find("{", match.end() - 1)
+   241→    if brace_idx == -1:
+   242→        brace_idx = content.find("{", match.end())
+   243→    body = ""
+   244→    if brace_idx != -1 and brace_idx < len(content):
+   245→        depth = 0
+   246→        i = brace_idx
+   247→        while i < len(content):
+   248→            if content[i] == "{":
+   249→                depth += 1
+   250→            elif content[i] == "}":
+   251→                depth -= 1
+   252→                if depth == 0:
+   253→                    body = content[brace_idx + 1 : i]
+   254→                    break
+   255→            i += 1
+   256→
+   257→    # Find every `next.ServeHTTP` call in the body (including inside nested
+   258→    # closures — factory middleware wraps its real logic in a returned
+   259→    # `http.HandlerFunc(func(w, r) {...})`).
+   260→    next_calls = list(RE_NEXT_CALL.finditer(body))
+   261→    runs_before = False
+   262→    runs_after = False
+   263→    short_circuits = False
+   264→
+   265→    if next_calls:
+   266→        # Find the FIRST next.ServeHTTP — work before it runs "before", work
+   267→        # after it runs "after". A `defer` block always runs after.
+   268→        first_next = next_calls[0]
+   269→        before_part = body[: first_next.start()]
+   270→        after_part = body[first_next.end() :]
+   271→        if _has_executable_code(before_part):
+   272→            runs_before = True
+   273→        if _has_executable_code(after_part) or re.search(r"\bdefer\b", before_part):
+   274→            runs_after = True
+   275→    else:
+   276→        # No `next.ServeHTTP` at all — could be a pure terminal middleware
+   277→        # (rare) or just a factory whose body is `return func(...) {...}`
+   278→        # with the real logic in the closure. We'll catch short-circuits
+   279→        # via the http.Error scan below.
+   280→        if body.strip():
+   281→            runs_before = True
+   282→
+   283→    # Short-circuit detection: look for `http.Error(...)` or
+   284→    # `WriteHeader(http.StatusXXX)` calls that are NOT inside a `defer`
+   285→    # block. Those represent proactive request rejection.
+   286→    short_circuit_signals = _find_short_circuit_signals(body)
+   287→    if short_circuit_signals:
+   288→        short_circuits = True
+   289→        runs_before = True  # short-circuiting middleware always runs (before)
+   290→
+   291→    # `runs_after` only if there is executable code AFTER next.ServeHTTP
+   292→    # (or a defer). Recovery-style middleware wraps next in a defer recover().
+   293→    if not runs_after and re.search(r"\bdefer\b.*?recover\(\)", body, re.DOTALL):
+   294→        runs_after = True
+   295→
+   296→    return MiddlewareDef(
+   297→        name=name,
+   298→        file=file,
+   299→        package=package,
+   300→        line=line_of(content, match.start()),
+   301→        doc=preceding_doc(content, match.start()),
+   302→        is_method=is_method,
+   303→        receiver_type=receiver_type,
+   304→        is_factory=is_factory,
+   305→        short_circuits=short_circuits,
+   306→        runs_before=runs_before,
+   307→        runs_after=runs_after,
+   308→        raw_signature=raw.strip(),
+   309→    )
+   310→
+   311→
+   312→def _find_short_circuit_signals(body: str) -> List[Tuple[int, str]]:
+   313→    """Find every `http.Error(...)` or `WriteHeader(http.StatusXXX)` call
+   314→    that is NOT inside a `defer` block. Returns a list of (position, kind).
+   315→    """
+   316→    out: List[Tuple[int, str]] = []
+   317→    # Identify the byte ranges of every `defer ... { ... }` block so we can
+   318→    # exclude http.Error calls that live inside them (e.g. Recovery).
+   319→    defer_ranges: List[Tuple[int, int]] = []
+   320→    for dm in re.finditer(r"\bdefer\b", body):
+   321→        # Find the next `{` after `defer` (could be `defer func() { ... }()`
+   322→        # or `defer cleanup()`).
+   323→        brace_idx = body.find("{", dm.end())
+   324→        if brace_idx == -1 or brace_idx - dm.end() > 200:
+   325→            # `defer foo()` — no block, just a function call. Skip — we
+   326→            # can't easily attribute http.Error calls to it.
+   327→            continue
+   328→        # Find the matching close brace.
+   329→        depth = 0
+   330→        i = brace_idx
+   331→        while i < len(body):
+   332→            if body[i] == "{":
+   333→                depth += 1
+   334→            elif body[i] == "}":
+   335→                depth -= 1
+   336→                if depth == 0:
+   337→                    defer_ranges.append((brace_idx, i + 1))
+   338→                    break
+   339→            i += 1
+   340→
+   341→    def _in_defer(idx: int) -> bool:
+   342→        for start, end in defer_ranges:
+   343→            if start <= idx < end:
+   344→                return True
+   345→        return False
+   346→
+   347→    for em in RE_HTTP_ERROR.finditer(body):
+   348→        if not _in_defer(em.start()):
+   349→            out.append((em.start(), "http.Error"))
+   350→    for wm in RE_WRITEHEADER_ERR.finditer(body):
+   351→        if not _in_defer(wm.start()):
+   352→            out.append((wm.start(), "WriteHeader"))
+   353→    return out
+   354→
+   355→
+   356→def _has_executable_code(snippet: str) -> bool:
+   357→    """Return True if the snippet contains an executable Go statement
+   358→    (not just comments / whitespace / declarations like `:=` for context
+   359→    setup also counts). We treat any non-comment, non-blank line as code.
+   360→    """
+   361→    for raw in snippet.splitlines():
+   362→        line = raw.strip()
+   363→        if not line or line.startswith("//") or line.startswith("/*") or line.startswith("*"):
+   364→            continue
+   365→        return True
+   366→    return False
+   367→
+   368→
+   369→# ---------------------------------------------------------------------------
+   370→# Chain detection
+   371→# ---------------------------------------------------------------------------
+   372→
+   373→def parse_use_chains(content: str, file: str) -> List[ChainSite]:
+   374→    """`router.Use(mw)` style — each `.Use(...)` call is one site (one link)."""
+   375→    out: List[ChainSite] = []
+   376→    for m in RE_USE_CALL.finditer(content):
+   377→        arg = m.group("arg").strip()
+   378→        router = m.group("router")
+   379→        # The argument may be `middleware.Foo`, `middleware.Foo(args)`,
+   380→        # `recv.Method`, or `recv.Method(args)`.
+   381→        name = _extract_middleware_name(arg)
+   382→        out.append(ChainSite(
+   383→            router=router,
+   384→            file=file,
+   385→            line=line_of(content, m.start()),
+   386→            pattern="use",
+   387→            links=[name] if name else [],
+   388→            raw=m.group(0).strip(),
+   389→        ))
+   390→    return out
+   391→
+   392→
+   393→def _extract_middleware_name(arg: str) -> str:
+   394→    """Pull the bare middleware name out of a `Use(...)` argument string."""
+   395→    arg = arg.strip()
+   396→    # `middleware.Foo(...)` → Foo
+   397→    m = RE_MIDDLEWARE_CALL.search(arg)
+   398→    if m:
+   399→        return m.group("name")
+   400→    # `middleware.Foo` (no parens) → Foo
+   401→    m = re.match(r"middleware\.(?P<name>[A-Z]\w*)\s*$", arg)
+   402→    if m:
+   403→        return m.group("name")
+   404→    # `recv.Method` (no parens) — combine into `recv.Method` form so we can
+   405→    # match against method-style middleware defs.
+   406→    m = re.match(r"(?P<recv>[a-z]\w*)\.(?P<method>[A-Z]\w*)\s*$", arg)
+   407→    if m:
+   408→        return m.group("method")
+   409→    # `recv.Method(args)` → Method
+   410→    m = re.match(r"(?P<recv>[a-z]\w*)\.(?P<method>[A-Z]\w*)\s*\(", arg)
+   411→    if m:
+   412→        return m.group("method")
+   413→    # `BootstrapGuard` (bare identifier) — return as-is.
+   414→    if re.match(r"^[A-Z]\w*$", arg):
+   415→        return arg
+   416→    return arg
+   417→
+   418→
+   419→def parse_manual_wrap_chains(
+   420→    content: str,
+   421→    file: str,
+   422→    known_middleware_names: Optional[Set[str]] = None,
+   423→) -> List[ChainSite]:
+   424→    """Manual nesting like `handler := m1(m2(m3(router)))`.
+   425→
+   426→    Only emit a chain if at least one of the wrapper functions matches a
+   427→    known middleware name (so we don't pick up constructor calls like
+   428→    `handler := handlers.NewFoo(db)` as middleware chains).
+   429→    """
+   430→    out: List[ChainSite] = []
+   431→    for m in re.finditer(
+   432→        r"(?P<lhs>\w*[Hh]andler)\s*(?::=|=)\s*(?P<rhs>[^\n;]+)",
+   433→        content,
+   434→    ):
+   435→        rhs = m.group("rhs").strip().rstrip(";")
+   436→        links = _unwrap_chain(rhs)
+   437→        if len(links) < 2:
+   438→            continue
+   439→        # Filter: at least one non-terminal link must be a known middleware
+   440→        # name. This excludes `bootstrapHandler := NewBootstrapHandler(db)`.
+   441→        wrapper_links = links[:-1]  # all but the terminal handler
+   442→        if known_middleware_names is None:
+   443→            # Without a known set, require 3+ links to be considered a chain.
+   444→            if len(links) < 3:
+   445→                continue
+   446→        else:
+   447→            if not any(w in known_middleware_names for w in wrapper_links):
+   448→                continue
+   449→        out.append(ChainSite(
+   450→            router="(global)",
+   451→            file=file,
+   452→            line=line_of(content, m.start()),
+   453→            pattern="manual-wrap",
+   454→            links=links,
+   455→            raw=m.group(0).strip(),
+   456→        ))
+   457→    return out
+   458→
+   459→
+   460→def _find_matching_paren(s: str, open_idx: int) -> int:
+   461→    """Given `s` and the index of an opening `(`, return the index of the
+   462→    matching closing `)`. Returns -1 if unbalanced.
+   463→    """
+   464→    depth = 0
+   465→    for i in range(open_idx, len(s)):
+   466→        if s[i] == "(":
+   467→            depth += 1
+   468→        elif s[i] == ")":
+   469→            depth -= 1
+   470→            if depth == 0:
+   471→                return i
+   472→    return -1
+   473→
+   474→
+   475→def _unwrap_chain(rhs: str) -> List[str]:
+   476→    """Given `a(b(c(d)))`, return ["a", "b", "c", "d"].
+   477→
+   478→    Walks the call nesting from outside in. Stops when the innermost
+   479→    argument is not itself a function call (that's the terminal handler).
+   480→    """
+   481→    links: List[str] = []
+   482→    s = rhs.strip()
+   483→    # Strip trailing comment if any.
+   484→    if "//" in s:
+   485→        s = s.split("//", 1)[0].strip()
+   486→    # Strip a trailing semicolon.
+   487→    s = s.rstrip(";").strip()
+   488→
+   489→    call_re = re.compile(r"^(?P<call>(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*)\s*\(")
+   490→    while True:
+   491→        m = call_re.match(s)
+   492→        if not m:
+   493→            # Terminal handler — bare identifier (possibly with trailing
+   494→            # close parens that belong to outer calls we've already closed).
+   495→            tail = s.rstrip(")").strip()
+   496→            if tail:
+   497→                links.append(tail)
+   498→            break
+   499→        call = m.group("call")
+   500→        # Take the last component (e.g. `middleware.Recovery` → `Recovery`).
+   501→        short = call.rsplit(".", 1)[-1]
+   502→        links.append(short)
+   503→        # Find the matching close paren of this call.
+   504→        open_idx = m.end() - 1  # position of `(`
+   505→        close_idx = _find_matching_paren(s, open_idx)
+   506→        if close_idx == -1:
+   507→            # Unbalanced — bail.
+   508→            break
+   509→        # The argument list is between open_idx+1 and close_idx.
+   510→        args = s[open_idx + 1 : close_idx].strip()
+   511→        # What's after this call (should be empty or only outer close parens).
+   512→        after = s[close_idx + 1 :].strip()
+   513→        # If `after` is not just close parens, the chain is malformed — bail.
+   514→        if after and not re.match(r"^\)+$", after):
+   515→            break
+   516→        # Now: is `args` itself a single function call?
+   517→        inner_m = call_re.match(args)
+   518→        if inner_m:
+   519→            # Recurse — the args is itself a call (e.g. `b(c(d))`).
+   520→            # But we also need to handle the case where args is just `b(c(d))`
+   521→            # with no other arguments. If args contains commas at depth 0,
+   522→            # it's multiple args — the chain ends here (terminal handler is
+   523→            # the full arg list).
+   524→            if _has_top_level_comma(args):
+   525→                # Terminal — args is the handler (e.g. a closure).
+   526→                links.append(args[:80])
+   527→                break
+   528→            s = args
+   529→            continue
+   530→        # Terminal handler — args is the innermost expression (e.g. `router`
+   531→        # or a closure `func(w, r) { ... }`).
+   532→        if args:
+   533→            # If it's a bare identifier, record just the name; otherwise
+   534→            # truncate to keep the report readable.
+   535→            bare = re.match(r"^(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*$", args)
+   536→            if bare:
+   537→                links.append(args)
+   538→            else:
+   539→                # It's a closure or value — label it generically.
+   540→                links.append("(handler)")
+   541→        break
+   542→    return links
+   543→
+   544→
+   545→def _has_top_level_comma(s: str) -> bool:
+   546→    """Return True if `s` has a comma at brace/paren depth 0."""
+   547→    depth = 0
+   548→    for ch in s:
+   549→        if ch in "({[":
+   550→            depth += 1
+   551→        elif ch in ")}]":
+   552→            depth -= 1
+   553→        elif ch == "," and depth == 0:
+   554→            return True
+   555→    return False
+   556→
+   557→
+   558→def parse_ratelimit_chains(content: str, file: str) -> List[ChainSite]:
+   559→    """`rateLimiter.RateLimitHandler(config, keyFunc, handler)` — terminal
+   560→    middleware that wraps a single handler. We record the site but the chain
+   561→    is only one link deep (RateLimitHandler).
+   562→    """
+   563→    out: List[ChainSite] = []
+   564→    for m in RE_RATELIMIT_HANDLER.finditer(content):
+   565→        out.append(ChainSite(
+   566→            router="(ratelimit)",
+   567→            file=file,
+   568→            line=line_of(content, m.start()),
+   569→            pattern="ratelimit",
+   570→            links=["RateLimitHandler"],
+   571→            raw=m.group(0).strip(),
+   572→        ))
+   573→    return out
+   574→
+   575→
+   576→# ---------------------------------------------------------------------------
+   577→# Chain consolidation
+   578→# ---------------------------------------------------------------------------
+   579→
+   580→def consolidate_use_chains(
+   581→    chains: List[ChainSite],
+   582→) -> List[ChainSite]:
+   583→    """Multiple `.Use(...)` calls on the same router in the same file
+   584→    accumulate into a single chain (mux semantics: applied in order)."""
+   585→    grouped: Dict[Tuple[str, str], ChainSite] = {}
+   586→    for c in chains:
+   587→        key = (c.router, c.file)
+   588→        if key not in grouped:
+   589→            grouped[key] = ChainSite(
+   590→                router=c.router,
+   591→                file=c.file,
+   592→                line=c.line,
+   593→                pattern="use",
+   594→                links=list(c.links),
+   595→                raw=c.raw,
+   596→            )
+   597→        else:
+   598→            grouped[key].links.extend(c.links)
+   599→            grouped[key].raw += " ; " + c.raw
+   600→    return list(grouped.values())
+   601→
+   602→
+   603→def attach_defs(
+   604→    chains: List[ChainSite],
+   605→    defs: Dict[str, MiddlewareDef],
+   606→) -> List[ChainSite]:
+   607→    """No-op placeholder — we keep defs separate but available for the
+   608→    reporter. Returns chains unchanged."""
+   609→    return chains
+   610→
+   611→
+   612→# ---------------------------------------------------------------------------
+   613→# Reporting
+   614→# ---------------------------------------------------------------------------
+   615→
+   616→def describe_middleware(d: MiddlewareDef) -> str:
+   617→    """One-line human description of what a middleware does, derived from
+   618→    its name and doc comment."""
+   619→    name = d.name
+   620→    doc = d.doc
+   621→    # If we have a doc, use its first sentence.
+   622→    if doc:
+   623→        first = doc.split(".")[0].strip()
+   624→        if first:
+   625→            return f"{name} — {first}"
+   626→    # Otherwise, infer from name.
+   627→    name_map = {
+   628→        "Recovery": "recovers from panics in downstream handlers",
+   629→        "BodySizeLimit": "limits request body size to 1MB",
+   630→        "SecurityHeaders": "sets CSP, HSTS, X-Frame-Options and related headers",
+   631→        "RequestID": "generates and propagates an X-Request-ID",
+   632→        "APIVersion": "sets the X-API-Version response header",
+   633→        "RequireAuth": "validates JWT or API key, blocks anonymous requests",
+   634→        "RequireTenant": "resolves X-Tenant-ID and loads tenant membership",
+   635→        "RequireRole": "blocks requests below a minimum tenant role",
+   636→        "RequireRootTenant": "blocks requests to non-root tenants",
+   637→        "RequireActiveBilling": "blocks requests when subscription is inactive",
+   638→        "RequireEntitlement": "checks plan entitlement for a specific feature",
+   639→        "BootstrapGuard": "blocks requests until the system is bootstrapped",
+   640→        "RateLimitHandler": "applies per-key rate limiting, 429s on overflow",
+   641→        "Middleware": "collects latency / status metrics for downstream handlers",
+   642→        "CORS": "applies CORS headers",
+   643→    }
+   644→    if name in name_map:
+   645→        return f"{name} — {name_map[name]}"
+   646→    return f"{name} — middleware"
+   647→
+   648→
+   649→# Friendly display-name overrides for the visual chain. When a name appears
+   650→# in this map we substitute the friendlier label in the rendered chain.
+   651→DISPLAY_NAME_OVERRIDES = {
+   652→    "Handler": "CORS",            # `c.Handler(...)` from gorilla/handlers
+   653→    "Middleware": "Metrics",      # `metricsCollector.Middleware(...)`
+   654→    "router": "Router",           # the inner mux router
+   655→    "RateLimitHandler": "RateLimit",
+   656→}
+   657→
+   658→
+   659→def _display_name(name: str) -> str:
+   660→    return DISPLAY_NAME_OVERRIDES.get(name, name)
+   661→
+   662→
+   663→def visual_chain(links: List[str], defs: Dict[str, MiddlewareDef]) -> str:
+   664→    """Render a chain like `Request → A → B → Handler → Response`."""
+   665→    parts: List[str] = ["Request"]
+   666→    for i, name in enumerate(links):
+   667→        is_last = i == len(links) - 1
+   668→        d = defs.get(name)
+   669→        marker = " ✋" if d and d.short_circuits else ""
+   670→        if is_last and not _looks_like_middleware(name, defs):
+   671→            parts.append(f"{_display_name(name)}{marker} (Handler)")
+   672→        else:
+   673→            parts.append(f"{_display_name(name)}{marker}")
+   674→    parts.append("Response")
+   675→    return " → ".join(parts)
+   676→
+   677→
+   678→def _looks_like_middleware(name: str, defs: Dict[str, MiddlewareDef]) -> bool:
+   679→    return name in defs
+   680→
+   681→
+   682→def emit_markdown(
+   683→    defs: List[MiddlewareDef],
+   684→    chains: List[ChainSite],
+   685→    repo: Path,
+   686→) -> str:
+   687→    lines: List[str] = []
+   688→    lines.append("# Middleware Chain Report")
+   689→    lines.append("")
+   690→    lines.append(f"Repository: `{repo}`")
+   691→    lines.append("")
+   692→    lines.append(f"- **Middleware definitions**: {len(defs)}")
+   693→    lines.append(f"- **Chain sites**: {len(chains)}")
+   694→    short_circuit_count = sum(1 for d in defs if d.short_circuits)
+   695→    before_count = sum(1 for d in defs if d.runs_before)
+   696→    after_count = sum(1 for d in defs if d.runs_after)
+   697→    lines.append(
+   698→        f"- **Short-circuiting**: {short_circuit_count} / {len(defs)}"
+   699→    )
+   700→    lines.append(
+   701→        f"- **Run before handler**: {before_count} / {len(defs)}"
+   702→    )
+   703→    lines.append(
+   704→        f"- **Run after handler**: {after_count} / {len(defs)}"
+   705→    )
+   706→    lines.append("")
+   707→
+   708→    defs_by_name = {d.name: d for d in defs}
+   709→
+   710→    # --- Definitions table ------------------------------------------------
+   711→    lines.append("## Middleware Definitions")
+   712→    lines.append("")
+   713→    lines.append(
+   714→        "| Name | File | Method? | Factory? | Before | After | Short-circuits | Description |"
+   715→    )
+   716→    lines.append(
+   717→        "|------|------|---------|----------|--------|-------|----------------|-------------|"
+   718→    )
+   719→    for d in sorted(defs, key=lambda x: (x.file, x.name)):
+   720→        method = f"`{d.receiver_type}`" if d.is_method else "—"
+   721→        factory = "✓" if d.is_factory else "—"
+   722→        before = "✓" if d.runs_before else "—"
+   723→        after = "✓" if d.runs_after else "—"
+   724→        sc = "✋ yes" if d.short_circuits else "—"
+   725→        lines.append(
+   726→            f"| `{d.name}` | `{d.file}:{d.line}` | {method} | {factory} | "
+   727→            f"{before} | {after} | {sc} | {describe_middleware(d)} |"
+   728→        )
+   729→    lines.append("")
+   730→
+   731→    # --- Chain sites ------------------------------------------------------
+   732→    lines.append("## Chain Sites")
+   733→    lines.append("")
+   734→    for c in sorted(chains, key=lambda x: (x.file, x.line)):
+   735→        lines.append(
+   736→            f"### `{c.router}` — `{c.file}:{c.line}` ({c.pattern})"
+   737→        )
+   738→        lines.append("")
+   739→        lines.append("```go")
+   740→        lines.append(c.raw)
+   741→        lines.append("```")
+   742→        lines.append("")
+   743→        lines.append("**Execution order** (outer → inner):")
+   744→        lines.append("")
+   745→        for i, name in enumerate(c.links, start=1):
+   746→            d = defs_by_name.get(name)
+   747→            tag = ""
+   748→            if d:
+   749→                bits = []
+   750→                if d.short_circuits:
+   751→                    bits.append("✋ short-circuits")
+   752→                if d.runs_before and d.runs_after:
+   753→                    bits.append("wraps (before+after)")
+   754→                elif d.runs_before:
+   755→                    bits.append("runs before handler")
+   756→                elif d.runs_after:
+   757→                    bits.append("runs after handler")
+   758→                if bits:
+   759→                    tag = f" — _{'; '.join(bits)}_"
+   760→            lines.append(f"{i}. `{name}`{tag}")
+   761→        lines.append("")
+   762→        lines.append("**Visual chain:**")
+   763→        lines.append("")
+   764→        lines.append("```")
+   765→        lines.append(visual_chain(c.links, defs_by_name))
+   766→        lines.append("```")
+   767→        lines.append("")
+   768→
+   769→    # --- Global handler chain --------------------------------------------
+   770→    global_chains = [c for c in chains if c.pattern == "manual-wrap"]
+   771→    if global_chains:
+   772→        lines.append("## Global Handler Chain")
+   773→        lines.append("")
+   774→        lines.append(
+   775→            "The outermost HTTP handler in `main.go` wraps the router with "
+   776→            "cross-cutting middleware. This is the request pipeline every "
+   777→            "API call traverses, in order:"
+   778→        )
+   779→        lines.append("")
+   780→        # Pick the longest chain — that's the global wrap.
+   781→        longest = max(global_chains, key=lambda c: len(c.links), default=None)
+   782→        if longest:
+   783→            lines.append("```")
+   784→            lines.append(visual_chain(longest.links, defs_by_name))
+   785→            lines.append("```")
+   786→            lines.append("")
+   787→
+   788→    # --- Per-router summaries --------------------------------------------
+   789→    use_chains = [c for c in chains if c.pattern == "use"]
+   790→    if use_chains:
+   791→        lines.append("## Per-Router Middleware Stacks")
+   792→        lines.append("")
+   793→        # Group by router name.
+   794→        by_router: Dict[str, List[ChainSite]] = {}
+   795→        for c in use_chains:
+   796→            by_router.setdefault(c.router, []).append(c)
+   797→        for router in sorted(by_router):
+   798→            sites = by_router[router]
+   799→            # Merge all .Use calls on the same router across files (tests + main).
+   800→            all_links: List[str] = []
+   801→            seen: Set[int] = set()
+   802→            for c in sorted(sites, key=lambda x: (x.file, x.line)):
+   803→                for l in c.links:
+   804→                    all_links.append(l)
+   805→            lines.append(f"### `{router}`")
+   806→            lines.append("")
+   807→            lines.append(
+   808→                f"Applied at {len(sites)} site(s); merged middleware order:"
+   809→            )
+   810→            lines.append("")
+   811→            lines.append("```")
+   812→            lines.append(visual_chain(all_links, defs_by_name))
+   813→            lines.append("```")
+   814→            lines.append("")
+   815→
+   816→    # --- Rate-limit sites -------------------------------------------------
+   817→    rl_chains = [c for c in chains if c.pattern == "ratelimit"]
+   818→    if rl_chains:
+   819→        lines.append("## Rate-Limited Endpoints")
+   820→        lines.append("")
+   821→        lines.append(
+   822→            "These endpoints are wrapped with `RateLimitHandler` — requests "
+   823→            "exceeding the configured quota are rejected with HTTP 429 before "
+   824→            "the handler runs."
+   825→        )
+   826→        lines.append("")
+   827→        lines.append("| File | Line | Call |")
+   828→        lines.append("|------|------|------|")
+   829→        for c in sorted(rl_chains, key=lambda x: (x.file, x.line)):
+   830→            lines.append(f"| `{c.file}` | {c.line} | `{c.raw}` |")
+   831→        lines.append("")
+   832→
+   833→    # --- Recommendations --------------------------------------------------
+   834→    lines.append("## Recommendations")
+   835→    lines.append("")
+   836→    sc_defs = [d for d in defs if d.short_circuits]
+   837→    if sc_defs:
+   838→        lines.append(
+   839→            f"- ✋ **{len(sc_defs)} middleware short-circuit.** Make sure logs / "
+   840→            "metrics are emitted *before* the short-circuit so rejected "
+   841→            "requests are still observable. Short-circuiting middleware:"
+   842→        )
+   843→        for d in sc_defs:
+   844→            lines.append(f"    - `{d.name}` (`{d.file}:{d.line}`)")
+   845→    after_only = [d for d in defs if d.runs_after and not d.runs_before]
+   846→    if after_only:
+   847→        lines.append("")
+   848→        lines.append(
+   849→            f"- 🔄 **{len(after_only)} middleware run only after the handler** "
+   850→            "(observability / cleanup). These don't block the request — "
+   851→            "good. Just confirm they're cheap:"
+   852→        )
+   853→        for d in after_only:
+   854→            lines.append(f"    - `{d.name}` (`{d.file}:{d.line}`)")
+   855→    lines.append("")
+   856→    lines.append(
+   857→        "- Run `go vet ./...` and consider `go tool pprof` to validate that "
+   858→        "the middleware stack isn't a hotspot under load."
+   859→    )
+   860→    lines.append("")
+   861→    return "\n".join(lines)
+   862→
+   863→
+   864→def emit_json(
+   865→    defs: List[MiddlewareDef],
+   866→    chains: List[ChainSite],
+   867→    repo: Path,
+   868→) -> str:
+   869→    payload = {
+   870→        "repository": str(repo),
+   871→        "summary": {
+   872→            "middleware_definitions": len(defs),
+   873→            "chain_sites": len(chains),
+   874→            "short_circuiting": sum(1 for d in defs if d.short_circuits),
+   875→            "runs_before": sum(1 for d in defs if d.runs_before),
+   876→            "runs_after": sum(1 for d in defs if d.runs_after),
+   877→        },
+   878→        "definitions": [asdict(d) for d in defs],
+   879→        "chains": [
+   880→            {
+   881→                "router": c.router,
+   882→                "file": c.file,
+   883→                "line": c.line,
+   884→                "pattern": c.pattern,
+   885→                "links": c.links,
+   886→                "raw": c.raw,
+   887→                "visual": visual_chain(c.links, {d.name: d for d in defs}),
+   888→            }
+   889→            for c in chains
+   890→        ],
+   891→    }
+   892→    return json.dumps(payload, indent=2)
+   893→
+   894→
+   895→# ---------------------------------------------------------------------------
+   896→# Entry point
+   897→# ---------------------------------------------------------------------------
+   898→
+   899→def analyze(repo: Path, include_tests: bool = False) -> Tuple[List[MiddlewareDef], List[ChainSite]]:
+   900→    files = find_go_files(repo, include_tests=include_tests)
+   901→    print(f"  Scanning {len(files)} .go files", file=sys.stderr)
+   902→
+   903→    # Pass 1: collect every middleware definition. We need the full set of
+   904→    # names before parsing manual-wrap chains so we can filter constructor
+   905→    # calls (`x := NewFoo(db)`) from real middleware wraps
+   906→    # (`handler := Recovery(BodySizeLimit(...))`).
+   907→    file_data: List[Tuple[Path, str, str]] = []
+   908→    defs: Dict[str, MiddlewareDef] = {}
+   909→    for f in files:
+   910→        try:
+   911→            content = f.read_text(encoding="utf-8", errors="replace")
+   912→        except Exception as exc:
+   913→            print(f"  ! could not read {f}: {exc}", file=sys.stderr)
+   914→            continue
+   915→        package_m = RE_PACKAGE.search(content)
+   916→        package = package_m.group(1) if package_m else ""
+   917→        rel = str(f.relative_to(repo))
+   918→        file_data.append((f, content, rel))
+   919→        for d in parse_middleware_defs(content, rel, package):
+   920→            key = d.name
+   921→            if key not in defs:
+   922→                defs[key] = d
+   923→
+   924→    known = set(defs.keys())
+   925→    use_chains: List[ChainSite] = []
+   926→    wrap_chains: List[ChainSite] = []
+   927→    rl_chains: List[ChainSite] = []
+   928→    for _f, content, rel in file_data:
+   929→        use_chains.extend(parse_use_chains(content, rel))
+   930→        wrap_chains.extend(parse_manual_wrap_chains(
+   931→            content, rel, known_middleware_names=known
+   932→        ))
+   933→        rl_chains.extend(parse_ratelimit_chains(content, rel))
+   934→
+   935→    use_chains = consolidate_use_chains(use_chains)
+   936→    all_chains = use_chains + wrap_chains + rl_chains
+   937→
+   938→    return list(defs.values()), all_chains
+   939→
+   940→
+   941→def main():
+   942→    ap = argparse.ArgumentParser(
+   943→        prog="graphify middleware",
+   944→        description="Go HTTP middleware chain visualizer.",
+   945→    )
+   946→    ap.add_argument("path", nargs="?", default=".", help="Path to the Go project.")
+   947→    ap.add_argument("--out", "-o", help="Output markdown file (default: stdout).")
+   948→    ap.add_argument("--json", action="store_true", help="Emit JSON instead of markdown.")
+   949→    ap.add_argument(
+   950→        "--include-tests",
+   951→        action="store_true",
+   952→        help="Include *_test.go files (default: skip).",
+   953→    )
+   954→    args = ap.parse_args()
+   955→
+   956→    repo = Path(args.path).resolve()
+   957→    print(f"graphify middleware — scanning {repo}", file=sys.stderr)
+   958→    if not repo.exists():
+   959→        print(f"error: path does not exist: {repo}", file=sys.stderr)
+   960→        sys.exit(1)
+   961→
+   962→    defs, chains = analyze(repo, include_tests=args.include_tests)
+   963→
+   964→    print(
+   965→        f"  Found {len(defs)} middleware definitions, {len(chains)} chain sites",
+   966→        file=sys.stderr,
+   967→    )
+   968→
+   969→    if args.json:
+   970→        output = emit_json(defs, chains, repo)
+   971→    else:
+   972→        output = emit_markdown(defs, chains, repo)
+   973→
+   974→    if args.out:
+   975→        Path(args.out).write_text(output, encoding="utf-8")
+   976→        print(f"Report written to {args.out}", file=sys.stderr)
+   977→    else:
+   978→        workspace_root = Path(os.environ.get("GRAPHIFY_ROOT", "/home/z/my-project"))
+   979→        public_dir = workspace_root / "public"
+   980→        if public_dir.exists():
+   981→            (public_dir / "middleware.json").write_text(
+   982→                emit_json(defs, chains, repo), encoding="utf-8"
+   983→            )
+   984→            (public_dir / "MIDDLEWARE.md").write_text(
+   985→                emit_markdown(defs, chains, repo), encoding="utf-8"
+   986→            )
+   987→            print(
+   988→                f"  Wrote public/middleware.json and public/MIDDLEWARE.md",
+   989→                file=sys.stderr,
+   990→            )
+   991→        print(output)
+   992→
+   993→
+   994→if __name__ == "__main__":
+   995→    main()
+   996→

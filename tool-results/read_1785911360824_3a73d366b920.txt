@@ -1,0 +1,760 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify interfaces — Go interface satisfaction checker.
+     3→
+     4→Scans all .go files in a repository and:
+     5→
+     6→  1. Collects every `type X interface { ... }` declaration and the methods
+     7→     it requires (including embedded interfaces by name).
+     8→  2. Collects every `type Y struct { ... }` declaration and every method
+     9→     bound to it (both value receivers `func (s Y) M()` and pointer
+    10→     receivers `func (s *Y) M()`).
+    11→  3. For each interface, walks every struct and decides whether that struct
+    12→     (or its pointer) satisfies the interface — Go has *implicit* interface
+    13→     implementation, so this is the only way to discover the relationship.
+    14→  4. Reports:
+    15→       - all interfaces with their method count
+    16→       - which structs implement each interface
+    17→       - interfaces with only one implementor (likely over-designed)
+    18→       - interfaces with zero implementors (dead interfaces)
+    19→
+    20→Usage:
+    21→  python graphify_interfaces.py [path] [--out report.md] [--json]
+    22→
+    23→Defaults: writes JSON to public/interfaces.json and markdown to
+    24→public/INTERFACES.md if `--out` is omitted and the script is run from the
+    25→graphify workspace root.
+    26→"""
+    27→from __future__ import annotations
+    28→
+    29→import argparse
+    30→import json
+    31→import os
+    32→import re
+    33→import sys
+    34→from dataclasses import asdict, dataclass, field
+    35→from pathlib import Path
+    36→from typing import Dict, List, Optional, Set, Tuple
+    37→
+    38→# ---------------------------------------------------------------------------
+    39→# Regexes
+    40→# ---------------------------------------------------------------------------
+    41→
+    42→# `type Name interface {` — open brace may be at end of line.
+    43→RE_INTERFACE_OPEN = re.compile(
+    44→    r"type\s+(?P<name>[A-Z]\w*)\s+interface\s*\{"
+    45→)
+    46→
+    47→# `type Name struct {` — same shape; also catches `type Name struct{}` on
+    48→# one line because we tolerate zero-or-more whitespace before `{`.
+    49→RE_STRUCT_OPEN = re.compile(
+    50→    r"type\s+(?P<name>[A-Z]\w*)\s+struct\s*\{"
+    51→)
+    52→
+    53→# Method declaration on a struct:
+    54→#   func (recv Type) Method(params) returns
+    55→#   func (recv *Type) Method(params) returns
+    56→# We capture receiver name, whether it is a pointer, the type name, and the
+    57→# method name.
+    58→RE_METHOD = re.compile(
+    59→    r"func\s+\(\s*(?P<recv>\w+)\s+(?P<ptr>\*?)(?P<type>[A-Z]\w*)\s*\)\s+"
+    60→    r"(?P<method>[A-Z]\w*)\s*\("
+    61→)
+    62→
+    63→# Identifier inside an interface body that is followed by `(` — that's a
+    64→# method declaration. Anything else (e.g. another `type X interface {}`
+    65→# on the same line, or an embedded interface name with no parens) is not a
+    66→# method of this interface.
+    67→RE_IFACE_METHOD = re.compile(r"\b(?P<name>[A-Z]\w*)\s*\(")
+    68→
+    69→# Embedded interface inside an interface body: a bare identifier on its own
+    70→# line (no parens). Could be `io.Reader` or `error` or `Foo`.
+    71→RE_IFACE_EMBED = re.compile(r"^\s*(?P<name>(?:[a-z]\w*\.)?[A-Z]\w*|error)\s*$")
+    72→
+    73→# Comment line so we can extract docstrings for interface methods.
+    74→RE_COMMENT = re.compile(r"^\s*//\s*(?P<text>.*)$")
+    75→
+    76→
+    77→# ---------------------------------------------------------------------------
+    78→# Data classes
+    79→# ---------------------------------------------------------------------------
+    80→
+    81→@dataclass
+    82→class InterfaceMethod:
+    83→    name: str
+    84→    signature: str  # raw text after the name, e.g. "(ctx context.Context) error"
+    85→
+    86→
+    87→@dataclass
+    88→class InterfaceDecl:
+    89→    name: str
+    90→    file: str
+    91→    package: str
+    92→    methods: List[InterfaceMethod] = field(default_factory=list)
+    93→    embedded: List[str] = field(default_factory=list)
+    94→    doc: str = ""
+    95→    implementors: List[str] = field(default_factory=list)  # struct names
+    96→    pointer_only_implementors: List[str] = field(default_factory=list)
+    97→
+    98→
+    99→@dataclass
+   100→class StructMethod:
+   101→    name: str
+   102→    pointer_receiver: bool
+   103→    signature: str
+   104→
+   105→
+   106→@dataclass
+   107→class StructDecl:
+   108→    name: str
+   109→    file: str
+   110→    package: str
+   111→    methods: List[StructMethod] = field(default_factory=list)
+   112→    doc: str = ""
+   113→
+   114→    @property
+   115→    def value_method_set(self) -> Set[str]:
+   116→        return {m.name for m in self.methods if not m.pointer_receiver}
+   117→
+   118→    @property
+   119→    def pointer_method_set(self) -> Set[str]:
+   120→        # `*T` has access to both value and pointer receiver methods.
+   121→        return {m.name for m in self.methods}
+   122→
+   123→    @property
+   124→    def total_method_count(self) -> int:
+   125→        return len(self.methods)
+   126→
+   127→
+   128→# ---------------------------------------------------------------------------
+   129→# Helpers
+   130→# ---------------------------------------------------------------------------
+   131→
+   132→def find_go_files(repo: Path, include_tests: bool = False) -> List[Path]:
+   133→    """Return every .go file in repo, skipping vendor / generated / test dirs."""
+   134→    skip_dirs = {"vendor", "node_modules", ".git", "graphify-out", "dist", "build"}
+   135→    out: List[Path] = []
+   136→    for p in repo.rglob("*.go"):
+   137→        if any(part in skip_dirs for part in p.parts):
+   138→            continue
+   139→        if not include_tests and p.name.endswith("_test.go"):
+   140→            continue
+   141→        out.append(p)
+   142→    return sorted(out)
+   143→
+   144→
+   145→def extract_package(content: str) -> str:
+   146→    m = re.search(r"^\s*package\s+(\w+)", content, re.MULTILINE)
+   147→    return m.group(1) if m else ""
+   148→
+   149→
+   150→def brace_block(content: str, start: int) -> Tuple[str, int]:
+   151→    """Return the text inside the brace block starting at index `start`,
+   152→    where `start` is the position of the opening `{`. Returns (body, end)
+   153→    where `end` is the index just after the closing `}`.
+   154→    """
+   155→    depth = 0
+   156→    i = start
+   157→    while i < len(content):
+   158→        ch = content[i]
+   159→        if ch == "{":
+   160→            depth += 1
+   161→        elif ch == "}":
+   162→            depth -= 1
+   163→            if depth == 0:
+   164→                return content[start + 1 : i], i + 1
+   165→        i += 1
+   166→    # Unbalanced — return everything from start to end.
+   167→    return content[start + 1 :], len(content)
+   168→
+   169→
+   170→def preceding_doc_comment(content: str, idx: int) -> str:
+   171→    """Walk backwards from `idx` collecting consecutive `//` comment lines."""
+   172→    lines = content[:idx].splitlines()
+   173→    out: List[str] = []
+   174→    for line in reversed(lines):
+   175→        m = RE_COMMENT.match(line)
+   176→        if m:
+   177→            out.append(m.group("text").strip())
+   178→        elif line.strip() == "":
+   179→            continue
+   180→        else:
+   181→            break
+   182→    return " ".join(reversed(out)).strip()
+   183→
+   184→
+   185→# ---------------------------------------------------------------------------
+   186→# Parsers
+   187→# ---------------------------------------------------------------------------
+   188→
+   189→def parse_interfaces(content: str, file: str, package: str) -> List[InterfaceDecl]:
+   190→    out: List[InterfaceDecl] = []
+   191→    for m in RE_INTERFACE_OPEN.finditer(content):
+   192→        name = m.group("name")
+   193→        # Find the open brace index from the match object.
+   194→        brace_idx = content.index("{", m.start())
+   195→        body, _end = brace_block(content, brace_idx)
+   196→        doc = preceding_doc_comment(content, m.start())
+   197→        decl = InterfaceDecl(name=name, file=file, package=package, doc=doc)
+   198→
+   199→        # Walk the body line-by-line so we can distinguish methods from
+   200→        # embedded interfaces cleanly.
+   201→        for raw_line in body.splitlines():
+   202→            line = raw_line.strip()
+   203→            if not line or line.startswith("//"):
+   204→                # Inline comment — pull the method name out if any.
+   205→                if "//" in line:
+   206→                    before = line.split("//", 1)[0].strip()
+   207→                    if before:
+   208→                        mm = RE_IFACE_METHOD.search(before)
+   209→                        if mm:
+   210→                            decl.methods.append(
+   211→                                InterfaceMethod(name=mm.group("name"), signature=before)
+   212→                            )
+   213→                continue
+   214→            # Embedded interface? (bare identifier on its own line)
+   215→            em = RE_IFACE_EMBED.match(line)
+   216→            method_match = RE_IFACE_METHOD.search(line)
+   217→            if method_match:
+   218→                decl.methods.append(
+   219→                    InterfaceMethod(name=method_match.group("name"), signature=line)
+   220→                )
+   221→            elif em:
+   222→                decl.embedded.append(em.group("name"))
+   223→            # Anything else is ignored — it might be a multi-line method
+   224→            # signature split across lines, which we handle below.
+   225→        # Try to recover multi-line method signatures: re-join lines that
+   226→        # contain an identifier followed by `(` but no closing `)` on the
+   227→        # same line.
+   228→        joined = re.sub(r"\s+", " ", body).strip()
+   229→        if joined:
+   230→            # Find every identifier immediately followed by `(`.
+   231→            for mm in RE_IFACE_METHOD.finditer(joined):
+   232→                # Avoid duplicates with what we already captured.
+   233→                if any(existing.name == mm.group("name") for existing in decl.methods):
+   234→                    continue
+   235→                # Slice from the identifier to the matching close paren on
+   236→                # the joined string, then store as signature.
+   237→                start = mm.start()
+   238→                depth = 0
+   239→                end = start
+   240→                for i in range(start, len(joined)):
+   241→                    if joined[i] == "(":
+   242→                        depth += 1
+   243→                    elif joined[i] == ")":
+   244→                        depth -= 1
+   245→                        if depth == 0:
+   246→                            end = i + 1
+   247→                            break
+   248→                sig = joined[start:end]
+   249→                decl.methods.append(InterfaceMethod(name=mm.group("name"), signature=sig))
+   250→        out.append(decl)
+   251→    return out
+   252→
+   253→
+   254→def parse_structs(content: str, file: str, package: str) -> List[StructDecl]:
+   255→    out: List[StructDecl] = []
+   256→    for m in RE_STRUCT_OPEN.finditer(content):
+   257→        name = m.group("name")
+   258→        brace_idx = content.index("{", m.start())
+   259→        _body, _end = brace_block(content, brace_idx)
+   260→        doc = preceding_doc_comment(content, m.start())
+   261→        out.append(StructDecl(name=name, file=file, package=package, doc=doc))
+   262→    return out
+   263→
+   264→
+   265→def parse_methods(content: str, file: str, package: str) -> List[Tuple[str, StructMethod]]:
+   266→    """Return [(struct_name, StructMethod), ...] for every method declared
+   267→    in this file. The struct_name is the bare type name (Go method receivers
+   268→    never include a package qualifier — methods live in the same package as
+   269→    the type). The `package` arg is attached to the StructMethod via the
+   270→    caller so cross-package name collisions can be resolved later.
+   271→    """
+   272→    out: List[Tuple[str, StructMethod]] = []
+   273→    for m in RE_METHOD.finditer(content):
+   274→        struct_name = m.group("type")
+   275→        pointer = bool(m.group("ptr"))
+   276→        method_name = m.group("method")
+   277→        # Capture the signature text: from method name to end of line (rough).
+   278→        line_end = content.find("\n", m.end())
+   279→        if line_end == -1:
+   280→            line_end = len(content)
+   281→        # Also include continuation lines if the closing paren of the params
+   282→        # hasn't appeared yet.
+   283→        chunk = content[m.start() : line_end]
+   284→        # If params close paren is not yet in chunk, extend.
+   285→        if chunk.count("(") < chunk.count(")") or chunk.count("(") > chunk.count(")"):
+   286→            # Find balanced close paren starting at the method name's `(`.
+   287→            paren_open = content.index("(", m.end() - 1)
+   288→            depth = 0
+   289→            i = paren_open
+   290→            while i < len(content):
+   291→                if content[i] == "(":
+   292→                    depth += 1
+   293→                elif content[i] == ")":
+   294→                    depth -= 1
+   295→                    if depth == 0:
+   296→                        chunk = content[m.start() : i + 1]
+   297→                        break
+   298→                i += 1
+   299→        out.append(
+   300→            (struct_name, StructMethod(name=method_name, pointer_receiver=pointer, signature=chunk))
+   301→        )
+   302→    return out
+   303→
+   304→
+   305→# ---------------------------------------------------------------------------
+   306→# Resolution
+   307→# ---------------------------------------------------------------------------
+   308→
+   309→def resolve_embeddings(
+   310→    interfaces: Dict[str, InterfaceDecl],
+   311→) -> None:
+   312→    """Flatten embedded interface methods into each interface's method list.
+   313→
+   314→    Embedding is by name; cross-package embeddings (with a `.`) are kept as
+   315→    references but their methods are not pulled in (we don't have stdlib
+   316→    signatures here).
+   317→    """
+   318→    # Build a lookup by name (last-seen wins if duplicates exist).
+   319→    by_name: Dict[str, InterfaceDecl] = {i.name: i for i in interfaces.values()}
+   320→
+   321→    def collect(name: str, seen: Set[str]) -> List[InterfaceMethod]:
+   322→        if name in seen:
+   323→            return []
+   324→        seen.add(name)
+   325→        decl = by_name.get(name)
+   326→        if decl is None:
+   327→            return []
+   328→        methods = list(decl.methods)
+   329→        for emb in decl.embedded:
+   330→            if "." in emb:
+   331→                # Cross-package embedding — we can't resolve.
+   332→                continue
+   333→            methods.extend(collect(emb, seen))
+   334→        return methods
+   335→
+   336→    for decl in interfaces.values():
+   337→        full: List[InterfaceMethod] = []
+   338→        seen_names: Set[str] = set()
+   339→        for m in collect(decl.name, set()):
+   340→            if m.name not in seen_names:
+   341→                full.append(m)
+   342→                seen_names.add(m.name)
+   343→        decl.methods = full
+   344→
+   345→
+   346→def assign_methods_to_structs(
+   347→    structs: Dict[str, StructDecl],
+   348→    raw_methods: List[Tuple[str, StructMethod]],
+   349→) -> None:
+   350→    """Attach each parsed method to its struct.
+   351→
+   352→    The struct is looked up by bare name (Go methods are always defined in
+   353→    the same package as the type, so the receiver name is unambiguous within
+   354→    that package). If the struct declaration wasn't seen — sometimes methods
+   355→    live in a different file from the `type X struct` line — we create a
+   356→    synthetic struct entry so the method still gets tracked.
+   357→    """
+   358→    # Build a name -> StructDecl index. If the same name appears in two
+   359→    # packages we keep both; the bare-name lookup below will pick the first
+   360→    # one. That's an acceptable trade-off for static analysis.
+   361→    by_name: Dict[str, StructDecl] = {}
+   362→    for key, s in structs.items():
+   363→        # `key` may be "pkg.Name" or just "Name". Prefer the bare name.
+   364→        bare = key.rsplit(".", 1)[-1]
+   365→        if bare not in by_name:
+   366→            by_name[bare] = s
+   367→        else:
+   368→            # If we already have one with the same bare name, keep whichever
+   369→            # is the "real" declaration (i.e. not synthetic).
+   370→            existing = by_name[bare]
+   371→            if existing.file == "(synthetic)" and s.file != "(synthetic)":
+   372→                by_name[bare] = s
+   373→
+   374→    for struct_name, method in raw_methods:
+   375→        s = by_name.get(struct_name)
+   376→        if s is None:
+   377→            s = StructDecl(name=struct_name, file="(synthetic)", package="")
+   378→            by_name[struct_name] = s
+   379→            structs[struct_name] = s  # also register in the main dict
+   380→        # Avoid double-counting: a method declared twice (e.g. build tag
+   381→        # variants) should be deduped by (name, pointer_receiver).
+   382→        dup = any(
+   383→            m.name == method.name and m.pointer_receiver == method.pointer_receiver
+   384→            for m in s.methods
+   385→        )
+   386→        if not dup:
+   387→            s.methods.append(method)
+   388→
+   389→    # Make sure every struct in `structs` is also referenced by bare name
+   390→    # so downstream lookups (find_implementors) work consistently.
+   391→    for key, s in list(structs.items()):
+   392→        bare = key.rsplit(".", 1)[-1]
+   393→        if bare not in by_name:
+   394→            by_name[bare] = s
+   395→        # If the dict was keyed by "pkg.Name", also add a bare alias.
+   396→        if "." in key and bare not in structs:
+   397→            structs[bare] = s
+   398→
+   399→
+   400→def find_implementors(
+   401→    interface: InterfaceDecl,
+   402→    structs: Dict[str, StructDecl],
+   403→) -> Tuple[List[str], List[str]]:
+   404→    """Return (value_implementors, pointer_only_implementors)."""
+   405→    required = {m.name for m in interface.methods}
+   406→    if not required:
+   407→        # Empty interface — satisfied by everything (skip in practice).
+   408→        return [], []
+   409→    # Deduplicate structs by name so the same struct registered under both
+   410→    # "pkg.Name" and "Name" keys is not reported twice.
+   411→    seen: Set[str] = set()
+   412→    value_impls: List[str] = []
+   413→    ptr_impls: List[str] = []
+   414→    for name, s in structs.items():
+   415→        bare = name.rsplit(".", 1)[-1]
+   416→        if bare in seen:
+   417→            continue
+   418→        seen.add(bare)
+   419→        if required.issubset(s.value_method_set):
+   420→            value_impls.append(bare)
+   421→        elif required.issubset(s.pointer_method_set):
+   422→            ptr_impls.append(bare)
+   423→    return value_impls, ptr_impls
+   424→
+   425→
+   426→# ---------------------------------------------------------------------------
+   427→# Reporting
+   428→# ---------------------------------------------------------------------------
+   429→
+   430→def emit_markdown(
+   431→    interfaces: List[InterfaceDecl],
+   432→    structs: List[StructDecl],
+   433→    repo: Path,
+   434→) -> str:
+   435→    lines: List[str] = []
+   436→    lines.append("# Interface Satisfaction Report")
+   437→    lines.append("")
+   438→    lines.append(f"Repository: `{repo}`")
+   439→    lines.append("")
+   440→    total_ifaces = len(interfaces)
+   441→    total_structs = len(structs)
+   442→    total_methods = sum(len(i.methods) for i in interfaces)
+   443→    lines.append(f"- **Interfaces scanned**: {total_ifaces}")
+   444→    lines.append(f"- **Structs scanned**: {total_structs}")
+   445→    lines.append(f"- **Interface methods total**: {total_methods}")
+   446→    lines.append("")
+   447→
+   448→    # --- Summary table -----------------------------------------------------
+   449→    lines.append("## Summary — Interfaces")
+   450→    lines.append("")
+   451→    lines.append("| Interface | Package | Methods | Implementors | Pointer-only | Status |")
+   452→    lines.append("|-----------|---------|---------|--------------|--------------|--------|")
+   453→    for i in sorted(interfaces, key=lambda x: (-len(x.implementors), x.name)):
+   454→        status = "✅ healthy"
+   455→        if len(i.implementors) == 0 and len(i.pointer_only_implementors) == 0:
+   456→            status = "💀 dead (no implementors)"
+   457→        elif len(i.implementors) + len(i.pointer_only_implementors) == 1:
+   458→            status = "⚠️ single implementor (over-designed?)"
+   459→        lines.append(
+   460→            f"| `{i.name}` | `{i.package}` | {len(i.methods)} | "
+   461→            f"{len(i.implementors)} | {len(i.pointer_only_implementors)} | {status} |"
+   462→        )
+   463→    lines.append("")
+   464→
+   465→    # --- Per-interface detail ---------------------------------------------
+   466→    lines.append("## Per-Interface Detail")
+   467→    lines.append("")
+   468→    for i in sorted(interfaces, key=lambda x: x.name):
+   469→        lines.append(f"### `{i.name}`")
+   470→        lines.append("")
+   471→        lines.append(f"- **File**: `{i.file}`")
+   472→        lines.append(f"- **Package**: `{i.package}`")
+   473→        if i.doc:
+   474→            lines.append(f"- **Doc**: {i.doc}")
+   475→        if i.embedded:
+   476→            lines.append(f"- **Embeds**: {', '.join(f'`{e}`' for e in i.embedded)}")
+   477→        lines.append(f"- **Method count**: {len(i.methods)}")
+   478→        lines.append("")
+   479→        if i.methods:
+   480→            lines.append("| Method | Signature |")
+   481→            lines.append("|--------|-----------|")
+   482→            for m in i.methods:
+   483→                lines.append(f"| `{m.name}` | `{m.signature}` |")
+   484→            lines.append("")
+   485→        all_impls = i.implementors + i.pointer_only_implementors
+   486→        if not all_impls:
+   487→            lines.append("> 💀 **No struct in the codebase satisfies this interface.**")
+   488→            lines.append("")
+   489→        else:
+   490→            lines.append("#### Implementors")
+   491→            lines.append("")
+   492→            lines.append("| Struct | Receiver | File |")
+   493→            lines.append("|--------|----------|------|")
+   494→            for name in sorted(i.implementors):
+   495→                # Find the struct file.
+   496→                s = next((x for x in structs if x.name == name), None)
+   497→                f = s.file if s else "?"
+   498→                lines.append(f"| `{name}` | value (`T`) | `{f}` |")
+   499→            for name in sorted(i.pointer_only_implementors):
+   500→                s = next((x for x in structs if x.name == name), None)
+   501→                f = s.file if s else "?"
+   502→                lines.append(f"| `{name}` | pointer (`*T`) | `{f}` |")
+   503→            lines.append("")
+   504→
+   505→    # --- Dead interfaces ---------------------------------------------------
+   506→    dead = [i for i in interfaces if not (i.implementors or i.pointer_only_implementors)]
+   507→    lines.append("## Dead Interfaces (0 implementors)")
+   508→    lines.append("")
+   509→    if dead:
+   510→        for i in dead:
+   511→            lines.append(f"- `{i.name}` — `{i.file}` — {len(i.methods)} methods")
+   512→        lines.append("")
+   513→        lines.append(
+   514→            "These interfaces have no struct that satisfies them. Either remove "
+   515→            "them, or add a production implementation. (Note: stdlib interface "
+   516→            "embeddings like `io.Reader` cannot be checked here — see the "
+   517→            "Embeds column above.)"
+   518→        )
+   519→    else:
+   520→        lines.append("_None — every declared interface has at least one implementor._")
+   521→    lines.append("")
+   522→
+   523→    # --- Single-implementor interfaces ------------------------------------
+   524→    single = [
+   525→        i
+   526→        for i in interfaces
+   527→        if len(i.implementors) + len(i.pointer_only_implementors) == 1
+   528→    ]
+   529→    lines.append("## Single-Implementor Interfaces (may be over-designed)")
+   530→    lines.append("")
+   531→    if single:
+   532→        for i in single:
+   533→            impl = (i.implementors + i.pointer_only_implementors)[0]
+   534→            lines.append(
+   535→                f"- `{i.name}` — only implemented by `{impl}` — `{i.file}`"
+   536→            )
+   537→        lines.append("")
+   538→        lines.append(
+   539→            "An interface with a single implementor is a candidate for removal "
+   540→            "unless the indirection is needed for testing (mocks) or future "
+   541→            "extensibility."
+   542→        )
+   543→    else:
+   544→        lines.append("_None._")
+   545→    lines.append("")
+   546→
+   547→    # --- Top structs by method count --------------------------------------
+   548→    lines.append("## Top Structs by Method Count")
+   549→    lines.append("")
+   550→    lines.append("| Struct | File | Methods (value) | Methods (pointer) | Total |")
+   551→    lines.append("|--------|------|------------------|--------------------|-------|")
+   552→    sorted_structs = sorted(structs, key=lambda s: -s.total_method_count)
+   553→    for s in sorted_structs[:25]:
+   554→        v = len([m for m in s.methods if not m.pointer_receiver])
+   555→        p = len([m for m in s.methods if m.pointer_receiver])
+   556→        lines.append(
+   557→            f"| `{s.name}` | `{s.file}` | {v} | {p} | {s.total_method_count} |"
+   558→        )
+   559→    lines.append("")
+   560→
+   561→    # --- Notes -------------------------------------------------------------
+   562→    lines.append("## Notes")
+   563→    lines.append("")
+   564→    lines.append(
+   565→        "- Go interfaces are satisfied *implicitly* — there is no `implements` "
+   566→        "keyword. This tool inspects every struct's method set and checks "
+   567→        "whether it is a superset of each interface's required methods."
+   568→    )
+   569→    lines.append(
+   570→        "- Pointer-receiver methods are only available on `*T`, so a struct "
+   571→        "that satisfies an interface purely through pointer methods is listed "
+   572→        "as a *pointer-only* implementor."
+   573→    )
+   574→    lines.append(
+   575→        "- Cross-package interface embeddings (e.g. `io.Reader`) cannot be "
+   576→        "resolved by static scan — those methods are not counted."
+   577→    )
+   578→    lines.append(
+   579→        "- Test files (`*_test.go`) are excluded by default to keep the "
+   580→        "report focused on production code."
+   581→    )
+   582→    lines.append("")
+   583→    return "\n".join(lines)
+   584→
+   585→
+   586→def emit_json(
+   587→    interfaces: List[InterfaceDecl],
+   588→    structs: List[StructDecl],
+   589→    repo: Path,
+   590→) -> str:
+   591→    payload = {
+   592→        "repository": str(repo),
+   593→        "summary": {
+   594→            "interfaces": len(interfaces),
+   595→            "structs": len(structs),
+   596→            "total_interface_methods": sum(len(i.methods) for i in interfaces),
+   597→            "dead_interfaces": [
+   598→                i.name for i in interfaces
+   599→                if not (i.implementors or i.pointer_only_implementors)
+   600→            ],
+   601→            "single_implementor_interfaces": [
+   602→                i.name for i in interfaces
+   603→                if len(i.implementors) + len(i.pointer_only_implementors) == 1
+   604→            ],
+   605→        },
+   606→        "interfaces": [
+   607→            {
+   608→                **asdict(i),
+   609→                "implementor_count": len(i.implementors) + len(i.pointer_only_implementors),
+   610→            }
+   611→            for i in interfaces
+   612→        ],
+   613→        "structs": [
+   614→            {
+   615→                "name": s.name,
+   616→                "file": s.file,
+   617→                "package": s.package,
+   618→                "doc": s.doc,
+   619→                "method_count": s.total_method_count,
+   620→                "value_method_count": len([m for m in s.methods if not m.pointer_receiver]),
+   621→                "pointer_method_count": len([m for m in s.methods if m.pointer_receiver]),
+   622→                "methods": [asdict(m) for m in s.methods],
+   623→            }
+   624→            for s in structs
+   625→        ],
+   626→    }
+   627→    return json.dumps(payload, indent=2)
+   628→
+   629→
+   630→# ---------------------------------------------------------------------------
+   631→# Entry point
+   632→# ---------------------------------------------------------------------------
+   633→
+   634→def analyze(repo: Path, include_tests: bool = False) -> Tuple[List[InterfaceDecl], List[StructDecl]]:
+   635→    files = find_go_files(repo, include_tests=include_tests)
+   636→    print(f"  Scanning {len(files)} .go files", file=sys.stderr)
+   637→
+   638→    interfaces: Dict[str, InterfaceDecl] = {}
+   639→    structs: Dict[str, StructDecl] = {}
+   640→    raw_methods: List[Tuple[str, StructMethod]] = []
+   641→
+   642→    for f in files:
+   643→        try:
+   644→            content = f.read_text(encoding="utf-8", errors="replace")
+   645→        except Exception as exc:
+   646→            print(f"  ! could not read {f}: {exc}", file=sys.stderr)
+   647→            continue
+   648→        package = extract_package(content)
+   649→        rel = str(f.relative_to(repo))
+   650→
+   651→        for i in parse_interfaces(content, rel, package):
+   652→            # Key on (package, name) so duplicates across packages don't
+   653→            # clobber each other.
+   654→            key = f"{package}.{i.name}" if package else i.name
+   655→            interfaces[key] = i
+   656→        for s in parse_structs(content, rel, package):
+   657→            key = f"{package}.{s.name}" if package else s.name
+   658→            # If a struct with the same package.name exists already, prefer
+   659→            # the one with the doc comment, but keep both files for the
+   660→            # method attachment step.
+   661→            if key not in structs:
+   662→                structs[key] = s
+   663→            else:
+   664→                # Merge — keep doc from whichever has one.
+   665→                if not structs[key].doc and s.doc:
+   666→                    structs[key].doc = s.doc
+   667→        raw_methods.extend(parse_methods(content, rel, package))
+   668→
+   669→    resolve_embeddings(interfaces)
+   670→    assign_methods_to_structs(structs, raw_methods)
+   671→
+   672→    # Find implementors.
+   673→    for i in interfaces.values():
+   674→        v, p = find_implementors(i, structs)
+   675→        i.implementors = sorted(v)
+   676→        i.pointer_only_implementors = sorted(p)
+   677→
+   678→    # Deduplicate structs: we may have both "pkg.Name" and bare "Name" keys
+   679→    # pointing at the same StructDecl. Pick unique entries by (name, file).
+   680→    seen_structs: Set[Tuple[str, str]] = set()
+   681→    unique_structs: List[StructDecl] = []
+   682→    for s in structs.values():
+   683→        sig = (s.name, s.file)
+   684→        if sig in seen_structs:
+   685→            continue
+   686→        seen_structs.add(sig)
+   687→        unique_structs.append(s)
+   688→
+   689→    iface_list = list(interfaces.values())
+   690→    struct_list = unique_structs
+   691→    return iface_list, struct_list
+   692→
+   693→
+   694→def main():
+   695→    ap = argparse.ArgumentParser(
+   696→        prog="graphify interfaces",
+   697→        description="Go interface satisfaction checker.",
+   698→    )
+   699→    ap.add_argument("path", nargs="?", default=".", help="Path to the Go project (or a subdir).")
+   700→    ap.add_argument("--out", "-o", help="Output markdown file (default: stdout).")
+   701→    ap.add_argument("--json", action="store_true", help="Emit JSON instead of markdown.")
+   702→    ap.add_argument(
+   703→        "--include-tests",
+   704→        action="store_true",
+   705→        help="Include *_test.go files (default: skip).",
+   706→    )
+   707→    args = ap.parse_args()
+   708→
+   709→    repo = Path(args.path).resolve()
+   710→    print(f"graphify interfaces — scanning {repo}", file=sys.stderr)
+   711→    if not repo.exists():
+   712→        print(f"error: path does not exist: {repo}", file=sys.stderr)
+   713→        sys.exit(1)
+   714→
+   715→    interfaces, structs = analyze(repo, include_tests=args.include_tests)
+   716→
+   717→    print(
+   718→        f"  Found {len(interfaces)} interfaces, {len(structs)} structs",
+   719→        file=sys.stderr,
+   720→    )
+   721→    dead = [i for i in interfaces if not (i.implementors or i.pointer_only_implementors)]
+   722→    single = [
+   723→        i for i in interfaces
+   724→        if len(i.implementors) + len(i.pointer_only_implementors) == 1
+   725→    ]
+   726→    print(
+   727→        f"  {len(dead)} dead, {len(single)} single-implementor",
+   728→        file=sys.stderr,
+   729→    )
+   730→
+   731→    if args.json:
+   732→        output = emit_json(interfaces, structs, repo)
+   733→    else:
+   734→        output = emit_markdown(interfaces, structs, repo)
+   735→
+   736→    if args.out:
+   737→        Path(args.out).write_text(output, encoding="utf-8")
+   738→        print(f"Report written to {args.out}", file=sys.stderr)
+   739→    else:
+   740→        # When no --out is provided, also write the canonical workspace
+   741→        # outputs so the graphify UI picks them up.
+   742→        workspace_root = Path(os.environ.get("GRAPHIFY_ROOT", "/home/z/my-project"))
+   743→        public_dir = workspace_root / "public"
+   744→        if public_dir.exists():
+   745→            (public_dir / "interfaces.json").write_text(
+   746→                emit_json(interfaces, structs, repo), encoding="utf-8"
+   747→            )
+   748→            (public_dir / "INTERFACES.md").write_text(
+   749→                emit_markdown(interfaces, structs, repo), encoding="utf-8"
+   750→            )
+   751→            print(
+   752→                f"  Wrote public/interfaces.json and public/INTERFACES.md",
+   753→                file=sys.stderr,
+   754→            )
+   755→        print(output)
+   756→
+   757→
+   758→if __name__ == "__main__":
+   759→    main()
+   760→

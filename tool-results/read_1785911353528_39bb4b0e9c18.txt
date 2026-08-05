@@ -1,0 +1,892 @@
+     1→#!/usr/bin/env python3
+     2→"""graphify db-queries — scan Go source code for MongoDB queries and map them
+     3→to their data models.
+     4→
+     5→Walks every .go file under the target path, identifies MongoDB collection
+     6→operations (Find / FindOne / InsertOne / InsertMany / UpdateOne / UpdateMany /
+     7→DeleteOne / DeleteMany / Aggregate / CountDocuments), resolves the underlying
+     8→collection name (via direct ``db.Collection("name")`` calls or via accessor
+     9→methods like ``m.Users()`` defined in the codebase), extracts the query
+    10→filter fields from ``bson.D`` / ``bson.M`` literals, and maps each collection
+    11→to the Go struct that models it.
+    12→
+    13→Usage:
+    14→    python graphify_db_queries.py [path] [--out report.md] [--json]
+    15→
+    16→Examples:
+    17→    python graphify_db_queries.py /home/z/my-project/repos/lastsaas/backend
+    18→    python graphify_db_queries.py . --out db-queries.md --json
+    19→"""
+    20→from __future__ import annotations
+    21→
+    22→import argparse
+    23→import json
+    24→import re
+    25→import sys
+    26→from collections import Counter, defaultdict
+    27→from dataclasses import asdict, dataclass, field
+    28→from pathlib import Path
+    29→from typing import Optional
+    30→
+    31→# ---------------------------------------------------------------------------
+    32→# Static configuration
+    33→# ---------------------------------------------------------------------------
+    34→
+    35→# The 10 canonical mongo-driver collection methods we track.
+    36→OPERATIONS: tuple[str, ...] = (
+    37→    "Find",
+    38→    "FindOne",
+    39→    "InsertOne",
+    40→    "InsertMany",
+    41→    "UpdateOne",
+    42→    "UpdateMany",
+    43→    "DeleteOne",
+    44→    "DeleteMany",
+    45→    "Aggregate",
+    46→    "CountDocuments",
+    47→)
+    48→
+    49→# A regex that captures any of those operations when called as a method.
+    50→# Example matches: ``.Find(``, ``.FindOne(``, ``.CountDocuments(``
+    51→OP_RE = re.compile(
+    52→    r"\.(" + "|".join(OPERATIONS) + r")\s*\("
+    53→)
+    54→
+    55→# Direct collection access: ``db.Collection("name")`` or ``m.Database.Collection("name")``.
+    56→# Captures the literal collection name.
+    57→COLLECTION_LITERAL_RE = re.compile(
+    58→    r'\.Collection\(\s*"([^"]+)"\s*\)'
+    59→)
+    60→
+    61→# Accessor method call: ``<expr>.Users()`` — the trailing ``()`` is required
+    62→# to distinguish from a struct field access. The accessor name (e.g. ``Users``)
+    63→# is captured and resolved to a collection name via the accessor map.
+    64→ACCESSOR_CALL_RE = re.compile(
+    65→    r"(?:[\w\.\[\]\*]+\.)?(\w+)\(\s*\)"
+    66→)
+    67→
+    68→# Function declaration: ``func (recv) Name(args) (rets) {`` or ``func Name(...) {``.
+    69→FUNC_RE = re.compile(
+    70→    r"^func\s+(?:\([^)]*\)\s+)?([A-Za-z_]\w*)\s*[(<]"
+    71→)
+    72→
+    73→# Variable aliasing a collection accessor result:
+    74→#   ``col := m.Database.Collection("plans")``
+    75→#   ``col := s.db.Plans()``
+    76→ALIAS_LITERAL_RE = re.compile(
+    77→    r"(\w+)\s*:?=\s*[\w\.\[\]\*]+\.Collection\(\s*\"([^\"]+)\"\s*\)"
+    78→)
+    79→ALIAS_ACCESSOR_RE = re.compile(
+    80→    r"(\w+)\s*:?=\s*[\w\.\[\]\*]+\.(\w+)\(\s*\)"
+    81→)
+    82→
+    83→# bson.D blocks: ``bson.D{{Key: "f", Value: ...}, {"f2", v}}``.
+    84→# We capture the inner content and then pull keys out of it.
+    85→BSON_D_BLOCK_RE = re.compile(
+    86→    r'\bbson\.D\s*\{([^}]*)\}'
+    87→)
+    88→# Inside a bson.D block:
+    89→#   {Key: "field", Value: ...}    (named form)
+    90→#   {"field", value}              (positional form)
+    91→BSON_D_KEYVAL_NAMED_RE = re.compile(
+    92→    r'Key:\s*"([^"]+)"\s*,\s*Value:'
+    93→)
+    94→BSON_D_KEYVAL_POS_RE = re.compile(
+    95→    r'\{\s*"([^"]+)"\s*,'
+    96→)
+    97→
+    98→# bson.M{"field": value, "other": value}
+    99→# Captures quoted keys. Operator keys ($set, $inc, ...) are filtered out.
+   100→BSON_M_RE = re.compile(
+   101→    r'\bbson\.M\s*\{([^}]*)\}'
+   102→)
+   103→BSON_M_KEY_RE = re.compile(
+   104→    r'"([^"]+)"\s*:'
+   105→)
+   106→
+   107→# Known wrapper helpers that wrap a real mongo call. They mention the
+   108→# collection by string literal, e.g. ``testutil.CountDocuments(t, db, "users", bson.M{...})``.
+   109→WRAPPER_PATTERNS: list[tuple[re.Pattern, str]] = [
+   110→    (
+   111→        re.compile(r'testutil\.CountDocuments\s*\(\s*[^,]+,\s*[^,]+,\s*"([^"]+)"'),
+   112→        "CountDocuments",
+   113→    ),
+   114→]
+   115→
+   116→# Acronyms that should remain uppercase when converting snake_case → PascalCase.
+   117→ACRONYMS = {
+   118→    "api": "API",
+   119→    "sso": "SSO",
+   120→    "totp": "TOTP",
+   121→    "id": "ID",
+   122→    "url": "URL",
+   123→    "uri": "URI",
+   124→    "sql": "SQL",
+   125→    "json": "JSON",
+   126→    "xml": "XML",
+   127→    "http": "HTTP",
+   128→    "https": "HTTPS",
+   129→    "ip": "IP",
+   130→    "tcp": "TCP",
+   131→    "udp": "UDP",
+   132→    "ssl": "SSL",
+   133→    "tls": "TLS",
+   134→    "oauth": "OAuth",
+   135→    "uuid": "UUID",
+   136→    "guid": "GUID",
+   137→    "uid": "UID",
+   138→    "db": "DB",
+   139→    "ui": "UI",
+   140→    "cpu": "CPU",
+   141→    "ram": "RAM",
+   142→    "smtp": "SMTP",
+   143→    "imap": "IMAP",
+   144→    "pop": "POP",
+   145→    "ws": "WS",
+   146→    "wss": "WSS",
+   147→    "rpc": "RPC",
+   148→    "grpc": "GRPC",
+   149→    "html": "HTML",
+   150→    "css": "CSS",
+   151→    "js": "JS",
+   152→    "ts": "TS",
+   153→    "ftp": "FTP",
+   154→    "ssh": "SSH",
+   155→    "vpn": "VPN",
+   156→    "ttl": "TTL",
+   157→    "mfa": "MFA",
+   158→    "sms": "SMS",
+   159→    "pdf": "PDF",
+   160→    "csv": "CSV",
+   161→    "yaml": "YAML",
+   162→    "yml": "YML",
+   163→}
+   164→
+   165→# Irregular plural → singular rules for collection → model mapping.
+   166→SINGULAR_RULES = {
+   167→    "ies": "y",   # tenants → tenant, properties → property (suffix "ies")
+   168→    "ses": "s",   # analyses → analysis (rough)
+   169→    "ches": "ch", # watches → watch
+   170→    "shes": "sh",
+   171→    "xes": "x",
+   172→    "zes": "z",
+   173→    "sso_connections": "sso_connection",
+   174→    "men": "man",
+   175→    "children": "child",
+   176→}
+   177→
+   178→# Known one-off collection → model overrides for cases where the heuristic
+   179→# would otherwise pick the wrong struct. These are derived from the codebase
+   180→# under backend/internal/models/.
+   181→COLLECTION_MODEL_OVERRIDES: dict[str, str] = {
+   182→    "refresh_tokens": "RefreshToken",
+   183→    "verification_tokens": "VerificationToken",
+   184→    "oauth_states": "OAuthState",
+   185→    "revoked_tokens": "RevokedToken",
+   186→    "tenant_memberships": "TenantMembership",
+   187→    "audit_log": "SystemLog",          # audit_log is logged into SystemLog entries
+   188→    "system_logs": "SystemLog",
+   189→    "config_vars": "ConfigVar",
+   190→    "system_config": "SystemConfig",
+   191→    "system_nodes": "SystemNode",
+   192→    "system_metrics": "SystemMetric",
+   193→    "financial_transactions": "FinancialTransaction",
+   194→    "stripe_mappings": "StripeMapping",
+   195→    "daily_metrics": "DailyMetric",
+   196→    "leader_locks": "LeaderLock",
+   197→    "webhook_events": "WebhookEvent",
+   198→    "webhook_deliveries": "WebhookDelivery",
+   199→    "api_keys": "APIKey",
+   200→    "credit_bundles": "CreditBundle",
+   201→    "custom_pages": "CustomPage",
+   202→    "branding_assets": "BrandingAsset",
+   203→    "branding_config": "BrandingConfig",
+   204→    "webauthn_credentials": "WebAuthnCredential",
+   205→    "webauthn_sessions": "WebAuthnSession",
+   206→    "sso_connections": "SSOConnection",
+   207→    "auth_codes": "AuthCode",
+   208→    "usage_events": "UsageEvent",
+   209→    "telemetry_events": "TelemetryEvent",
+   210→    "event_definitions": "EventDefinition",
+   211→    "impersonation_logs": "SystemLog",   # also stored as SystemLog entries
+   212→    "rate_limits": "RateLimitEntry",
+   213→    "counters": "InvoiceCounter",
+   214→}
+   215→
+   216→
+   217→# ---------------------------------------------------------------------------
+   218→# Data containers
+   219→# ---------------------------------------------------------------------------
+   220→
+   221→
+   222→@dataclass
+   223→class Query:
+   224→    """A single MongoDB query occurrence."""
+   225→
+   226→    file: str
+   227→    line: int
+   228→    function: str
+   229→    collection: str
+   230→    operation: str
+   231→    model: Optional[str]
+   232→    model_file: Optional[str]
+   233→    filter_fields: list[str] = field(default_factory=list)
+   234→    snippet: str = ""
+   235→
+   236→    def to_dict(self) -> dict:
+   237→        return asdict(self)
+   238→
+   239→
+   240→@dataclass
+   241→class CollectionInfo:
+   242→    """Aggregated info about a single collection."""
+   243→
+   244→    name: str
+   245→    accessors: list[str] = field(default_factory=list)  # e.g. ["Users", "User"]
+   246→    model: Optional[str] = None
+   247→    model_file: Optional[str] = None
+   248→    files: set[str] = field(default_factory=set)
+   249→    operations: Counter = field(default_factory=Counter)
+   250→    total_queries: int = 0
+   251→
+   252→
+   253→# ---------------------------------------------------------------------------
+   254→# Helpers
+   255→# ---------------------------------------------------------------------------
+   256→
+   257→
+   258→def singularize_collection(name: str) -> str:
+   259→    """Best-effort singularize a collection name."""
+   260→    if name in COLLECTION_MODEL_OVERRIDES:
+   261→        # Use the override as-is for pluralization concerns.
+   262→        stem = name
+   263→    else:
+   264→        stem = name
+   265→    for suffix, repl in SINGULAR_RULES.items():
+   266→        if stem.endswith(suffix):
+   267→            return stem[: -len(suffix)] + repl
+   268→    if stem.endswith("s") and not stem.endswith("ss"):
+   269→        return stem[:-1]
+   270→    return stem
+   271→
+   272→
+   273→def snake_to_pascal(snake: str) -> str:
+   274→    """Convert snake_case → PascalCase, honouring known acronyms."""
+   275→    parts = [p for p in snake.split("_") if p]
+   276→    out: list[str] = []
+   277→    for p in parts:
+   278→        lower = p.lower()
+   279→        if lower in ACRONYMS:
+   280→            out.append(ACRONYMS[lower])
+   281→        else:
+   282→            out.append(p[:1].upper() + p[1:])
+   283→    return "".join(out)
+   284→
+   285→
+   286→def collect_struct_definitions(repo_root: Path) -> dict[str, str]:
+   287→    """Walk repo for Go files and return {struct_name: file_path}."""
+   288→    structs: dict[str, str] = {}
+   289→    struct_re = re.compile(r"^type\s+([A-Z]\w*)\s+struct\s*\{")
+   290→    for path in repo_root.rglob("*.go"):
+   291→        try:
+   292→            text = path.read_text(encoding="utf-8", errors="replace")
+   293→        except (OSError, UnicodeDecodeError):
+   294→            continue
+   295→        for line in text.splitlines():
+   296→            m = struct_re.match(line.strip())
+   297→            if m:
+   298→                name = m.group(1)
+   299→                # Only record the first occurrence (most likely the canonical
+   300→                # definition in models/).
+   301→                if name not in structs:
+   302→                    structs[name] = str(path)
+   303→    return structs
+   304→
+   305→
+   306→def build_accessor_map(repo_root: Path) -> dict[str, str]:
+   307→    """Build {accessor_method_name: collection_name}.
+   308→
+   309→    Scans every .go file for ``func (recv) Name() *mongo.Collection {
+   310→    return <expr>.Collection("name") }``.
+   311→    """
+   312→    accessor_re = re.compile(
+   313→        r"func\s+(?:\([^)]*\)\s+)?([A-Z]\w*)\s*\(\s*\)\s*\*mongo\.Collection\s*\{[^}]*?"
+   314→        r'\.Collection\(\s*"([^"]+)"\s*\)',
+   315→        re.DOTALL,
+   316→    )
+   317→    accessor_map: dict[str, str] = {}
+   318→    for path in repo_root.rglob("*.go"):
+   319→        try:
+   320→            text = path.read_text(encoding="utf-8", errors="replace")
+   321→        except (OSError, UnicodeDecodeError):
+   322→            continue
+   323→        for m in accessor_re.finditer(text):
+   324→            name, coll = m.group(1), m.group(2)
+   325→            accessor_map.setdefault(name, coll)
+   326→    return accessor_map
+   327→
+   328→
+   329→def resolve_collection_for_model(
+   330→    collection: str, struct_index: dict[str, str], repo_root: Path
+   331→) -> tuple[Optional[str], Optional[str]]:
+   332→    """Map a collection name to its likely Go model struct + file path."""
+   333→    if collection in COLLECTION_MODEL_OVERRIDES:
+   334→        candidate = COLLECTION_MODEL_OVERRIDES[collection]
+   335→        if candidate in struct_index:
+   336→            return candidate, _relative(repo_root, struct_index[candidate])
+   337→        return candidate, None
+   338→
+   339→    singular = singularize_collection(collection)
+   340→    pascal = snake_to_pascal(singular)
+   341→    if pascal in struct_index:
+   342→        return pascal, _relative(repo_root, struct_index[pascal])
+   343→    # Fall back to the raw PascalCase of the plural name.
+   344→    pascal_plural = snake_to_pascal(collection)
+   345→    if pascal_plural in struct_index:
+   346→        return pascal_plural, _relative(repo_root, struct_index[pascal_plural])
+   347→    return pascal or None, None
+   348→
+   349→
+   350→def _relative(root: Path, p: str | Path) -> str:
+   351→    try:
+   352→        return str(Path(p).resolve().relative_to(root.resolve()))
+   353→    except ValueError:
+   354→        return str(p)
+   355→
+   356→
+   357→def extract_filter_fields(line: str) -> list[str]:
+   358→    """Pull field names out of bson.M / bson.D literals on this line."""
+   359→    fields: list[str] = []
+   360→
+   361→    # bson.D blocks: pull all blocks, then look for keys inside each.
+   362→    for block in BSON_D_BLOCK_RE.finditer(line):
+   363→        inner = block.group(1)
+   364→        for m in BSON_D_KEYVAL_NAMED_RE.finditer(inner):
+   365→            fields.append(m.group(1))
+   366→        for m in BSON_D_KEYVAL_POS_RE.finditer(inner):
+   367→            fields.append(m.group(1))
+   368→
+   369→    # bson.M{"field": value, ...}
+   370→    for m in BSON_M_RE.finditer(line):
+   371→        for km in BSON_M_KEY_RE.finditer(m.group(1)):
+   372→            fields.append(km.group(1))
+   373→
+   374→    # Dedupe while preserving order, drop operators ($set etc.) and empty.
+   375→    seen: set[str] = set()
+   376→    out: list[str] = []
+   377→    for f in fields:
+   378→        if not f or f.startswith("$") or f in seen:
+   379→            continue
+   380→        seen.add(f)
+   381→        out.append(f)
+   382→    return out
+   383→
+   384→
+   385→# ---------------------------------------------------------------------------
+   386→# Per-file scanner
+   387→# ---------------------------------------------------------------------------
+   388→
+   389→
+   390→def scan_file(
+   391→    path: Path,
+   392→    repo_root: Path,
+   393→    accessor_map: dict[str, str],
+   394→    struct_index: dict[str, str],
+   395→    collection_index: dict[str, CollectionInfo],
+   396→    queries: list[Query],
+   397→) -> None:
+   398→    """Scan a single Go file and append Query records to ``queries``."""
+   399→    try:
+   400→        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+   401→    except OSError:
+   402→        return
+   403→
+   404→    # Local variable alias table — refreshed per file.
+   405→    aliases: dict[str, str] = {}
+   406→    current_func = "<package-init>"
+   407→
+   408→    rel = _relative(repo_root, path)
+   409→
+   410→    for idx, raw_line in enumerate(lines, start=1):
+   411→        line = raw_line.rstrip("\n")
+   412→
+   413→        # Track current function context.
+   414→        # Cheap test first: lines starting with "func".
+   415→        stripped = line.lstrip()
+   416→        if stripped.startswith("func"):
+   417→            fm = FUNC_RE.match(stripped)
+   418→            if fm:
+   419→                current_func = fm.group(1)
+   420→                continue
+   421→
+   422→        # Update alias table from explicit collection literals.
+   423→        for m in ALIAS_LITERAL_RE.finditer(line):
+   424→            aliases[m.group(1)] = m.group(2)
+   425→
+   426→        # Update alias table from accessor calls. We do this BEFORE
+   427→        # scanning for queries so that ``col := s.db.Plans()`` followed
+   428→        # immediately by ``col.FindOne(...)`` on a later line resolves
+   429→        # correctly. We must be careful not to mis-classify a real query
+   430→        # call as an alias assignment — the alias pattern requires a
+   431→        # ``:=`` or ``=`` token before the accessor call.
+   432→        # Match ``<ident> := <expr>.<Accessor>()`` only when the accessor
+   433→        # is followed by ``()`` AND is not immediately followed by another
+   434→        # chained method call (``.Find(`` etc.).
+   435→        for m in ALIAS_ACCESSOR_RE.finditer(line):
+   436→            var_name = m.group(1)
+   437→            accessor = m.group(2)
+   438→            # Skip if this is actually a chained call like ``h.db.Users().Find(...)``
+   439→            # — the alias pattern would also match the accessor portion.
+   440→            # We check that the character right after ``()`` is not ``.``
+   441→            # (i.e. no further method call on the returned collection).
+   442→            end = m.end()
+   443→            if end < len(line) and line[end] == ".":
+   444→                continue
+   445→            # Only register the alias if the accessor is a known collection
+   446→            # accessor (so we don't pollute the table with random helper calls).
+   447→            if accessor in accessor_map:
+   448→                aliases[var_name] = accessor_map[accessor]
+   449→
+   450→        # Build a multi-line context window starting at the current line so
+   451→        # we can capture filter fields from multi-line ``bson.M{`` / ``bson.D{``
+   452→        # literals that span across newlines. We extend the window only as far
+   453→        # as needed: starting from the current line, keep adding lines until
+   454→        # the number of ``bson.M{`` / ``bson.D{`` opening tokens is balanced
+   455→        # by the number of ``}`` closing braces. This deliberately ignores
+   456→        # unrelated braces (e.g. ``if ... {``) so we don't bleed into the
+   457→        # next query on the following line.
+   458→        def _bson_open_count(s: str) -> int:
+   459→            return len(re.findall(r"\bbson\.[MD]\s*\{", s))
+   460→
+   461→        context_lines = [line]
+   462→        open_bson = _bson_open_count(line)
+   463→        close_braces = line.count("}")
+   464→        if open_bson > close_braces:
+   465→            for ahead in range(idx + 1, min(idx + 8, len(lines) + 1)):
+   466→                nxt = lines[ahead - 1]
+   467→                context_lines.append(nxt)
+   468→                open_bson += _bson_open_count(nxt)
+   469→                close_braces += nxt.count("}")
+   470→                if open_bson <= close_braces:
+   471→                    break
+   472→        context_window = "\n".join(context_lines)
+   473→
+   474→        # ---- Direct wrapper helpers (testutil.CountDocuments etc.) ----
+   475→        for wre, wop in WRAPPER_PATTERNS:
+   476→            for m in wre.finditer(line):
+   477→                coll = m.group(1)
+   478→                _record_query(
+   479→                    queries=queries,
+   480→                    collection_index=collection_index,
+   481→                    accessor_map=accessor_map,
+   482→                    struct_index=struct_index,
+   483→                    repo_root=repo_root,
+   484→                    file=rel,
+   485→                    line=idx,
+   486→                    function=current_func,
+   487→                    collection=coll,
+   488→                    operation=wop,
+   489→                    line_text=line,
+   490→                    context_text=context_window,
+   491→                    aliases=aliases,
+   492→                )
+   493→                # The wrapper regex matches the same line; we don't want to
+   494→                # double-count if the underlying call also appears. The
+   495→                # underlying call (database.Database.Collection(...).CountDocuments)
+   496→                # would be on a separate line in testutil.go itself, which
+   497→                # is fine — we want to record both.
+   498→
+   499→        # ---- Direct query operations ----
+   500→        for op_m in OP_RE.finditer(line):
+   501→            operation = op_m.group(1)
+   502→            op_start = op_m.start()
+   503→            # Look at the text *before* the operation to find the receiver.
+   504→            prefix = line[:op_start]
+   505→            # Filter out option-builder calls like ``options.Find()`` and
+   506→            # ``options.FindOne()`` — they construct *options.FindOptions
+   507→            # structs and are not real MongoDB queries. The OP_RE consumes
+   508→            # the leading ``.`` of the call, so the prefix ends with
+   509→            # ``options`` (no trailing dot) when the call is an option
+   510→            # builder.
+   511→            if re.search(r"\boptions\s*$", prefix):
+   512→                continue
+   513→
+   514→            collection: Optional[str] = None
+   515→            accessor_used: Optional[str] = None
+   516→
+   517→            # Strategy 1: literal ``.Collection("name").<Op>`` chain.
+   518→            lit_m = COLLECTION_LITERAL_RE.search(prefix)
+   519→            if lit_m:
+   520→                collection = lit_m.group(1)
+   521→            else:
+   522→                # Strategy 2: accessor call ``<expr>.<Accessor>().<Op>``.
+   523→                # The accessor name is the identifier right before the final ``()``.
+   524→                # We walk backwards from op_start looking for ``<ident>()``.
+   525→                acc_m = re.search(r"([A-Z]\w*)\(\s*\)\s*$", prefix)
+   526→                if acc_m:
+   527→                    accessor_used = acc_m.group(1)
+   528→                    collection = accessor_map.get(accessor_used)
+   529→                else:
+   530→                    # Strategy 3: aliased variable ``<ident>.<Op>``.
+   531→                    var_m = re.search(r"([A-Za-z_]\w*)\s*$", prefix)
+   532→                    if var_m:
+   533→                        var_name = var_m.group(1)
+   534→                        collection = aliases.get(var_name)
+   535→
+   536→            # If we still couldn't resolve a collection, try scanning the
+   537→            # previous few lines for a literal collection access — this
+   538→            # handles cases where the query call is split across lines.
+   539→            if collection is None:
+   540→                for back in range(idx - 2, max(idx - 6, 0) - 1, -1):
+   541→                    if back < 1 or back > len(lines):
+   542→                        continue
+   543→                    prev = lines[back - 1]
+   544→                    lit_m = COLLECTION_LITERAL_RE.search(prev)
+   545→                    if lit_m:
+   546→                        collection = lit_m.group(1)
+   547→                        break
+   548→                    acc_m = re.search(r"([A-Z]\w*)\(\s*\)", prev)
+   549→                    if acc_m and acc_m.group(1) in accessor_map:
+   550→                        collection = accessor_map[acc_m.group(1)]
+   551→                        break
+   552→
+   553→            if collection is None:
+   554→                # Truly unresolvable — record with empty collection so the
+   555→                # user can investigate. We still keep the query for completeness.
+   556→                collection = "<unknown>"
+   557→
+   558→            _record_query(
+   559→                queries=queries,
+   560→                collection_index=collection_index,
+   561→                accessor_map=accessor_map,
+   562→                struct_index=struct_index,
+   563→                repo_root=repo_root,
+   564→                file=rel,
+   565→                line=idx,
+   566→                function=current_func,
+   567→                collection=collection,
+   568→                operation=operation,
+   569→                line_text=line,
+   570→                context_text=context_window,
+   571→                aliases=aliases,
+   572→                accessor_used=accessor_used,
+   573→            )
+   574→
+   575→
+   576→def _record_query(
+   577→    *,
+   578→    queries: list[Query],
+   579→    collection_index: dict[str, CollectionInfo],
+   580→    accessor_map: dict[str, str],
+   581→    struct_index: dict[str, str],
+   582→    repo_root: Path,
+   583→    file: str,
+   584→    line: int,
+   585→    function: str,
+   586→    collection: str,
+   587→    operation: str,
+   588→    line_text: str,
+   589→    context_text: str = "",
+   590→    aliases: dict[str, str],
+   591→    accessor_used: Optional[str] = None,
+   592→) -> None:
+   593→    """Build and register a Query record + update collection aggregates."""
+   594→    info = collection_index.get(collection)
+   595→    if info is None:
+   596→        info = CollectionInfo(name=collection)
+   597→        collection_index[collection] = info
+   598→        # Resolve model + model_file once per collection.
+   599→        model, model_file = resolve_collection_for_model(
+   600→            collection, struct_index, repo_root
+   601→        )
+   602→        info.model = model
+   603→        info.model_file = model_file
+   604→    if accessor_used and accessor_used not in info.accessors:
+   605→        info.accessors.append(accessor_used)
+   606→
+   607→    # Find accessor aliases that point at this collection (cosmetic).
+   608→    if not info.accessors:
+   609→        for acc, coll in accessor_map.items():
+   610→            if coll == collection:
+   611→                info.accessors.append(acc)
+   612→
+   613→    info.files.add(file)
+   614→    info.operations[operation] += 1
+   615→    info.total_queries += 1
+   616→
+   617→    # Extract filter fields from the multi-line context (which includes
+   618→    # the current line + the next few lines, so multi-line ``bson.M{``
+   619→    # literals are captured).
+   620→    filter_fields = extract_filter_fields(context_text or line_text)
+   621→    # Compact snippet for human inspection.
+   622→    snippet = line_text.strip()
+   623→    if len(snippet) > 200:
+   624→        snippet = snippet[:197] + "..."
+   625→
+   626→    queries.append(
+   627→        Query(
+   628→            file=file,
+   629→            line=line,
+   630→            function=function,
+   631→            collection=collection,
+   632→            operation=operation,
+   633→            model=info.model,
+   634→            model_file=info.model_file,
+   635→            filter_fields=filter_fields,
+   636→            snippet=snippet,
+   637→        )
+   638→    )
+   639→
+   640→
+   641→# ---------------------------------------------------------------------------
+   642→# Output rendering
+   643→# ---------------------------------------------------------------------------
+   644→
+   645→
+   646→def build_summary(
+   647→    queries: list[Query],
+   648→    collection_index: dict[str, CollectionInfo],
+   649→    repo_root: Path,
+   650→) -> dict:
+   651→    """Build the JSON-serialisable summary object."""
+   652→    collections_by_access = sorted(
+   653→        (
+   654→            {
+   655→                "collection": name,
+   656→                "queries": info.total_queries,
+   657→                "model": info.model,
+   658→                "model_file": info.model_file,
+   659→                "accessors": info.accessors,
+   660→                "files": len(info.files),
+   661→                "operations": dict(info.operations),
+   662→            }
+   663→            for name, info in collection_index.items()
+   664→        ),
+   665→        key=lambda c: -c["queries"],
+   666→    )
+   667→
+   668→    operations_by_usage: Counter = Counter()
+   669→    models_by_activity: Counter = Counter()
+   670→    files_with_queries: Counter = Counter()
+   671→    for q in queries:
+   672→        operations_by_usage[q.operation] += 1
+   673→        if q.model:
+   674→            models_by_activity[q.model] += 1
+   675→        files_with_queries[q.file] += 1
+   676→
+   677→    models_sorted = [
+   678→        {"model": m, "queries": c, "collection": next(
+   679→            (ci.name for ci in collection_index.values() if ci.model == m),
+   680→            None,
+   681→        )}
+   682→        for m, c in models_by_activity.most_common()
+   683→    ]
+   684→
+   685→    return {
+   686→        "repo_root": str(repo_root),
+   687→        "total_queries": len(queries),
+   688→        "total_collections": len(collection_index),
+   689→        "total_files_with_queries": len(files_with_queries),
+   690→        "collections_by_access_count": collections_by_access,
+   691→        "operations_by_usage": [
+   692→            {"operation": op, "count": c}
+   693→            for op, c in operations_by_usage.most_common()
+   694→        ],
+   695→        "models_by_query_activity": models_sorted,
+   696→        "files_with_most_queries": [
+   697→            {"file": f, "queries": c}
+   698→            for f, c in files_with_queries.most_common(15)
+   699→        ],
+   700→        "collections_to_models": {
+   701→            name: info.model
+   702→            for name, info in collection_index.items()
+   703→            if info.model
+   704→        },
+   705→    }
+   706→
+   707→
+   708→def render_markdown(summary: dict, queries: list[Query]) -> str:
+   709→    """Render the summary + queries as a Markdown report."""
+   710→    lines: list[str] = []
+   711→    lines.append("# MongoDB Query Map\n")
+   712→    lines.append(
+   713→        f"Scanned **{summary['total_files_with_queries']}** files, "
+   714→        f"found **{summary['total_queries']}** MongoDB queries across "
+   715→        f"**{summary['total_collections']}** collections.\n"
+   716→    )
+   717→    lines.append(f"Repo: `{summary['repo_root']}`\n")
+   718→
+   719→    # ---- Collections by access count ----
+   720→    lines.append("## Collections by Access Count\n")
+   721→    lines.append(
+   722→        "| Rank | Collection | Queries | Model | Model File | Files | Operations |"
+   723→    )
+   724→    lines.append(
+   725→        "|------|------------|---------|-------|------------|-------|------------|"
+   726→    )
+   727→    for i, c in enumerate(summary["collections_by_access_count"], 1):
+   728→        ops = ", ".join(
+   729→            f"{op}×{n}" for op, n in sorted(c["operations"].items(), key=lambda x: -x[1])
+   730→        )
+   731→        model = c["model"] or "—"
+   732→        model_file = f"`{c['model_file']}`" if c["model_file"] else "—"
+   733→        lines.append(
+   734→            f"| {i} | `{c['collection']}` | {c['queries']} | {model} | "
+   735→            f"{model_file} | {c['files']} | {ops or '—'} |"
+   736→        )
+   737→    lines.append("")
+   738→
+   739→    # ---- Operations by usage ----
+   740→    lines.append("## Operations by Usage\n")
+   741→    lines.append("| Operation | Count |")
+   742→    lines.append("|-----------|-------|")
+   743→    for op in summary["operations_by_usage"]:
+   744→        lines.append(f"| `{op['operation']}` | {op['count']} |")
+   745→    lines.append("")
+   746→
+   747→    # ---- Models by query activity ----
+   748→    lines.append("## Models by Query Activity\n")
+   749→    lines.append("| Rank | Model struct | Queries | Primary collection |")
+   750→    lines.append("|------|--------------|---------|--------------------|")
+   751→    for i, m in enumerate(summary["models_by_query_activity"], 1):
+   752→        coll = m["collection"] or "—"
+   753→        lines.append(f"| {i} | `{m['model']}` | {m['queries']} | `{coll}` |")
+   754→    lines.append("")
+   755→
+   756→    # ---- Files with most queries ----
+   757→    lines.append("## Files with Most Queries\n")
+   758→    lines.append("| File | Queries |")
+   759→    lines.append("|------|---------|")
+   760→    for f in summary["files_with_most_queries"]:
+   761→        lines.append(f"| `{f['file']}` | {f['queries']} |")
+   762→    lines.append("")
+   763→
+   764→    # ---- Collection → Model map ----
+   765→    lines.append("## Collection → Model Map\n")
+   766→    lines.append("| Collection | Model struct |")
+   767→    lines.append("|------------|--------------|")
+   768→    for coll, model in sorted(summary["collections_to_models"].items()):
+   769→        lines.append(f"| `{coll}` | `{model}` |")
+   770→    lines.append("")
+   771→
+   772→    # ---- All queries (per file, sorted) ----
+   773→    lines.append("## All Queries\n")
+   774→    by_file: dict[str, list[Query]] = defaultdict(list)
+   775→    for q in queries:
+   776→        by_file[q.file].append(q)
+   777→    for file in sorted(by_file):
+   778→        lines.append(f"### `{file}`\n")
+   779→        lines.append("| Line | Function | Operation | Collection | Model | Filter fields |")
+   780→        lines.append("|------|----------|-----------|------------|-------|---------------|")
+   781→        for q in sorted(by_file[file], key=lambda q: q.line):
+   782→            fields = ", ".join(f"`{f}`" for f in q.filter_fields) if q.filter_fields else "—"
+   783→            model = f"`{q.model}`" if q.model else "—"
+   784→            lines.append(
+   785→                f"| {q.line} | `{q.function}` | `{q.operation}` | "
+   786→                f"`{q.collection}` | {model} | {fields} |"
+   787→            )
+   788→        lines.append("")
+   789→
+   790→    lines.append("---")
+   791→    lines.append("_Generated by `graphify db-queries`._")
+   792→    return "\n".join(lines)
+   793→
+   794→
+   795→# ---------------------------------------------------------------------------
+   796→# CLI
+   797→# ---------------------------------------------------------------------------
+   798→
+   799→
+   800→def main(argv: list[str] | None = None) -> int:
+   801→    parser = argparse.ArgumentParser(
+   802→        prog="graphify_db_queries.py",
+   803→        description="Scan Go source for MongoDB queries and map them to models.",
+   804→    )
+   805→    parser.add_argument(
+   806→        "path",
+   807→        nargs="?",
+   808→        default=".",
+   809→        help="Root directory to scan (default: current directory).",
+   810→    )
+   811→    parser.add_argument(
+   812→        "--out",
+   813→        default=None,
+   814→        help="Path to write the Markdown report (default: stdout).",
+   815→    )
+   816→    parser.add_argument(
+   817→        "--json",
+   818→        nargs="?",
+   819→        const="__stdout__",
+   820→        default=None,
+   821→        help="Path to write the JSON report. If passed without a value, "
+   822→        "writes to stdout.",
+   823→    )
+   824→    parser.add_argument(
+   825→        "--include-tests",
+   826→        action="store_true",
+   827→        default=False,
+   828→        help="Include *_test.go files in the scan (default: skipped).",
+   829→    )
+   830→    args = parser.parse_args(argv)
+   831→
+   832→    repo_root = Path(args.path).resolve()
+   833→    if not repo_root.is_dir():
+   834→        print(f"error: {repo_root} is not a directory", file=sys.stderr)
+   835→        return 2
+   836→
+   837→    # Build global maps.
+   838→    struct_index = collect_struct_definitions(repo_root)
+   839→    accessor_map = build_accessor_map(repo_root)
+   840→
+   841→    collection_index: dict[str, CollectionInfo] = {}
+   842→    queries: list[Query] = []
+   843→
+   844→    for path in sorted(repo_root.rglob("*.go")):
+   845→        if not args.include_tests and path.name.endswith("_test.go"):
+   846→            continue
+   847→        # Skip graphify-out cache directories if present.
+   848→        if "graphify-out" in path.parts:
+   849→            continue
+   850→        scan_file(
+   851→            path=path,
+   852→            repo_root=repo_root,
+   853→            accessor_map=accessor_map,
+   854→            struct_index=struct_index,
+   855→            collection_index=collection_index,
+   856→            queries=queries,
+   857→        )
+   858→
+   859→    summary = build_summary(queries, collection_index, repo_root)
+   860→    payload = {
+   861→        "summary": summary,
+   862→        "queries": [q.to_dict() for q in queries],
+   863→        "accessor_map": accessor_map,
+   864→    }
+   865→
+   866→    # ---- JSON output ----
+   867→    if args.json is not None:
+   868→        json_text = json.dumps(payload, indent=2, default=str)
+   869→        if args.json == "__stdout__":
+   870→            print(json_text)
+   871→        else:
+   872→            Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+   873→            Path(args.json).write_text(json_text + "\n", encoding="utf-8")
+   874→            print(f"wrote JSON to {args.json}", file=sys.stderr)
+   875→
+   876→    # ---- Markdown output ----
+   877→    md_text = render_markdown(summary, queries)
+   878→    if args.out:
+   879→        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+   880→        Path(args.out).write_text(md_text + "\n", encoding="utf-8")
+   881→        print(f"wrote markdown to {args.out}", file=sys.stderr)
+   882→    elif args.json is None:
+   883→        # If neither --out nor --json were provided, print MD to stdout so
+   884→        # the script is still useful out of the box.
+   885→        print(md_text)
+   886→
+   887→    return 0
+   888→
+   889→
+   890→if __name__ == "__main__":
+   891→    raise SystemExit(main())
+   892→
