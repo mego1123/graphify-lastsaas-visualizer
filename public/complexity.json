@@ -1,0 +1,1240 @@
+[
+  {
+    "name": "BrandingPage",
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "lines": 618,
+    "prop_count": 0,
+    "hook_count": 15,
+    "nesting_depth": 317,
+    "complexity_score": 1327,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (15)",
+      " nested too deeply (317 levels)"
+    ]
+  },
+  {
+    "name": "PlanPage",
+    "file": "frontend/src/pages/app/PlanPage.tsx",
+    "lines": 600,
+    "prop_count": 0,
+    "hook_count": 23,
+    "nesting_depth": 277,
+    "complexity_score": 1269,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (23)",
+      " nested too deeply (277 levels)"
+    ]
+  },
+  {
+    "name": "TenantProfilePage",
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "lines": 544,
+    "prop_count": 0,
+    "hook_count": 23,
+    "nesting_depth": 252,
+    "complexity_score": 1163,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (23)",
+      " nested too deeply (252 levels)"
+    ]
+  },
+  {
+    "name": "PlanFormModal",
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "lines": 501,
+    "prop_count": 5,
+    "hook_count": 21,
+    "nesting_depth": 193,
+    "complexity_score": 1007,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (21)",
+      " nested too deeply (193 levels)"
+    ]
+  },
+  {
+    "name": "PlansPage",
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "lines": 484,
+    "prop_count": 0,
+    "hook_count": 18,
+    "nesting_depth": 213,
+    "complexity_score": 1000,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (18)",
+      " nested too deeply (213 levels)"
+    ]
+  },
+  {
+    "name": "UserProfilePage",
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "lines": 461,
+    "prop_count": 0,
+    "hook_count": 18,
+    "nesting_depth": 212,
+    "complexity_score": 975,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (18)",
+      " nested too deeply (212 levels)"
+    ]
+  },
+  {
+    "name": "LogsPage",
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "lines": 451,
+    "prop_count": 0,
+    "hook_count": 22,
+    "nesting_depth": 189,
+    "complexity_score": 939,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (22)",
+      " nested too deeply (189 levels)"
+    ]
+  },
+  {
+    "name": "TestEntitlementsPage",
+    "file": "frontend/src/pages/app/TestEntitlementsPage.tsx",
+    "lines": 318,
+    "prop_count": 0,
+    "hook_count": 12,
+    "nesting_depth": 155,
+    "complexity_score": 688,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (12)",
+      " nested too deeply (155 levels)"
+    ]
+  },
+  {
+    "name": "LoginPage",
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "lines": 362,
+    "prop_count": 0,
+    "hook_count": 7,
+    "nesting_depth": 137,
+    "complexity_score": 671,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      " nested too deeply (137 levels)"
+    ]
+  },
+  {
+    "name": "RootMembersPage",
+    "file": "frontend/src/pages/admin/RootMembersPage.tsx",
+    "lines": 314,
+    "prop_count": 0,
+    "hook_count": 14,
+    "nesting_depth": 136,
+    "complexity_score": 656,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (14)",
+      " nested too deeply (136 levels)"
+    ]
+  },
+  {
+    "name": "TenantsPage",
+    "file": "frontend/src/pages/admin/TenantsPage.tsx",
+    "lines": 316,
+    "prop_count": 0,
+    "hook_count": 14,
+    "nesting_depth": 132,
+    "complexity_score": 650,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (14)",
+      " nested too deeply (132 levels)"
+    ]
+  },
+  {
+    "name": "UsersPage",
+    "file": "frontend/src/pages/admin/UsersPage.tsx",
+    "lines": 317,
+    "prop_count": 0,
+    "hook_count": 13,
+    "nesting_depth": 119,
+    "complexity_score": 620,
+    "flags": [
+      "\ud83d\udccf Too long (>300 lines)",
+      "\ud83e\ude9d Too many hooks (13)",
+      " nested too deeply (119 levels)"
+    ]
+  },
+  {
+    "name": "TeamPage",
+    "file": "frontend/src/pages/app/TeamPage.tsx",
+    "lines": 279,
+    "prop_count": 0,
+    "hook_count": 18,
+    "nesting_depth": 111,
+    "complexity_score": 591,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (18)",
+      " nested too deeply (111 levels)"
+    ]
+  },
+  {
+    "name": "ProfileTab",
+    "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+    "lines": 244,
+    "prop_count": 0,
+    "hook_count": 9,
+    "nesting_depth": 107,
+    "complexity_score": 503,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (9)",
+      " nested too deeply (107 levels)"
+    ]
+  },
+  {
+    "name": "AdminDashboardPage",
+    "file": "frontend/src/pages/admin/DashboardPage.tsx",
+    "lines": 209,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 143,
+    "complexity_score": 500,
+    "flags": [
+      " nested too deeply (143 levels)"
+    ]
+  },
+  {
+    "name": "Layout",
+    "file": "frontend/src/components/Layout.tsx",
+    "lines": 270,
+    "prop_count": 0,
+    "hook_count": 11,
+    "nesting_depth": 87,
+    "complexity_score": 499,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (11)",
+      " nested too deeply (87 levels)"
+    ]
+  },
+  {
+    "name": "MetricsCharts",
+    "file": "frontend/src/pages/admin/health/MetricsCharts.tsx",
+    "lines": 232,
+    "prop_count": 2,
+    "hook_count": 1,
+    "nesting_depth": 121,
+    "complexity_score": 485,
+    "flags": [
+      " nested too deeply (121 levels)"
+    ]
+  },
+  {
+    "name": "App",
+    "file": "frontend/src/App.tsx",
+    "lines": 92,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 191,
+    "complexity_score": 474,
+    "flags": [
+      " nested too deeply (191 levels)"
+    ]
+  },
+  {
+    "name": "BillingTab",
+    "file": "frontend/src/pages/app/settings/BillingTab.tsx",
+    "lines": 191,
+    "prop_count": 0,
+    "hook_count": 12,
+    "nesting_depth": 105,
+    "complexity_score": 461,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (12)",
+      " nested too deeply (105 levels)"
+    ]
+  },
+  {
+    "name": "WebhooksSection",
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "lines": 197,
+    "prop_count": 1,
+    "hook_count": 10,
+    "nesting_depth": 105,
+    "complexity_score": 460,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (10)",
+      " nested too deeply (105 levels)"
+    ]
+  },
+  {
+    "name": "PromotionsPage",
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "lines": 223,
+    "prop_count": 0,
+    "hook_count": 9,
+    "nesting_depth": 90,
+    "complexity_score": 448,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (9)",
+      " nested too deeply (90 levels)"
+    ]
+  },
+  {
+    "name": "SecurityTab",
+    "file": "frontend/src/pages/app/settings/SecurityTab.tsx",
+    "lines": 221,
+    "prop_count": 0,
+    "hook_count": 13,
+    "nesting_depth": 69,
+    "complexity_score": 424,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (13)",
+      " nested too deeply (69 levels)"
+    ]
+  },
+  {
+    "name": "APIKeysSection",
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "lines": 179,
+    "prop_count": 1,
+    "hook_count": 9,
+    "nesting_depth": 95,
+    "complexity_score": 417,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (9)",
+      " nested too deeply (95 levels)"
+    ]
+  },
+  {
+    "name": "ConfigPage",
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "lines": 176,
+    "prop_count": 0,
+    "hook_count": 9,
+    "nesting_depth": 70,
+    "complexity_score": 361,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (9)",
+      " nested too deeply (70 levels)"
+    ]
+  },
+  {
+    "name": "OnboardingPage",
+    "file": "frontend/src/pages/app/OnboardingPage.tsx",
+    "lines": 182,
+    "prop_count": 0,
+    "hook_count": 6,
+    "nesting_depth": 74,
+    "complexity_score": 360,
+    "flags": [
+      " nested too deeply (74 levels)"
+    ]
+  },
+  {
+    "name": "BundleFormModal",
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "lines": 164,
+    "prop_count": 4,
+    "hook_count": 7,
+    "nesting_depth": 60,
+    "complexity_score": 331,
+    "flags": [
+      " nested too deeply (60 levels)"
+    ]
+  },
+  {
+    "name": "AdminFinancialPage",
+    "file": "frontend/src/pages/admin/FinancialPage.tsx",
+    "lines": 138,
+    "prop_count": 0,
+    "hook_count": 8,
+    "nesting_depth": 73,
+    "complexity_score": 324,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (8)",
+      " nested too deeply (73 levels)"
+    ]
+  },
+  {
+    "name": "ActivityPage",
+    "file": "frontend/src/pages/app/ActivityPage.tsx",
+    "lines": 144,
+    "prop_count": 0,
+    "hook_count": 9,
+    "nesting_depth": 65,
+    "complexity_score": 319,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (9)",
+      " nested too deeply (65 levels)"
+    ]
+  },
+  {
+    "name": "SignupPage",
+    "file": "frontend/src/pages/auth/SignupPage.tsx",
+    "lines": 159,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 63,
+    "complexity_score": 300,
+    "flags": [
+      " nested too deeply (63 levels)"
+    ]
+  },
+  {
+    "name": "MFASetupModal",
+    "file": "frontend/src/pages/app/settings/MFASetupModal.tsx",
+    "lines": 111,
+    "prop_count": 2,
+    "hook_count": 8,
+    "nesting_depth": 56,
+    "complexity_score": 269,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (8)",
+      " nested too deeply (56 levels)"
+    ]
+  },
+  {
+    "name": "GraphSubTab",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 103,
+    "prop_count": 1,
+    "hook_count": 1,
+    "nesting_depth": 76,
+    "complexity_score": 263,
+    "flags": [
+      " nested too deeply (76 levels)"
+    ]
+  },
+  {
+    "name": "AnnouncementsPage",
+    "file": "frontend/src/pages/admin/AnnouncementsPage.tsx",
+    "lines": 133,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 52,
+    "complexity_score": 252,
+    "flags": [
+      " nested too deeply (52 levels)"
+    ]
+  },
+  {
+    "name": "IntegrationsPanel",
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "lines": 113,
+    "prop_count": 1,
+    "hook_count": 2,
+    "nesting_depth": 56,
+    "complexity_score": 238,
+    "flags": [
+      " nested too deeply (56 levels)"
+    ]
+  },
+  {
+    "name": "BuyCreditsPage",
+    "file": "frontend/src/pages/app/BuyCreditsPage.tsx",
+    "lines": 115,
+    "prop_count": 0,
+    "hook_count": 5,
+    "nesting_depth": 48,
+    "complexity_score": 236,
+    "flags": [
+      " nested too deeply (48 levels)"
+    ]
+  },
+  {
+    "name": "EngagementTab",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 85,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 67,
+    "complexity_score": 224,
+    "flags": [
+      " nested too deeply (67 levels)"
+    ]
+  },
+  {
+    "name": "SessionsTab",
+    "file": "frontend/src/pages/app/settings/SessionsTab.tsx",
+    "lines": 121,
+    "prop_count": 0,
+    "hook_count": 6,
+    "nesting_depth": 35,
+    "complexity_score": 221,
+    "flags": [
+      " nested too deeply (35 levels)"
+    ]
+  },
+  {
+    "name": "InvoiceModal",
+    "file": "frontend/src/pages/app/settings/InvoiceModal.tsx",
+    "lines": 77,
+    "prop_count": 3,
+    "hook_count": 1,
+    "nesting_depth": 64,
+    "complexity_score": 219,
+    "flags": [
+      " nested too deeply (64 levels)"
+    ]
+  },
+  {
+    "name": "HealthPage",
+    "file": "frontend/src/pages/admin/HealthPage.tsx",
+    "lines": 95,
+    "prop_count": 0,
+    "hook_count": 13,
+    "nesting_depth": 29,
+    "complexity_score": 218,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (13)",
+      " nested too deeply (29 levels)"
+    ]
+  },
+  {
+    "name": "EventsTab",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 126,
+    "prop_count": 0,
+    "hook_count": 7,
+    "nesting_depth": 26,
+    "complexity_score": 213,
+    "flags": [
+      " nested too deeply (26 levels)"
+    ]
+  },
+  {
+    "name": "AdminLayout",
+    "file": "frontend/src/components/AdminLayout.tsx",
+    "lines": 94,
+    "prop_count": 0,
+    "hook_count": 2,
+    "nesting_depth": 42,
+    "complexity_score": 188,
+    "flags": [
+      " nested too deeply (42 levels)"
+    ]
+  },
+  {
+    "name": "ResetPasswordPage",
+    "file": "frontend/src/pages/auth/ResetPasswordPage.tsx",
+    "lines": 89,
+    "prop_count": 0,
+    "hook_count": 4,
+    "nesting_depth": 39,
+    "complexity_score": 187,
+    "flags": [
+      " nested too deeply (39 levels)"
+    ]
+  },
+  {
+    "name": "KPIsTab",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 74,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 55,
+    "complexity_score": 184,
+    "flags": [
+      " nested too deeply (55 levels)"
+    ]
+  },
+  {
+    "name": "MessagesPage",
+    "file": "frontend/src/pages/admin/MessagesPage.tsx",
+    "lines": 87,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 40,
+    "complexity_score": 182,
+    "flags": [
+      " nested too deeply (40 levels)"
+    ]
+  },
+  {
+    "name": "AuthProvider",
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "lines": 98,
+    "prop_count": 1,
+    "hook_count": 14,
+    "nesting_depth": 5,
+    "complexity_score": 181,
+    "flags": [
+      "\ud83e\ude9d Too many hooks (14)"
+    ]
+  },
+  {
+    "name": "EventDefinitionModal",
+    "file": "frontend/src/pages/admin/EventDefinitionModal.tsx",
+    "lines": 86,
+    "prop_count": 6,
+    "hook_count": 1,
+    "nesting_depth": 35,
+    "complexity_score": 179,
+    "flags": [
+      " nested too deeply (35 levels)"
+    ]
+  },
+  {
+    "name": "MFAChallengePage",
+    "file": "frontend/src/pages/auth/MFAChallengePage.tsx",
+    "lines": 91,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 36,
+    "complexity_score": 178,
+    "flags": [
+      " nested too deeply (36 levels)"
+    ]
+  },
+  {
+    "name": "BrandingThemeInjector",
+    "file": "frontend/src/components/BrandingThemeInjector.tsx",
+    "lines": 136,
+    "prop_count": 0,
+    "hook_count": 6,
+    "nesting_depth": 5,
+    "complexity_score": 176,
+    "flags": []
+  },
+  {
+    "name": "DashboardPage",
+    "file": "frontend/src/pages/app/DashboardPage.tsx",
+    "lines": 71,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 50,
+    "complexity_score": 171,
+    "flags": [
+      " nested too deeply (50 levels)"
+    ]
+  },
+  {
+    "name": "ForgotPasswordPage",
+    "file": "frontend/src/pages/auth/ForgotPasswordPage.tsx",
+    "lines": 79,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 38,
+    "complexity_score": 170,
+    "flags": [
+      " nested too deeply (38 levels)"
+    ]
+  },
+  {
+    "name": "RetentionTab",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 74,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 39,
+    "complexity_score": 157,
+    "flags": [
+      " nested too deeply (39 levels)"
+    ]
+  },
+  {
+    "name": "ConfirmModal",
+    "file": "frontend/src/components/ConfirmModal.tsx",
+    "lines": 72,
+    "prop_count": 8,
+    "hook_count": 3,
+    "nesting_depth": 22,
+    "complexity_score": 155,
+    "flags": [
+      " nested too deeply (22 levels)"
+    ]
+  },
+  {
+    "name": "VerifyEmailPage",
+    "file": "frontend/src/pages/auth/VerifyEmailPage.tsx",
+    "lines": 68,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 32,
+    "complexity_score": 147,
+    "flags": [
+      " nested too deeply (32 levels)"
+    ]
+  },
+  {
+    "name": "NodeCards",
+    "file": "frontend/src/pages/admin/health/NodeCards.tsx",
+    "lines": 51,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 40,
+    "complexity_score": 134,
+    "flags": [
+      " nested too deeply (40 levels)"
+    ]
+  },
+  {
+    "name": "BootstrapPage",
+    "file": "frontend/src/pages/BootstrapPage.tsx",
+    "lines": 60,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 34,
+    "complexity_score": 133,
+    "flags": [
+      " nested too deeply (34 levels)"
+    ]
+  },
+  {
+    "name": "FunnelTab",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 58,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 32,
+    "complexity_score": 127,
+    "flags": [
+      " nested too deeply (32 levels)"
+    ]
+  },
+  {
+    "name": "AboutPage",
+    "file": "frontend/src/pages/admin/AboutPage.tsx",
+    "lines": 40,
+    "prop_count": 0,
+    "hook_count": 3,
+    "nesting_depth": 31,
+    "complexity_score": 117,
+    "flags": [
+      " nested too deeply (31 levels)"
+    ]
+  },
+  {
+    "name": "CustomPage",
+    "file": "frontend/src/pages/public/CustomPage.tsx",
+    "lines": 61,
+    "prop_count": 0,
+    "hook_count": 5,
+    "nesting_depth": 14,
+    "complexity_score": 114,
+    "flags": [
+      " nested too deeply (14 levels)"
+    ]
+  },
+  {
+    "name": "AuthCallbackPage",
+    "file": "frontend/src/pages/auth/AuthCallbackPage.tsx",
+    "lines": 60,
+    "prop_count": 0,
+    "hook_count": 2,
+    "nesting_depth": 17,
+    "complexity_score": 104,
+    "flags": [
+      " nested too deeply (17 levels)"
+    ]
+  },
+  {
+    "name": "TimeRangeSelector",
+    "file": "frontend/src/pages/admin/health/TimeRangeSelector.tsx",
+    "lines": 50,
+    "prop_count": 7,
+    "hook_count": 0,
+    "nesting_depth": 14,
+    "complexity_score": 99,
+    "flags": [
+      " nested too deeply (14 levels)"
+    ]
+  },
+  {
+    "name": "MagicLinkVerifyPage",
+    "file": "frontend/src/pages/auth/MagicLinkVerifyPage.tsx",
+    "lines": 54,
+    "prop_count": 0,
+    "hook_count": 2,
+    "nesting_depth": 17,
+    "complexity_score": 98,
+    "flags": [
+      " nested too deeply (17 levels)"
+    ]
+  },
+  {
+    "name": "SettingsPage",
+    "file": "frontend/src/pages/app/SettingsPage.tsx",
+    "lines": 50,
+    "prop_count": 0,
+    "hook_count": 2,
+    "nesting_depth": 18,
+    "complexity_score": 96,
+    "flags": [
+      " nested too deeply (18 levels)"
+    ]
+  },
+  {
+    "name": "ThemeProvider",
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "lines": 48,
+    "prop_count": 1,
+    "hook_count": 6,
+    "nesting_depth": 4,
+    "complexity_score": 89,
+    "flags": []
+  },
+  {
+    "name": "PasswordStrength",
+    "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+    "lines": 32,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 23,
+    "complexity_score": 81,
+    "flags": [
+      " nested too deeply (23 levels)"
+    ]
+  },
+  {
+    "name": "DocsSection",
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "lines": 37,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 21,
+    "complexity_score": 79,
+    "flags": [
+      " nested too deeply (21 levels)"
+    ]
+  },
+  {
+    "name": "PMPage",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 35,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 18,
+    "complexity_score": 76,
+    "flags": [
+      " nested too deeply (18 levels)"
+    ]
+  },
+  {
+    "name": "BootstrapGuard",
+    "file": "frontend/src/App.tsx",
+    "lines": 29,
+    "prop_count": 1,
+    "hook_count": 2,
+    "nesting_depth": 14,
+    "complexity_score": 70,
+    "flags": [
+      " nested too deeply (14 levels)"
+    ]
+  },
+  {
+    "name": "TenantProvider",
+    "file": "frontend/src/contexts/TenantContext.tsx",
+    "lines": 38,
+    "prop_count": 1,
+    "hook_count": 3,
+    "nesting_depth": 3,
+    "complexity_score": 62,
+    "flags": []
+  },
+  {
+    "name": "CurrentStatusPanel",
+    "file": "frontend/src/pages/admin/health/CurrentStatusPanel.tsx",
+    "lines": 38,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 10,
+    "complexity_score": 61,
+    "flags": [
+      " nested too deeply (10 levels)"
+    ]
+  },
+  {
+    "name": "Modal",
+    "file": "frontend/src/components/ui/Modal.tsx",
+    "lines": 16,
+    "prop_count": 5,
+    "hook_count": 0,
+    "nesting_depth": 12,
+    "complexity_score": 55,
+    "flags": [
+      " nested too deeply (12 levels)"
+    ]
+  },
+  {
+    "name": "LandingPage",
+    "file": "frontend/src/pages/public/LandingPage.tsx",
+    "lines": 43,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 3,
+    "complexity_score": 54,
+    "flags": []
+  },
+  {
+    "name": "KPICard",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 14,
+    "prop_count": 4,
+    "hook_count": 0,
+    "nesting_depth": 13,
+    "complexity_score": 52,
+    "flags": [
+      " nested too deeply (13 levels)"
+    ]
+  },
+  {
+    "name": "ImpersonationBanner",
+    "file": "frontend/src/components/ImpersonationBanner.tsx",
+    "lines": 28,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 10,
+    "complexity_score": 48,
+    "flags": [
+      " nested too deeply (10 levels)"
+    ]
+  },
+  {
+    "name": "BrandingProvider",
+    "file": "frontend/src/contexts/BrandingContext.tsx",
+    "lines": 24,
+    "prop_count": 1,
+    "hook_count": 3,
+    "nesting_depth": 3,
+    "complexity_score": 48,
+    "flags": []
+  },
+  {
+    "name": "BillingCancelPage",
+    "file": "frontend/src/pages/app/BillingCancelPage.tsx",
+    "lines": 22,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 13,
+    "complexity_score": 48,
+    "flags": [
+      " nested too deeply (13 levels)"
+    ]
+  },
+  {
+    "name": "TableSkeleton",
+    "file": "frontend/src/components/TableSkeleton.tsx",
+    "lines": 23,
+    "prop_count": 2,
+    "hook_count": 0,
+    "nesting_depth": 8,
+    "complexity_score": 45,
+    "flags": []
+  },
+  {
+    "name": "APIPage",
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "lines": 19,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 12,
+    "complexity_score": 43,
+    "flags": [
+      " nested too deeply (12 levels)"
+    ]
+  },
+  {
+    "name": "SankeyNode",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 14,
+    "prop_count": 5,
+    "hook_count": 0,
+    "nesting_depth": 7,
+    "complexity_score": 43,
+    "flags": []
+  },
+  {
+    "name": "Section",
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "lines": 9,
+    "prop_count": 3,
+    "hook_count": 0,
+    "nesting_depth": 9,
+    "complexity_score": 36,
+    "flags": [
+      " nested too deeply (9 levels)"
+    ]
+  },
+  {
+    "name": "BillingSuccessPage",
+    "file": "frontend/src/pages/app/BillingSuccessPage.tsx",
+    "lines": 15,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 7,
+    "complexity_score": 34,
+    "flags": []
+  },
+  {
+    "name": "Field",
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "lines": 8,
+    "prop_count": 3,
+    "hook_count": 0,
+    "nesting_depth": 6,
+    "complexity_score": 29,
+    "flags": []
+  },
+  {
+    "name": "ProtectedRoute",
+    "file": "frontend/src/components/ProtectedRoute.tsx",
+    "lines": 16,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 5,
+    "complexity_score": 26,
+    "flags": []
+  },
+  {
+    "name": "LoadingSpinner",
+    "file": "frontend/src/components/LoadingSpinner.tsx",
+    "lines": 14,
+    "prop_count": 2,
+    "hook_count": 0,
+    "nesting_depth": 3,
+    "complexity_score": 26,
+    "flags": []
+  },
+  {
+    "name": "Button",
+    "file": "frontend/src/components/ui/Button.tsx",
+    "lines": 9,
+    "prop_count": 4,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 25,
+    "flags": []
+  },
+  {
+    "name": "ChartCard",
+    "file": "frontend/src/pages/admin/health/ChartCard.tsx",
+    "lines": 7,
+    "prop_count": 2,
+    "hook_count": 0,
+    "nesting_depth": 6,
+    "complexity_score": 25,
+    "flags": []
+  },
+  {
+    "name": "GoogleIcon",
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "lines": 9,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 6,
+    "complexity_score": 24,
+    "flags": []
+  },
+  {
+    "name": "GoogleIcon",
+    "file": "frontend/src/pages/auth/SignupPage.tsx",
+    "lines": 9,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 6,
+    "complexity_score": 24,
+    "flags": []
+  },
+  {
+    "name": "Card",
+    "file": "frontend/src/components/ui/Card.tsx",
+    "lines": 9,
+    "prop_count": 3,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 22,
+    "flags": []
+  },
+  {
+    "name": "Badge",
+    "file": "frontend/src/components/ui/Badge.tsx",
+    "lines": 6,
+    "prop_count": 3,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 19,
+    "flags": []
+  },
+  {
+    "name": "Alert",
+    "file": "frontend/src/components/ui/Alert.tsx",
+    "lines": 6,
+    "prop_count": 3,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 19,
+    "flags": []
+  },
+  {
+    "name": "handleKeyDown",
+    "file": "frontend/src/components/ConfirmModal.tsx",
+    "lines": 17,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 0,
+    "complexity_score": 17,
+    "flags": []
+  },
+  {
+    "name": "MicrosoftIcon",
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "lines": 6,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 3,
+    "complexity_score": 15,
+    "flags": []
+  },
+  {
+    "name": "MicrosoftIcon",
+    "file": "frontend/src/pages/auth/SignupPage.tsx",
+    "lines": 6,
+    "prop_count": 1,
+    "hook_count": 0,
+    "nesting_depth": 3,
+    "complexity_score": 15,
+    "flags": []
+  },
+  {
+    "name": "LazyFallback",
+    "file": "frontend/src/App.tsx",
+    "lines": 6,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 3,
+    "complexity_score": 12,
+    "flags": []
+  },
+  {
+    "name": "AdminRoute",
+    "file": "frontend/src/components/AdminRoute.tsx",
+    "lines": 8,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 12,
+    "flags": []
+  },
+  {
+    "name": "ScrollToTop",
+    "file": "frontend/src/App.tsx",
+    "lines": 6,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 0,
+    "complexity_score": 11,
+    "flags": []
+  },
+  {
+    "name": "useTheme",
+    "file": "frontend/src/contexts/ThemeContext.tsx",
+    "lines": 6,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 0,
+    "complexity_score": 11,
+    "flags": []
+  },
+  {
+    "name": "useTenant",
+    "file": "frontend/src/contexts/TenantContext.tsx",
+    "lines": 6,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 0,
+    "complexity_score": 11,
+    "flags": []
+  },
+  {
+    "name": "useAuth",
+    "file": "frontend/src/contexts/AuthContext.tsx",
+    "lines": 6,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 0,
+    "complexity_score": 11,
+    "flags": []
+  },
+  {
+    "name": "renderLines",
+    "file": "frontend/src/pages/admin/health/MetricsCharts.tsx",
+    "lines": 5,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 9,
+    "flags": []
+  },
+  {
+    "name": "renderAreas",
+    "file": "frontend/src/pages/admin/health/MetricsCharts.tsx",
+    "lines": 5,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 2,
+    "complexity_score": 9,
+    "flags": []
+  },
+  {
+    "name": "useBranding",
+    "file": "frontend/src/contexts/BrandingContext.tsx",
+    "lines": 2,
+    "prop_count": 0,
+    "hook_count": 1,
+    "nesting_depth": 0,
+    "complexity_score": 7,
+    "flags": []
+  },
+  {
+    "name": "tooltipStyle",
+    "file": "frontend/src/pages/admin/health/MetricsCharts.tsx",
+    "lines": 5,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 0,
+    "complexity_score": 5,
+    "flags": []
+  },
+  {
+    "name": "handleClickOutside",
+    "file": "frontend/src/components/Layout.tsx",
+    "lines": 4,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 0,
+    "complexity_score": 4,
+    "flags": []
+  },
+  {
+    "name": "formatCents",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 2,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 0,
+    "complexity_score": 2,
+    "flags": []
+  },
+  {
+    "name": "formatNum",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 2,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 0,
+    "complexity_score": 2,
+    "flags": []
+  },
+  {
+    "name": "formatPct",
+    "file": "frontend/src/pages/admin/PMPage.tsx",
+    "lines": 2,
+    "prop_count": 0,
+    "hook_count": 0,
+    "nesting_depth": 0,
+    "complexity_score": 2,
+    "flags": []
+  }
+]

@@ -1,0 +1,88 @@
+{
+  "total_components": 71,
+  "with_tests": 0,
+  "without_tests": 71,
+  "coverage_pct": 0.0,
+  "untested": [
+    {
+      "file": "frontend/src/App.tsx",
+      "name": "App"
+    },
+    {
+      "file": "frontend/src/components/AdminRoute.tsx",
+      "name": "AdminRoute"
+    },
+    {
+      "file": "frontend/src/components/ProtectedRoute.tsx",
+      "name": "ProtectedRoute"
+    },
+    {
+      "file": "frontend/src/components/AdminLayout.tsx",
+      "name": "AdminLayout"
+    },
+    {
+      "file": "frontend/src/components/LoadingSpinner.tsx",
+      "name": "LoadingSpinner"
+    },
+    {
+      "file": "frontend/src/components/TableSkeleton.tsx",
+      "name": "TableSkeleton"
+    },
+    {
+      "file": "frontend/src/components/Layout.tsx",
+      "name": "Layout"
+    },
+    {
+      "file": "frontend/src/components/ImpersonationBanner.tsx",
+      "name": "ImpersonationBanner"
+    },
+    {
+      "file": "frontend/src/components/BrandingThemeInjector.tsx",
+      "name": "BrandingThemeInjector"
+    },
+    {
+      "file": "frontend/src/components/ConfirmModal.tsx",
+      "name": "ConfirmModal"
+    },
+    {
+      "file": "frontend/src/pages/BootstrapPage.tsx",
+      "name": "BootstrapPage"
+    },
+    {
+      "file": "frontend/src/contexts/ThemeContext.tsx",
+      "name": "ThemeContext"
+    },
+    {
+      "file": "frontend/src/contexts/BrandingContext.tsx",
+      "name": "BrandingContext"
+    },
+    {
+      "file": "frontend/src/contexts/TenantContext.tsx",
+      "name": "TenantContext"
+    },
+    {
+      "file": "frontend/src/contexts/AuthContext.tsx",
+      "name": "AuthContext"
+    },
+    {
+      "file": "frontend/src/components/ui/Badge.tsx",
+      "name": "Badge"
+    },
+    {
+      "file": "frontend/src/components/ui/Button.tsx",
+      "name": "Button"
+    },
+    {
+      "file": "frontend/src/components/ui/Modal.tsx",
+      "name": "Modal"
+    },
+    {
+      "file": "frontend/src/components/ui/Card.tsx",
+      "name": "Card"
+    },
+    {
+      "file": "frontend/src/components/ui/Alert.tsx",
+      "name": "Alert"
+    }
+  ]
+}

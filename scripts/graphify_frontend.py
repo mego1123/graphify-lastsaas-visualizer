@@ -1215,7 +1215,30 @@ def analyze_hook_dependencies(repo: Path) -> list[HookIssue]:
                                    "Set", "Map", "Symbol", "Error", "RegExp", "Number",
                                    "parseInt", "parseFloat", "isNaN", "isFinite",
                                    "setTimeout", "setInterval", "clearTimeout", "clearInterval",
-                                   "fetch", "alert", "confirm", "prompt"):
+                                   "fetch", "alert", "confirm", "prompt",
+                                   # DOM globals that aren't variables
+                                   "scrollTo", "scrollIntoView", "querySelector", "querySelectorAll",
+                                   "getElementById", "getElementsByClassName", "getElementsByTagName",
+                                   "createElement", "createTextNode", "appendChild", "removeChild",
+                                   "addEventListener", "removeEventListener", "dispatchEvent",
+                                   "requestAnimationFrame", "cancelAnimationFrame",
+                                   "localStorage", "sessionStorage", "indexedDB",
+                                   "history", "location", "navigator", "screen",
+                                   "innerWidth", "innerHeight", "outerWidth", "outerHeight",
+                                   "HTMLLinkElement", "HTMLElement", "HTMLInputElement",
+                                   "HTMLButtonElement", "HTMLFormElement", "HTMLSelectElement",
+                                   "HTMLTextAreaElement", "HTMLAnchorElement", "HTMLImageElement",
+                                   "Node", "Element", "Event", "MouseEvent", "KeyboardEvent",
+                                   "TouchEvent", "WheelEvent", "CustomEvent",
+                                   "Headers", "Request", "Response", "FormData", "Blob", "File",
+                                   "FileReader", "URL", "URLSearchParams",
+                                   "WebSocket", "EventSource", "AbortController",
+                                   "crypto", "performance", "IntersectionObserver",
+                                   "MutationObserver", "ResizeObserver",
+                                   "Promise", "Proxy", "Reflect",
+                                   "allSettled", "resolve", "reject", "all", "race",
+                                   "then", "catch", "finally",
+                                   ):
                             continue
                         # Skip function parameter names (common patterns)
                         if var.startswith("set"):  # setState functions
@@ -1273,8 +1296,13 @@ def analyze_hook_dependencies(repo: Path) -> list[HookIssue]:
                             ))
 
                         # Check for unnecessary deps
-                        unnecessary = dep_set - body_vars
-                        unnecessary = {v for v in unnecessary if len(v) > 1}
+                        # NOTE: This check is disabled because dependency arrays control
+                        # WHEN the effect runs, not just what variables the body uses.
+                        # A dep like [pathname] in useEffect(() => { window.scrollTo(0,0) }, [pathname])
+                        # is CORRECT — it makes the effect run on route change, even though
+                        # pathname isn't referenced in the body. This is a common, valid pattern.
+                        # Reporting these as "unnecessary" produces 100% false positives.
+                        unnecessary: set[str] = set()  # always empty — check disabled
                         if unnecessary:
                             issues.append(HookIssue(
                                 file=rel,
@@ -1569,6 +1597,532 @@ def emit_context_report(contexts: list[ContextInfo], repo: Path) -> str:
 
 
 # ============================================================
+# Feature 7: Component Complexity Report
+# ============================================================
+
+@dataclass
+class ComponentComplexity:
+    name: str
+    file: str
+    lines: int
+    prop_count: int
+    hook_count: int
+    nesting_depth: int
+    complexity_score: int
+    flags: list[str] = field(default_factory=list)
+
+
+def analyze_complexity(repo: Path) -> list[ComponentComplexity]:
+    """Analyze component complexity metrics.
+
+    Metrics per component:
+    - Lines of code
+    - Number of props (from function signature destructuring)
+    - Number of hooks (useState, useEffect, useMemo, useCallback, useRef, useContext)
+    - Nesting depth (max depth of JSX elements)
+    - Complexity score (weighted combination)
+    """
+    src_dirs = detect_src_dirs(repo)
+    results: list[ComponentComplexity] = []
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                rel = str(f.relative_to(repo))
+
+                # Find component definitions
+                for m in re.finditer(r'(?:export\s+)?(?:default\s+)?function\s+(\w+)\s*(\([^)]*\))?\s*(?:<[^>]*>)?\s*\{', content):
+                    name = m.group(1)
+                    params = m.group(2) or "()"
+
+                    # Count props (from destructured params: { prop1, prop2, ... })
+                    prop_count = 0
+                    prop_match = re.search(r'\{\s*([^}]+)\s*\}', params)
+                    if prop_match:
+                        prop_count = len([p for p in prop_match.group(1).split(",") if p.strip() and not p.strip().startswith("...")])
+
+                    # Find the component body
+                    body_start = m.end() - 1
+                    depth = 0
+                    body_end = body_start
+                    for i in range(body_start, len(content)):
+                        if content[i] == '{':
+                            depth += 1
+                        elif content[i] == '}':
+                            depth -= 1
+                            if depth == 0:
+                                body_end = i
+                                break
+                    body = content[body_start:body_end+1]
+                    body_lines = body.count("\n")
+
+                    # Count hooks
+                    hook_count = len(re.findall(r'\buse(State|Effect|Memo|Callback|Ref|Context|Reducer|LayoutEffect)\b', body))
+
+                    # Estimate nesting depth (max depth of JSX elements)
+                    max_depth = 0
+                    current_depth = 0
+                    for char in body:
+                        if char == '<' and not body[max(0, body.index(char)-1):body.index(char)].endswith('!'):
+                            current_depth += 1
+                            max_depth = max(max_depth, current_depth)
+                        elif char == '>' and current_depth > 0:
+                            # Don't decrement for self-closing tags
+                            pass
+                    # Simpler approach: count indentation levels in JSX
+                    jsx_depth = 0
+                    for line in body.split("\n"):
+                        stripped = line.lstrip()
+                        if stripped.startswith("<") and not stripped.startswith("</"):
+                            jsx_depth += 1
+                        elif stripped.startswith("</"):
+                            jsx_depth = max(0, jsx_depth - 1)
+                        max_depth = max(max_depth, jsx_depth)
+
+                    # Complexity score
+                    score = body_lines + (prop_count * 3) + (hook_count * 5) + (max_depth * 2)
+
+                    flags = []
+                    if body_lines > 300:
+                        flags.append("📏 Too long (>300 lines)")
+                    if prop_count > 10:
+                        flags.append(f"📎 Too many props ({prop_count})")
+                    if hook_count > 7:
+                        flags.append(f"🪝 Too many hooks ({hook_count})")
+                    if max_depth > 8:
+                        flags.append(f" nested too deeply ({max_depth} levels)")
+
+                    results.append(ComponentComplexity(
+                        name=name,
+                        file=rel,
+                        lines=body_lines,
+                        prop_count=prop_count,
+                        hook_count=hook_count,
+                        nesting_depth=max_depth,
+                        complexity_score=score,
+                        flags=flags,
+                    ))
+
+    # Sort by complexity score descending
+    results.sort(key=lambda x: -x.complexity_score)
+    return results
+
+
+def emit_complexity_report(results: list[ComponentComplexity], repo: Path) -> str:
+    lines = [
+        f"# 📊 Component Complexity Report — {repo.name}",
+        "",
+        f"**Analyzed {len(results)} component(s).**",
+        "",
+    ]
+
+    flagged = [r for r in results if r.flags]
+    lines.append(f"**{len(flagged)} component(s) flagged** for high complexity.")
+    lines.append("")
+
+    # Top 20 most complex
+    lines.append("## Top 20 Most Complex Components")
+    lines.append("")
+    lines.append("| # | Component | Lines | Props | Hooks | Depth | Score | Flags |")
+    lines.append("|---|-----------|-------|-------|-------|-------|-------|-------|")
+    for i, r in enumerate(results[:20], 1):
+        flags_str = ", ".join(r.flags) if r.flags else "—"
+        lines.append(f"| {i} | `{r.name}` | {r.lines} | {r.prop_count} | {r.hook_count} | {r.nesting_depth} | {r.complexity_score} | {flags_str} |")
+    lines.append("")
+
+    # Flagged components
+    if flagged:
+        lines.append("## ⚠️ Flagged Components")
+        lines.append("")
+        for r in flagged[:15]:
+            lines.append(f"### `{r.name}` — score {r.complexity_score}")
+            lines.append(f"- **File:** `{r.file}`")
+            lines.append(f"- **Lines:** {r.lines} | **Props:** {r.prop_count} | **Hooks:** {r.hook_count} | **Depth:** {r.nesting_depth}")
+            if r.flags:
+                lines.append(f"- **Flags:** {' '.join(r.flags)}")
+            lines.append("")
+
+    lines.append("## Recommendations")
+    lines.append("")
+    lines.append("- **>300 lines:** Consider splitting into smaller components")
+    lines.append("- **>10 props:** Consider using Context or composing smaller components")
+    lines.append("- **>7 hooks:** Extract custom hooks to reduce complexity")
+    lines.append("- **>8 nesting:** Flatten the JSX structure with intermediate components")
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# Feature 8: i18n Coverage Checker
+# ============================================================
+
+def analyze_i18n(repo: Path) -> dict:
+    """Check i18n coverage by scanning for hardcoded strings in JSX.
+
+    Looks for:
+    - Hardcoded text in JSX: <p>Hello</p> vs <p>{t('hello')}</p>
+    - Hardcoded attributes: placeholder="Email" vs placeholder={t('email')}
+    - Reports percentage of text that's internationalized
+    """
+    src_dirs = detect_src_dirs(repo)
+    hardcoded: list[dict] = []
+    translated: list[dict] = []
+
+    # Check if i18n is used at all
+    has_i18n = False
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                if re.search(r'\b(useTranslation|i18n|t\(|useIntl|formatMessage)\b', content):
+                    has_i18n = True
+
+                rel = str(f.relative_to(repo))
+
+                # Find JSX text content: >Some text here<
+                for m in re.finditer(r'>([A-Z][a-zA-Z\s]{3,})<', content):
+                    text = m.group(1).strip()
+                    if text and not text.startswith("{"):
+                        hardcoded.append({"file": rel, "text": text, "type": "JSX text"})
+
+                # Find hardcoded placeholder/title/label attributes
+                for m in re.finditer(r'(placeholder|title|aria-label|label)\s*=\s*"([^"]{3,})"', content):
+                    text = m.group(2)
+                    if not text.startswith("{"):
+                        hardcoded.append({"file": rel, "text": text, "type": m.group(1) + " attribute"})
+
+                # Find translated text: {t('key')} or {formatMessage(...)}
+                for m in re.finditer(r'\{(?:t|translate|intl\.formatMessage)\s*\(\s*[\'"`]([^\'"`]+)[\'"`]', content):
+                    translated.append({"file": rel, "key": m.group(1)})
+
+    return {
+        "has_i18n": has_i18n,
+        "hardcoded_count": len(hardcoded),
+        "translated_count": len(translated),
+        "coverage_pct": 100 * len(translated) / max(len(translated) + len(hardcoded), 1),
+        "hardcoded_samples": hardcoded[:15],
+        "translated_samples": translated[:10],
+    }
+
+
+def emit_i18n_report(data: dict, repo: Path) -> str:
+    lines = [
+        f"# 🌍 i18n Coverage Report — {repo.name}",
+        "",
+    ]
+
+    if not data["has_i18n"]:
+        lines.append("⚠️ **No i18n library detected.** The app uses hardcoded strings throughout.")
+        lines.append("")
+        lines.append("To add i18n:")
+        lines.append("- Install `react-i18next` or `react-intl`")
+        lines.append("- Wrap text in `{t('key')}` instead of hardcoded strings")
+        lines.append("")
+        lines.append(f"**{data['hardcoded_count']} hardcoded strings found.**")
+        lines.append("")
+        if data["hardcoded_samples"]:
+            lines.append("## Sample Hardcoded Strings")
+            lines.append("")
+            lines.append("| Text | Type | File |")
+            lines.append("|------|------|------|")
+            for s in data["hardcoded_samples"][:15]:
+                lines.append(f"| `{s['text'][:40]}` | {s['type']} | `{s['file']}` |")
+        return "\n".join(lines)
+
+    lines.append(f"**i18n library detected.** Coverage: {data['coverage_pct']:.0f}%")
+    lines.append("")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
+    lines.append(f"| Translated strings | {data['translated_count']} |")
+    lines.append(f"| Hardcoded strings | {data['hardcoded_count']} |")
+    lines.append(f"| Coverage | {data['coverage_pct']:.0f}% |")
+    lines.append("")
+
+    if data["hardcoded_samples"]:
+        lines.append("## Hardcoded Strings (need translation)")
+        lines.append("")
+        lines.append("| Text | Type | File |")
+        lines.append("|------|------|------|")
+        for s in data["hardcoded_samples"][:15]:
+            lines.append(f"| `{s['text'][:40]}` | {s['type']} | `{s['file']}` |")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# Feature 9: Accessibility Audit
+# ============================================================
+
+def audit_accessibility(repo: Path) -> list[dict]:
+    """Static accessibility audit of JSX components.
+
+    Checks for:
+    - <img> without alt attribute
+    - <button> without text or aria-label
+    - <input> without associated <label> or aria-label
+    - <a> without text or aria-label
+    - <div onClick> without role="button" and tabIndex
+    """
+    src_dirs = detect_src_dirs(repo)
+    issues: list[dict] = []
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f):
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                rel = str(f.relative_to(repo))
+
+                # <img> without alt
+                for m in re.finditer(r'<img\s+([^>]*?)/?>', content, re.DOTALL):
+                    attrs = m.group(1)
+                    if 'alt=' not in attrs:
+                        line = content[:m.start()].count("\n") + 1
+                        issues.append({
+                            "file": rel, "line": line, "severity": "high",
+                            "rule": "img-alt",
+                            "message": "<img> missing alt attribute",
+                        })
+
+                # <button> without text or aria-label
+                for m in re.finditer(r'<button\s+([^>]*?)>([^<]*)(?:</button>)?', content, re.DOTALL):
+                    attrs = m.group(1)
+                    text = m.group(2).strip()
+                    if not text and 'aria-label' not in attrs:
+                        line = content[:m.start()].count("\n") + 1
+                        issues.append({
+                            "file": rel, "line": line, "severity": "high",
+                            "rule": "button-text",
+                            "message": "<button> has no text or aria-label",
+                        })
+
+                # <input> without label or aria-label
+                for m in re.finditer(r'<input\s+([^>]*?)/?>', content, re.DOTALL):
+                    attrs = m.group(1)
+                    if 'aria-label' not in attrs and 'id=' not in attrs:
+                        line = content[:m.start()].count("\n") + 1
+                        issues.append({
+                            "file": rel, "line": line, "severity": "medium",
+                            "rule": "input-label",
+                            "message": "<input> has no aria-label or id for label association",
+                        })
+
+                # <div onClick> without role="button"
+                for m in re.finditer(r'<div\s+([^>]*?onClick[^>]*?)>', content):
+                    attrs = m.group(1)
+                    if 'role="button"' not in attrs and 'role={\'button\'}' not in attrs:
+                        line = content[:m.start()].count("\n") + 1
+                        issues.append({
+                            "file": rel, "line": line, "severity": "medium",
+                            "rule": "clickable-div-role",
+                            "message": "<div onClick> without role='button' — not keyboard accessible",
+                        })
+
+    return issues
+
+
+def emit_a11y_report(issues: list[dict], repo: Path) -> str:
+    lines = [
+        f"# ♿ Accessibility Audit — {repo.name}",
+        "",
+        f"**Found {len(issues)} accessibility issue(s).**",
+        "",
+    ]
+
+    if not issues:
+        lines.append("✅ No accessibility issues found.")
+        return "\n".join(lines)
+
+    by_rule: dict[str, int] = defaultdict(int)
+    by_severity: dict[str, int] = defaultdict(int)
+    for i in issues:
+        by_rule[i["rule"]] += 1
+        by_severity[i["severity"]] += 1
+
+    lines.append("## Summary")
+    lines.append("")
+    lines.append("| Severity | Count |")
+    lines.append("|----------|-------|")
+    for sev in ["high", "medium", "low"]:
+        if by_severity.get(sev):
+            icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}[sev]
+            lines.append(f"| {icon} {sev} | {by_severity[sev]} |")
+    lines.append("")
+
+    lines.append("| Rule | Count |")
+    lines.append("|------|-------|")
+    rule_names = {
+        "img-alt": "Images without alt text",
+        "button-text": "Buttons without text/aria-label",
+        "input-label": "Inputs without labels",
+        "clickable-div-role": "Clickable divs without role",
+    }
+    for rule, count in sorted(by_rule.items(), key=lambda x: -x[1]):
+        lines.append(f"| {rule_names.get(rule, rule)} | {count} |")
+    lines.append("")
+
+    lines.append("## Issues")
+    lines.append("")
+    for i in issues[:20]:
+        icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}[i["severity"]]
+        lines.append(f"- {icon} `{i['file']}:{i['line']}` — {i['message']}")
+    if len(issues) > 20:
+        lines.append(f"- _... and {len(issues) - 20} more_")
+    lines.append("")
+
+    lines.append("## How to Fix")
+    lines.append("")
+    lines.append("- **img-alt:** Add `alt=\"description\"` to all `<img>` tags")
+    lines.append("- **button-text:** Add text content or `aria-label` to `<button>` tags")
+    lines.append("- **input-label:** Add `aria-label` or an associated `<label htmlFor>`")
+    lines.append("- **clickable-div-role:** Use `<button>` instead of `<div onClick>`, or add `role=\"button\" tabIndex={0}`")
+
+    return "\n".join(lines)
+
+
+# ============================================================
+# Feature 10: Test Coverage Mapper
+# ============================================================
+
+def map_test_coverage(repo: Path) -> dict:
+    """Map which components have co-located test files.
+
+    Checks for:
+    - Component.tsx → Component.test.tsx or Component.spec.tsx
+    - Component.tsx → __tests__/Component.test.tsx
+    - Component.tsx → Component.test.ts
+    """
+    src_dirs = detect_src_dirs(repo)
+    components_with_tests: list[dict] = []
+    components_without_tests: list[dict] = []
+    total_components = 0
+
+    for src_dir in src_dirs:
+        full_src = repo / src_dir
+        if not full_src.exists():
+            continue
+
+        for ext in ["*.tsx", "*.jsx"]:
+            for f in full_src.rglob(ext):
+                if "node_modules" in str(f) or ".test." in f.name or ".spec." in f.name:
+                    continue
+                try:
+                    content = f.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                # Only count files that export components
+                if not re.search(r'export\s+(?:default\s+)?(?:function|const)\s+\w+', content):
+                    continue
+
+                total_components += 1
+                rel = str(f.relative_to(repo))
+                stem = f.stem
+
+                # Check for test files
+                test_patterns = [
+                    f.parent / f"{stem}.test.tsx",
+                    f.parent / f"{stem}.test.ts",
+                    f.parent / f"{stem}.spec.tsx",
+                    f.parent / f"{stem}.spec.ts",
+                    f.parent / "__tests__" / f"{stem}.test.tsx",
+                    f.parent / "__tests__" / f"{stem}.test.ts",
+                ]
+
+                has_test = any(p.exists() for p in test_patterns)
+
+                if has_test:
+                    components_with_tests.append({"file": rel, "name": stem})
+                else:
+                    components_without_tests.append({"file": rel, "name": stem})
+
+    coverage_pct = 100 * len(components_with_tests) / max(total_components, 1)
+
+    return {
+        "total_components": total_components,
+        "with_tests": len(components_with_tests),
+        "without_tests": len(components_without_tests),
+        "coverage_pct": coverage_pct,
+        "untested": components_without_tests[:20],
+    }
+
+
+def emit_test_coverage_report(data: dict, repo: Path) -> str:
+    lines = [
+        f"# 🧪 Test Coverage Map — {repo.name}",
+        "",
+        f"**Coverage: {data['coverage_pct']:.0f}%** ({data['with_tests']}/{data['total_components']} components tested)",
+        "",
+    ]
+
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
+    lines.append(f"| Total components | {data['total_components']} |")
+    lines.append(f"| With tests | {data['with_tests']} |")
+    lines.append(f"| Without tests | {data['without_tests']} |")
+    lines.append(f"| Coverage | {data['coverage_pct']:.0f}% |")
+    lines.append("")
+
+    if data["untested"]:
+        lines.append("## Untested Components")
+        lines.append("")
+        lines.append("Priority: test high-complexity and high-traffic components first.")
+        lines.append("")
+        lines.append("| Component | File |")
+        lines.append("|-----------|------|")
+        for c in data["untested"]:
+            lines.append(f"| `{c['name']}` | `{c['file']}` |")
+        if data["without_tests"] > 20:
+            lines.append(f"| _... and {data['without_tests'] - 20} more_ | |")
+        lines.append("")
+
+    lines.append("## Recommendations")
+    lines.append("")
+    if data["coverage_pct"] < 50:
+        lines.append("- 🔴 **Low coverage** — prioritize testing core components")
+    elif data["coverage_pct"] < 80:
+        lines.append("- 🟡 **Moderate coverage** — focus on untested admin/critical-path components")
+    else:
+        lines.append("- 🟢 **Good coverage** — maintain test discipline for new components")
+    lines.append("- Co-locate tests: `Component.tsx` → `Component.test.tsx`")
+    lines.append("- Test behavior, not implementation details")
+
+    return "\n".join(lines)
+
+
+# ============================================================
 # CLI
 # ============================================================
 
@@ -1618,6 +2172,30 @@ def main():
     cu.add_argument("path", nargs="?", default=".", help="Path to the repo")
     cu.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
     cu.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # complexity
+    cx = sub.add_parser("complexity", help="Component complexity metrics (lines, props, hooks, nesting)")
+    cx.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    cx.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    cx.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # i18n
+    i18n = sub.add_parser("i18n", help="Check i18n coverage — find hardcoded strings")
+    i18n.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    i18n.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    i18n.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # a11y
+    a11y = sub.add_parser("a11y", help="Accessibility audit — find missing alt, labels, roles")
+    a11y.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    a11y.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    a11y.add_argument("--out", "-o", help="Output file (default: stdout)")
+
+    # test-coverage
+    tc = sub.add_parser("test-coverage", help="Map which components have co-located test files")
+    tc.add_argument("path", nargs="?", default=".", help="Path to the repo")
+    tc.add_argument("--format", "-f", choices=["markdown", "json"], default="markdown")
+    tc.add_argument("--out", "-o", help="Output file (default: stdout)")
 
     args = ap.parse_args()
     repo = Path(args.path).resolve()
@@ -1793,6 +2371,84 @@ def main():
             print(output)
 
         print(f"\n{len(contexts)} Context(s) found.", file=sys.stderr)
+        sys.exit(0)
+
+    elif args.command == "complexity":
+        print(f"graphify frontend complexity — scanning {repo}...", file=sys.stderr)
+        results = analyze_complexity(repo)
+
+        if args.format == "json":
+            output = json.dumps([{
+                "name": r.name, "file": r.file, "lines": r.lines,
+                "prop_count": r.prop_count, "hook_count": r.hook_count,
+                "nesting_depth": r.nesting_depth, "complexity_score": r.complexity_score,
+                "flags": r.flags,
+            } for r in results], indent=2)
+        else:
+            output = emit_complexity_report(results, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        flagged = sum(1 for r in results if r.flags)
+        print(f"\n{len(results)} components analyzed, {flagged} flagged.", file=sys.stderr)
+        sys.exit(0)
+
+    elif args.command == "i18n":
+        print(f"graphify frontend i18n — scanning {repo}...", file=sys.stderr)
+        data = analyze_i18n(repo)
+
+        if args.format == "json":
+            output = json.dumps(data, indent=2)
+        else:
+            output = emit_i18n_report(data, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\ni18n: {data['coverage_pct']:.0f}% coverage, {data['hardcoded_count']} hardcoded strings.", file=sys.stderr)
+        sys.exit(0)
+
+    elif args.command == "a11y":
+        print(f"graphify frontend a11y — scanning {repo}...", file=sys.stderr)
+        issues = audit_accessibility(repo)
+
+        if args.format == "json":
+            output = json.dumps(issues, indent=2)
+        else:
+            output = emit_a11y_report(issues, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\n{len(issues)} accessibility issue(s) found.", file=sys.stderr)
+        sys.exit(1 if issues else 0)
+
+    elif args.command == "test-coverage":
+        print(f"graphify frontend test-coverage — scanning {repo}...", file=sys.stderr)
+        data = map_test_coverage(repo)
+
+        if args.format == "json":
+            output = json.dumps(data, indent=2)
+        else:
+            output = emit_test_coverage_report(data, repo)
+
+        if args.out:
+            Path(args.out).write_text(output, encoding="utf-8")
+            print(f"Report written to {args.out}", file=sys.stderr)
+        else:
+            print(output)
+
+        print(f"\n{data['coverage_pct']:.0f}% coverage ({data['with_tests']}/{data['total_components']}).", file=sys.stderr)
         sys.exit(0)
 
 

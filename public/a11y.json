@@ -1,0 +1,1108 @@
+[
+  {
+    "file": "frontend/src/components/ImpersonationBanner.tsx",
+    "line": 26,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/components/ConfirmModal.tsx",
+    "line": 62,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/BootstrapPage.tsx",
+    "line": 54,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/components/ui/Modal.tsx",
+    "line": 16,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 450,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 240,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 243,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 276,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 279,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 282,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 285,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 305,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 308,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 341,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 349,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 352,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 380,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 389,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 417,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 529,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 532,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 542,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 546,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 570,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 663,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 670,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/BrandingPage.tsx",
+    "line": 710,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/UsersPage.tsx",
+    "line": 153,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/UsersPage.tsx",
+    "line": 167,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 105,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 177,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 428,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 547,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 775,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 852,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 112,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 554,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 563,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 572,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 603,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 624,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/APIPage.tsx",
+    "line": 599,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 645,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 972,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 1086,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 666,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 676,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 693,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 706,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 720,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 766,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 779,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 795,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 808,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 831,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 859,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 878,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 918,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 941,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 957,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 1094,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 1106,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 1119,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 1135,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 318,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 463,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 641,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/PlansPage.tsx",
+    "line": 1082,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 356,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 497,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 507,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 542,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 553,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 566,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 580,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 593,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 617,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 635,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 292,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/PromotionsPage.tsx",
+    "line": 485,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/RootMembersPage.tsx",
+    "line": 160,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantsPage.tsx",
+    "line": 127,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantsPage.tsx",
+    "line": 141,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "line": 234,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "line": 349,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "line": 181,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "line": 191,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "line": 423,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/UserProfilePage.tsx",
+    "line": 364,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/AnnouncementsPage.tsx",
+    "line": 202,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "line": 245,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "line": 330,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "line": 381,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "line": 228,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "line": 357,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/TenantProfilePage.tsx",
+    "line": 369,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/MessagesPage.tsx",
+    "line": 57,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/FinancialPage.tsx",
+    "line": 55,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "line": 213,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "line": 220,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "line": 257,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/LogsPage.tsx",
+    "line": 292,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/EventDefinitionModal.tsx",
+    "line": 61,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/EventDefinitionModal.tsx",
+    "line": 71,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 314,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 374,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 524,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 115,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 290,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 297,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 383,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 428,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 437,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 532,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 543,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 593,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 224,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 225,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 370,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 371,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 520,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/ConfigPage.tsx",
+    "line": 521,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/auth/ResetPasswordPage.tsx",
+    "line": 72,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/ForgotPasswordPage.tsx",
+    "line": 52,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "line": 315,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "line": 135,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "line": 214,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "line": 330,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/LoginPage.tsx",
+    "line": 342,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/MFAChallengePage.tsx",
+    "line": 64,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/SignupPage.tsx",
+    "line": 132,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/SignupPage.tsx",
+    "line": 144,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/auth/SignupPage.tsx",
+    "line": 156,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/TeamPage.tsx",
+    "line": 155,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/OnboardingPage.tsx",
+    "line": 92,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/OnboardingPage.tsx",
+    "line": 135,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/ActivityPage.tsx",
+    "line": 88,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/app/ActivityPage.tsx",
+    "line": 73,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/ActivityPage.tsx",
+    "line": 97,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/TestEntitlementsPage.tsx",
+    "line": 228,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "line": 141,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "line": 206,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "line": 224,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "line": 213,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "line": 202,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/admin/health/IntegrationsPanel.tsx",
+    "line": 203,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+    "line": 182,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+    "line": 192,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+    "line": 257,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/ProfileTab.tsx",
+    "line": 248,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/MFASetupModal.tsx",
+    "line": 110,
+    "severity": "high",
+    "rule": "button-text",
+    "message": "<button> has no text or aria-label"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/MFASetupModal.tsx",
+    "line": 81,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/MFASetupModal.tsx",
+    "line": 50,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/MFASetupModal.tsx",
+    "line": 51,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/InvoiceModal.tsx",
+    "line": 34,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/InvoiceModal.tsx",
+    "line": 35,
+    "severity": "medium",
+    "rule": "clickable-div-role",
+    "message": "<div onClick> without role='button' \u2014 not keyboard accessible"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/SecurityTab.tsx",
+    "line": 122,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  },
+  {
+    "file": "frontend/src/pages/app/settings/SecurityTab.tsx",
+    "line": 200,
+    "severity": "medium",
+    "rule": "input-label",
+    "message": "<input> has no aria-label or id for label association"
+  }
+]

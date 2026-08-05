@@ -1,0 +1,84 @@
+{
+  "has_i18n": false,
+  "hardcoded_count": 539,
+  "translated_count": 0,
+  "coverage_pct": 0.0,
+  "hardcoded_samples": [
+    {
+      "file": "frontend/src/components/ErrorBoundary.tsx",
+      "text": "Something went wrong",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/components/AdminLayout.tsx",
+      "text": "Back to App",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/components/AdminLayout.tsx",
+      "text": "Admin",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/components/Layout.tsx",
+      "text": "Admin",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/components/Layout.tsx",
+      "text": "Usage credits",
+      "type": "title attribute"
+    },
+    {
+      "file": "frontend/src/components/Layout.tsx",
+      "text": "Toggle theme",
+      "type": "aria-label attribute"
+    },
+    {
+      "file": "frontend/src/components/Layout.tsx",
+      "text": "Messages",
+      "type": "aria-label attribute"
+    },
+    {
+      "file": "frontend/src/components/Layout.tsx",
+      "text": "Sign out",
+      "type": "aria-label attribute"
+    },
+    {
+      "file": "frontend/src/components/ImpersonationBanner.tsx",
+      "text": "Viewing as",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/pages/BootstrapPage.tsx",
+      "text": "System Setup Required",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/components/ui/Modal.tsx",
+      "text": "Close",
+      "type": "aria-label attribute"
+    },
+    {
+      "file": "frontend/src/pages/admin/BrandingPage.tsx",
+      "text": "Customize the look and feel of your app",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/pages/admin/BrandingPage.tsx",
+      "text": "Image only",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/pages/admin/BrandingPage.tsx",
+      "text": "Show landing page instead of redirecting to login",
+      "type": "JSX text"
+    },
+    {
+      "file": "frontend/src/pages/admin/BrandingPage.tsx",
+      "text": "Dashboard",
+      "type": "JSX text"
+    }
+  ],
+  "translated_samples": []
+}
