@@ -7,23 +7,23 @@
 | Metric | Value |
 | --- | --- |
 | Files scanned | 101 |
-| Total lines | 28,945 |
-| Total error-handling sites | **922** |
-| Properly handled | 271 |
+| Total lines | 28,969 |
+| Total error-handling sites | **930** |
+| Properly handled | 277 |
 | Logged only (no return) | 494 |
-| Swallowed errors | 138 |
+| Swallowed errors | 140 |
 | Ignored errors (`_`) | 7 |
 | Missing error checks | 11 |
 | Panic on error | 1 |
-| % properly handled | **29.39%** |
+| % properly handled | **29.78%** |
 
 ## Pattern Breakdown (non-test files)
 
 | Pattern | Count | Severity |
 | --- | ---: | --- |
-| Proper handling | 271 | LOW |
+| Proper handling | 277 | LOW |
 | Logged only (no return) | 494 | MEDIUM |
-| Swallowed error | 138 | HIGH |
+| Swallowed error | 140 | HIGH |
 | Ignored error (`_`) | 7 | HIGH |
 | Missing error check | 11 | HIGH |
 | Panic on error | 1 | MEDIUM |
@@ -32,15 +32,15 @@
 
 | Severity | Count |
 | --- | ---: |
-| HIGH | 156 |
+| HIGH | 158 |
 | MEDIUM | 495 |
-| LOW | 271 |
+| LOW | 277 |
 
 ## Most Problematic Files (non-test)
 
 | File | Issues | Sites | Swallowed | Ignored | Missing | Logged | Panic |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `backend/internal/api/handlers/auth.go` | 50 | 120 | 35 | 7 | 8 | 69 | 0 |
+| `backend/internal/api/handlers/auth.go` | 52 | 128 | 37 | 7 | 8 | 69 | 0 |
 | `backend/internal/telemetry/service.go` | 15 | 36 | 15 | 0 | 0 | 14 | 0 |
 | `backend/internal/api/handlers/admin.go` | 11 | 84 | 9 | 0 | 2 | 73 | 0 |
 | `backend/internal/api/handlers/billing.go` | 10 | 41 | 10 | 0 | 0 | 31 | 0 |
@@ -1997,840 +1997,888 @@
 
 ### `backend/internal/api/handlers/auth.go`
 
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:105` in `generateTokenPair`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:289` in `Register`
   ```go
   	if err != nil {
-  		return
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
   	}
   ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:667` in `ForgotPassword`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:422` in `Login`
+  ```go
+  	if err != nil {
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
+  	}
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:561` in `Refresh`
+  ```go
+  	if err != nil {
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
+  	}
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:581` in `GetMe`
+  ```go
+  	if err != nil {
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
+  	}
+  ```
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:682` in `ForgotPassword`
   - _error explicitly discarded with `_`_
   ```go
-  		if allowed, _, _ := h.rateLimiter.Allow("email:pwreset:"+req.Email, middleware.EmailPasswordResetLimit); !allowed {
+                  if allowed, _, _ := h.rateLimiter.Allow("email:pwreset:"+req.Email, middleware.EmailPasswordResetLimit); !allowed {
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:696` in `ForgotPassword`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:711` in `ForgotPassword`
   - _statement-form call to known error-returning 'h.db.VerificationTokens().InsertOne()'_
   ```go
-  	h.db.VerificationTokens().InsertOne(r.Context(), verification)
+          h.db.VerificationTokens().InsertOne(r.Context(), verification)
   ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:1162` in `MagicLinkRequest`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1089` in `MFAChallenge`
+  ```go
+  	if err != nil {
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
+  	}
+  ```
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:1180` in `MagicLinkRequest`
   - _error explicitly discarded with `_`_
   ```go
-  		if allowed, _, _ := h.rateLimiter.Allow("email:magiclink:"+req.Email, middleware.EmailMagicLinkLimit); !allowed {
+                  if allowed, _, _ := h.rateLimiter.Allow("email:magiclink:"+req.Email, middleware.EmailMagicLinkLimit); !allowed {
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:1186` in `MagicLinkRequest`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:1204` in `MagicLinkRequest`
   - _statement-form call to known error-returning 'h.db.VerificationTokens().InsertOne()'_
   ```go
-  	h.db.VerificationTokens().InsertOne(r.Context(), verification)
+          h.db.VerificationTokens().InsertOne(r.Context(), verification)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1294` in `createAuthCodeRedirect`
-  ```go
-  	if _, err := h.db.AuthCodes().InsertOne(r.Context(), authCode); err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=code_generation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
-  ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1381` in `GoogleOAuthCallback`
-  ```go
-  	if result.Err() != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
-  		return
-  	}
-  ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1387` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1289` in `MagicLinkVerify`
   ```go
   	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
-  		return
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
   	}
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1393` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1315` in `createAuthCodeRedirect`
   ```go
-  	if err != nil || !googleUser.VerifiedEmail {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if _, err := h.db.AuthCodes().InsertOne(r.Context(), authCode); err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=code_generation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1403` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1402` in `GoogleOAuthCallback`
   ```go
-  	if err != nil {
-  		err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(googleUser.Email)}).Decode(&user)
-  		if err != nil {
-  			isNewUser = true
-  			user = models.User{
-  				ID:            primitive.NewObjectID(),
+          if result.Err() != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
+                  return
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1408` in `GoogleOAuthCallback`
+  ```go
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
+                  return
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1414` in `GoogleOAuthCallback`
+  ```go
+          if err != nil || !googleUser.VerifiedEmail {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
+                  return
+          }
+  ```
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1424` in `GoogleOAuthCallback`
+  ```go
+          if err != nil {
+                  err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(googleUser.Email)}).Decode(&user)
+                  if err != nil {
+                          isNewUser = true
+                          user = models.User{
+                                  ID:            primitive.NewObjectID(),
   ... (24 more lines)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1405` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1426` in `GoogleOAuthCallback`
   ```go
-  		if err != nil {
-  			isNewUser = true
-  			user = models.User{
-  				ID:            primitive.NewObjectID(),
-  				Email:         strings.ToLower(googleUser.Email),
-  				DisplayName:   googleUser.GivenName,
+                  if err != nil {
+                          isNewUser = true
+                          user = models.User{
+                                  ID:            primitive.NewObjectID(),
+                                  Email:         strings.ToLower(googleUser.Email),
+                                  DisplayName:   googleUser.GivenName,
   ... (16 more lines)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1419` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1440` in `GoogleOAuthCallback`
   ```go
-  			if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
-  				slog.Error("OAuth: failed to create user", "error", err)
-  				http.Redirect(w, r, h.frontendURL+"/login?error=account_creation_failed", http.StatusTemporaryRedirect)
-  				return
-  			}
+                          if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
+                                  slog.Error("OAuth: failed to create user", "error", err)
+                                  http.Redirect(w, r, h.frontendURL+"/login?error=account_creation_failed", http.StatusTemporaryRedirect)
+                                  return
+                          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1441` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1462` in `GoogleOAuthCallback`
   ```go
-  		if err != nil {
-  			http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
-  			return
-  		}
+                  if err != nil {
+                          http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+                          return
+                  }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1450` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1471` in `GoogleOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1454` in `GoogleOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1475` in `GoogleOAuthCallback`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		http.Redirect(w, r, h.frontendURL+"/login?error=session_creation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  http.Redirect(w, r, h.frontendURL+"/login?error=session_creation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1514` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1535` in `GitHubOAuthCallback`
   ```go
-  	if result.Err() != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if result.Err() != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1520` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1541` in `GitHubOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1526` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1547` in `GitHubOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1537` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1558` in `GitHubOAuthCallback`
   ```go
-  	if err != nil {
-  		err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(ghUser.Email)}).Decode(&user)
-  		if err != nil {
-  			isNewUser = true
-  			displayName := ghUser.Name
-  			if displayName == "" {
+          if err != nil {
+                  err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(ghUser.Email)}).Decode(&user)
+                  if err != nil {
+                          isNewUser = true
+                          displayName := ghUser.Name
+                          if displayName == "" {
   ... (33 more lines)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1539` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1560` in `GitHubOAuthCallback`
   ```go
-  		if err != nil {
-  			isNewUser = true
-  			displayName := ghUser.Name
-  			if displayName == "" {
-  				displayName = ghUser.Login
-  			}
+                  if err != nil {
+                          isNewUser = true
+                          displayName := ghUser.Name
+                          if displayName == "" {
+                                  displayName = ghUser.Login
+                          }
   ... (20 more lines)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1557` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1578` in `GitHubOAuthCallback`
   ```go
-  			if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
-  				slog.Error("OAuth: failed to create user", "error", err)
-  				http.Redirect(w, r, h.frontendURL+"/login?error=account_creation_failed", http.StatusTemporaryRedirect)
-  				return
-  			}
+                          if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
+                                  slog.Error("OAuth: failed to create user", "error", err)
+                                  http.Redirect(w, r, h.frontendURL+"/login?error=account_creation_failed", http.StatusTemporaryRedirect)
+                                  return
+                          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1583` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1604` in `GitHubOAuthCallback`
   ```go
-  		if err != nil {
-  			http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
-  			return
-  		}
+                  if err != nil {
+                          http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+                          return
+                  }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1592` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1613` in `GitHubOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1596` in `GitHubOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1617` in `GitHubOAuthCallback`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		http.Redirect(w, r, h.frontendURL+"/login?error=session_creation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  http.Redirect(w, r, h.frontendURL+"/login?error=session_creation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1656` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1677` in `MicrosoftOAuthCallback`
   ```go
-  	if result.Err() != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if result.Err() != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=invalid_state", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1662` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1683` in `MicrosoftOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=oauth_exchange_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1668` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1689` in `MicrosoftOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=oauth_user_info_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1684` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1705` in `MicrosoftOAuthCallback`
   ```go
-  	if err != nil {
-  		err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(userEmail)}).Decode(&user)
-  		if err != nil {
-  			isNewUser = true
-  			displayName := msUser.DisplayName
-  			if displayName == "" {
+          if err != nil {
+                  err = h.db.Users().FindOne(r.Context(), bson.M{"email": strings.ToLower(userEmail)}).Decode(&user)
+                  if err != nil {
+                          isNewUser = true
+                          displayName := msUser.DisplayName
+                          if displayName == "" {
   ... (33 more lines)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1686` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1707` in `MicrosoftOAuthCallback`
   ```go
-  		if err != nil {
-  			isNewUser = true
-  			displayName := msUser.DisplayName
-  			if displayName == "" {
-  				displayName = msUser.GivenName
-  			}
+                  if err != nil {
+                          isNewUser = true
+                          displayName := msUser.DisplayName
+                          if displayName == "" {
+                                  displayName = msUser.GivenName
+                          }
   ... (20 more lines)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1704` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1725` in `MicrosoftOAuthCallback`
   ```go
-  			if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
-  				slog.Error("OAuth: failed to create user", "error", err)
-  				http.Redirect(w, r, h.frontendURL+"/login?error=account_creation_failed", http.StatusTemporaryRedirect)
-  				return
-  			}
+                          if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
+                                  slog.Error("OAuth: failed to create user", "error", err)
+                                  http.Redirect(w, r, h.frontendURL+"/login?error=account_creation_failed", http.StatusTemporaryRedirect)
+                                  return
+                          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1730` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1751` in `MicrosoftOAuthCallback`
   ```go
-  		if err != nil {
-  			http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
-  			return
-  		}
+                  if err != nil {
+                          http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+                          return
+                  }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1739` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1760` in `MicrosoftOAuthCallback`
   ```go
-  	if err != nil {
-  		http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err != nil {
+                  http.Redirect(w, r, h.frontendURL+"/login?error=token_generation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1743` in `MicrosoftOAuthCallback`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1764` in `MicrosoftOAuthCallback`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		http.Redirect(w, r, h.frontendURL+"/login?error=session_creation_failed", http.StatusTemporaryRedirect)
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  http.Redirect(w, r, h.frontendURL+"/login?error=session_creation_failed", http.StatusTemporaryRedirect)
+                  return
+          }
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:1901` in `UpdatePreferences`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:1922` in `UpdatePreferences`
   - _statement-form call to known error-returning 'h.db.Users().UpdateOne()'_
   ```go
-  	h.db.Users().UpdateOne(r.Context(), bson.M{"_id": user.ID}, bson.M{"$set": update})
+          h.db.Users().UpdateOne(r.Context(), bson.M{"_id": user.ID}, bson.M{"$set": update})
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1967` in `createPersonalTenant`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1968` in `AcceptInvitation`
   ```go
-  	if _, err := h.db.Tenants().InsertOne(ctx, tenant); err != nil {
-  		slog.Error("Failed to create personal tenant", "userId", userID.Hex(), "error", err)
-  		return
+  	if err != nil {
+  		slog.Error("Failed to get user memberships", "userId", user.ID.Hex(), "error", err)
   	}
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2002` in `sendVerificationEmail`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:1991` in `createPersonalTenant`
+  ```go
+          if _, err := h.db.Tenants().InsertOne(ctx, tenant); err != nil {
+                  slog.Error("Failed to create personal tenant", "userId", userID.Hex(), "error", err)
+                  return
+          }
+  ```
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2026` in `sendVerificationEmail`
   - _statement-form call to known error-returning 'h.db.VerificationTokens().InsertOne()'_
   ```go
-  	h.db.VerificationTokens().InsertOne(ctx, verification)
+          h.db.VerificationTokens().InsertOne(ctx, verification)
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2025` in `getUserMemberships`
+- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2109` in `acceptInvitationForUser`
   ```go
-  	if err != nil {
-  		return nil
-  	}
+          if res.Err() != nil {
+                  return fmt.Errorf("invitation already accepted or modified: %w", res.Err())
+          }
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2031` in `getUserMemberships`
-  ```go
-  	if err := cursor.All(ctx, &memberships); err != nil {
-  		return nil
-  	}
-  ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2063` in `acceptInvitationForUser`
-  ```go
-  	if err != nil {
-  		return fmt.Errorf("invalid or expired invitation")
-  	}
-  ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2085` in `acceptInvitationForUser`
-  ```go
-  	if res.Err() != nil {
-  		return fmt.Errorf("invitation already accepted")
-  	}
-  ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2089` in `acceptInvitationForUser`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2113` in `acceptInvitationForUser`
   - _error explicitly discarded with `_`_
   ```go
-  	count, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
+          count, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
   ```
-- **[HIGH] Swallowed error** — `backend/internal/api/handlers/auth.go:2105` in `acceptInvitationForUser`
-  ```go
-  	if _, err := h.db.TenantMemberships().InsertOne(ctx, membership); err != nil {
-  		return fmt.Errorf("failed to create membership")
-  	}
-  ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2142` in `storeRefreshToken`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2166` in `storeRefreshToken`
   - _error explicitly discarded with `_`_
   ```go
-  	activeCount, _ := database.RefreshTokens().CountDocuments(r.Context(), bson.M{
+          activeCount, _ := database.RefreshTokens().CountDocuments(r.Context(), bson.M{
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2229` in `DeleteAccount`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2253` in `DeleteAccount`
   - _statement-form call to known error-returning 'cursor.Close()'_
   ```go
-  	cursor.Close(ctx)
+          cursor.Close(ctx)
   ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2246` in `DeleteAccount`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2270` in `DeleteAccount`
   - _error explicitly discarded with `_`_
   ```go
-  		otherCount, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
+                  otherCount, _ := h.db.TenantMemberships().CountDocuments(ctx, bson.M{
   ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2317` in `ExportData`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2341` in `ExportData`
   - _error explicitly discarded with `_`_
   ```go
-  	cursor, _ := h.db.TenantMemberships().Find(ctx, bson.M{"userId": user.ID})
+          cursor, _ := h.db.TenantMemberships().Find(ctx, bson.M{"userId": user.ID})
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2321` in `ExportData`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2345` in `ExportData`
   - _statement-form call to known error-returning 'cursor.Close()'_
   ```go
-  		cursor.Close(ctx)
+                  cursor.Close(ctx)
   ```
-- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2339` in `ExportData`
+- **[HIGH] Ignored error (`_`)** — `backend/internal/api/handlers/auth.go:2363` in `ExportData`
   - _error explicitly discarded with `_`_
   ```go
-  	msgCursor, _ := h.db.Messages().Find(ctx, bson.M{"userId": user.ID})
+          msgCursor, _ := h.db.Messages().Find(ctx, bson.M{"userId": user.ID})
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2343` in `ExportData`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2367` in `ExportData`
   - _statement-form call to known error-returning 'msgCursor.Close()'_
   ```go
-  		msgCursor.Close(ctx)
+                  msgCursor.Close(ctx)
   ```
-- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2382` in `ExportData`
+- **[HIGH] Missing error check** — `backend/internal/api/handlers/auth.go:2406` in `ExportData`
   - _statement-form call to known error-returning 'json.NewEncoder(w).Encode()'_
   ```go
-  	json.NewEncoder(w).Encode(export)
+          json.NewEncoder(w).Encode(export)
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:195` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:198` in `Register`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:213` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:216` in `Register`
   ```go
-  	if err := h.passwordService.ValidatePasswordStrength(req.Password); err != nil {
-  		respondWithError(w, http.StatusBadRequest, err.Error())
-  		return
-  	}
+          if err := h.passwordService.ValidatePasswordStrength(req.Password); err != nil {
+                  respondWithError(w, http.StatusBadRequest, err.Error())
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:226` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:229` in `Register`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to process password")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to process password")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:244` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:247` in `Register`
   ```go
-  	if err := validation.Validate(&user); err != nil {
-  		respondWithError(w, http.StatusBadRequest, err.Error())
-  		return
-  	}
+          if err := validation.Validate(&user); err != nil {
+                  respondWithError(w, http.StatusBadRequest, err.Error())
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:249` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:252` in `Register`
   ```go
-  	if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to create user")
-  		return
-  	}
+          if _, err := h.db.Users().InsertOne(r.Context(), user); err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to create user")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:259` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:262` in `Register`
   ```go
-  		if err := h.acceptInvitationForUser(r.Context(), user.ID, req.InvitationToken); err != nil {
-  			slog.Error("Failed to accept invitation during registration", "error", err)
-  		} else {
+                  if err := h.acceptInvitationForUser(r.Context(), user.ID, req.InvitationToken); err != nil {
+                          slog.Error("Failed to accept invitation during registration", "error", err)
+                  } else {
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:275` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:278` in `Register`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:279` in `Register`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:282` in `Register`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:311` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:317` in `Login`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:342` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:348` in `Login`
   ```go
-  	if err := h.passwordService.ComparePassword(user.PasswordHash, req.Password); err != nil {
-  		// Atomic increment of failed attempts + conditional lock
-  		now := time.Now()
-  		filter := bson.M{
-  			"_id": user.ID,
-  			"$or": []bson.M{
+          if err := h.passwordService.ComparePassword(user.PasswordHash, req.Password); err != nil {
+                  // Atomic increment of failed attempts + conditional lock
+                  now := time.Now()
+                  filter := bson.M{
+                          "_id": user.ID,
+                          "$or": []bson.M{
   ... (25 more lines)
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:393` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:399` in `Login`
   ```go
-  		if err != nil {
-  			respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  			return
-  		}
+                  if err != nil {
+                          respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                          return
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:405` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:411` in `Login`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:409` in `Login`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:415` in `Login`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:480` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:489` in `Refresh`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
-  		respondWithError(w, http.StatusBadRequest, "Refresh token is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
+                  respondWithError(w, http.StatusBadRequest, "Refresh token is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:486` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:495` in `Refresh`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusUnauthorized, "Invalid refresh token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusUnauthorized, "Invalid refresh token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:497` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:506` in `Refresh`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusUnauthorized, "Refresh token not found")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusUnauthorized, "Refresh token not found")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:522` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:531` in `Refresh`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusUnauthorized, "Invalid user ID")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusUnauthorized, "Invalid user ID")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:534` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:543` in `Refresh`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:538` in `Refresh`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:547` in `Refresh`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL, storedToken.FamilyID); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL, storedToken.FamilyID); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:578` in `VerifyEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:593` in `VerifyEmail`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
-  		respondWithError(w, http.StatusBadRequest, "Token is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+                  respondWithError(w, http.StatusBadRequest, "Token is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:596` in `VerifyEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:611` in `VerifyEmail`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid or expired verification token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid or expired verification token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:628` in `ResendVerification`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:643` in `ResendVerification`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
-  		respondWithError(w, http.StatusBadRequest, "Email is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+                  respondWithError(w, http.StatusBadRequest, "Email is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:658` in `ForgotPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:673` in `ForgotPassword`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
-  		respondWithError(w, http.StatusBadRequest, "Email is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+                  respondWithError(w, http.StatusBadRequest, "Email is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:703` in `ForgotPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:718` in `ForgotPassword`
   ```go
-  			if err := h.emailService.SendPasswordResetEmail(user.Email, user.DisplayName, resetToken); err != nil {
-  				slog.Error("Failed to send password reset email", "error", err)
-  			}
+                          if err := h.emailService.SendPasswordResetEmail(user.Email, user.DisplayName, resetToken); err != nil {
+                                  slog.Error("Failed to send password reset email", "error", err)
+                          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:712` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:727` in `ResetPassword`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:722` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:737` in `ResetPassword`
   ```go
-  	if err := h.passwordService.ValidatePasswordStrength(req.NewPassword); err != nil {
-  		respondWithError(w, http.StatusBadRequest, err.Error())
-  		return
-  	}
+          if err := h.passwordService.ValidatePasswordStrength(req.NewPassword); err != nil {
+                  respondWithError(w, http.StatusBadRequest, err.Error())
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:741` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:756` in `ResetPassword`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid or expired reset token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid or expired reset token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:747` in `ResetPassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:762` in `ResetPassword`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to process password")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to process password")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:780` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:795` in `ChangePassword`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:790` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:805` in `ChangePassword`
   ```go
-  	if err := h.passwordService.ValidatePasswordStrength(req.NewPassword); err != nil {
-  		respondWithError(w, http.StatusBadRequest, err.Error())
-  		return
-  	}
+          if err := h.passwordService.ValidatePasswordStrength(req.NewPassword); err != nil {
+                  respondWithError(w, http.StatusBadRequest, err.Error())
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:800` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:815` in `ChangePassword`
   ```go
-  		if err := h.passwordService.ComparePassword(user.PasswordHash, req.CurrentPassword); err != nil {
-  			respondWithError(w, http.StatusUnauthorized, "Current password is incorrect")
-  			return
-  		}
+                  if err := h.passwordService.ComparePassword(user.PasswordHash, req.CurrentPassword); err != nil {
+                          respondWithError(w, http.StatusUnauthorized, "Current password is incorrect")
+                          return
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:807` in `ChangePassword`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:822` in `ChangePassword`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to process password")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to process password")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:863` in `MFASetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:878` in `MFASetup`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate MFA secret")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate MFA secret")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:870` in `MFASetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:885` in `MFASetup`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to secure MFA secret")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to secure MFA secret")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:898` in `MFAVerifySetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:913` in `MFAVerifySetup`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
-  		respondWithError(w, http.StatusBadRequest, "Code is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+                  respondWithError(w, http.StatusBadRequest, "Code is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:923` in `MFAVerifySetup`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:938` in `MFAVerifySetup`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate recovery codes")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate recovery codes")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:960` in `MFADisable`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:975` in `MFADisable`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
-  		respondWithError(w, http.StatusBadRequest, "Code is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+                  respondWithError(w, http.StatusBadRequest, "Code is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1010` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1025` in `MFAChallenge`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1020` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1035` in `MFAChallenge`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusUnauthorized, "Invalid or expired MFA token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusUnauthorized, "Invalid or expired MFA token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1030` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1045` in `MFAChallenge`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusUnauthorized, "Invalid user")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusUnauthorized, "Invalid user")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1063` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1078` in `MFAChallenge`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1067` in `MFAChallenge`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1082` in `MFAChallenge`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1103` in `MFARegenerateRecoveryCodes`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1121` in `MFARegenerateRecoveryCodes`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
-  		respondWithError(w, http.StatusBadRequest, "Code is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+                  respondWithError(w, http.StatusBadRequest, "Code is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1125` in `MFARegenerateRecoveryCodes`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1143` in `MFARegenerateRecoveryCodes`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate recovery codes")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate recovery codes")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1154` in `MagicLinkRequest`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1172` in `MagicLinkRequest`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
-  		respondWithError(w, http.StatusBadRequest, "Email is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+                  respondWithError(w, http.StatusBadRequest, "Email is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1193` in `MagicLinkRequest`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1211` in `MagicLinkRequest`
   ```go
-  			if err := h.emailService.SendMagicLinkEmail(user.Email, user.DisplayName, magicToken); err != nil {
-  				slog.Error("Failed to send magic link email", "error", err)
-  			}
+                          if err := h.emailService.SendMagicLinkEmail(user.Email, user.DisplayName, magicToken); err != nil {
+                                  slog.Error("Failed to send magic link email", "error", err)
+                          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1209` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1227` in `MagicLinkVerify`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
-  		respondWithError(w, http.StatusBadRequest, "Token is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+                  respondWithError(w, http.StatusBadRequest, "Token is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1228` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1246` in `MagicLinkVerify`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid or expired magic link token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1248` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1266` in `MagicLinkVerify`
   ```go
-  		if err != nil {
-  			respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  			return
-  		}
+                  if err != nil {
+                          respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                          return
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1260` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1278` in `MagicLinkVerify`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1264` in `MagicLinkVerify`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1282` in `MagicLinkVerify`
   ```go
-  	if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
-  		slog.Error("Failed to store refresh token", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to create session")
-  		return
-  	}
+          if err := storeRefreshToken(r, h.db, user.ID, refreshToken, refreshTTL); err != nil {
+                  slog.Error("Failed to store refresh token", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to create session")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1307` in `ExchangeCode`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1328` in `ExchangeCode`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
-  		respondWithError(w, http.StatusBadRequest, "Code is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Code == "" {
+                  respondWithError(w, http.StatusBadRequest, "Code is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1319` in `ExchangeCode`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1340` in `ExchangeCode`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusUnauthorized, "Invalid or expired code")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusUnauthorized, "Invalid or expired code")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1353` in `GoogleOAuth`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1374` in `GoogleOAuth`
   ```go
-  	if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
-  		slog.Error("Failed to store OAuth state", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to initiate OAuth")
-  		return
-  	}
+          if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
+                  slog.Error("Failed to store OAuth state", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to initiate OAuth")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1486` in `GitHubOAuth`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1507` in `GitHubOAuth`
   ```go
-  	if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
-  		slog.Error("Failed to store OAuth state", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to initiate OAuth")
-  		return
-  	}
+          if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
+                  slog.Error("Failed to store OAuth state", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to initiate OAuth")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1628` in `MicrosoftOAuth`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1649` in `MicrosoftOAuth`
   ```go
-  	if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
-  		slog.Error("Failed to store OAuth state", "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to initiate OAuth")
-  		return
-  	}
+          if _, err := h.db.OAuthStates().InsertOne(r.Context(), oauthState); err != nil {
+                  slog.Error("Failed to store OAuth state", "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to initiate OAuth")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1774` in `ListSessions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1795` in `ListSessions`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch sessions")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch sessions")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1781` in `ListSessions`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1802` in `ListSessions`
   ```go
-  	if err := cursor.All(r.Context(), &tokens); err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to fetch sessions")
-  		return
-  	}
+          if err := cursor.All(r.Context(), &tokens); err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to fetch sessions")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1835` in `RevokeSession`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1856` in `RevokeSession`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid session ID")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid session ID")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1844` in `RevokeSession`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1865` in `RevokeSession`
   ```go
-  	if err != nil || result.ModifiedCount == 0 {
-  		respondWithError(w, http.StatusNotFound, "Session not found")
-  		return
-  	}
+          if err != nil || result.ModifiedCount == 0 {
+                  respondWithError(w, http.StatusNotFound, "Session not found")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1887` in `UpdatePreferences`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1908` in `UpdatePreferences`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1936` in `AcceptInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1957` in `AcceptInvitation`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
-  		respondWithError(w, http.StatusBadRequest, "Invitation token is required")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+                  respondWithError(w, http.StatusBadRequest, "Invitation token is required")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1941` in `AcceptInvitation`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1962` in `AcceptInvitation`
   ```go
-  	if err := h.acceptInvitationForUser(r.Context(), user.ID, req.Token); err != nil {
-  		respondWithError(w, http.StatusBadRequest, err.Error())
-  		return
-  	}
+          if err := h.acceptInvitationForUser(r.Context(), user.ID, req.Token); err != nil {
+                  respondWithError(w, http.StatusBadRequest, err.Error())
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:1980` in `createPersonalTenant`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2004` in `createPersonalTenant`
   ```go
-  	if _, err := h.db.TenantMemberships().InsertOne(ctx, membership); err != nil {
-  		slog.Error("Failed to create membership for personal tenant", "error", err)
-  	}
+          if _, err := h.db.TenantMemberships().InsertOne(ctx, membership); err != nil {
+                  slog.Error("Failed to create membership for personal tenant", "error", err)
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2014` in `sendVerificationEmail`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2038` in `sendVerificationEmail`
   ```go
-  			if err := h.emailService.SendVerificationEmail(userEmail, displayName, verificationToken); err != nil {
-  				slog.Error("Failed to send verification email", "to", userEmail, "error", err)
-  			}
+                          if err := h.emailService.SendVerificationEmail(userEmail, displayName, verificationToken); err != nil {
+                                  slog.Error("Failed to send verification email", "to", userEmail, "error", err)
+                          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2197` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2221` in `DeleteAccount`
   ```go
-  	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-  		respondWithError(w, http.StatusBadRequest, "Invalid request body")
-  		return
-  	}
+          if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+                  respondWithError(w, http.StatusBadRequest, "Invalid request body")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2208` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2232` in `DeleteAccount`
   ```go
-  		if err := h.passwordService.ComparePassword(user.PasswordHash, req.Password); err != nil {
-  			respondWithError(w, http.StatusUnauthorized, "Incorrect password")
-  			return
-  		}
+                  if err := h.passwordService.ComparePassword(user.PasswordHash, req.Password); err != nil {
+                          respondWithError(w, http.StatusUnauthorized, "Incorrect password")
+                          return
+                  }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2218` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2242` in `DeleteAccount`
   ```go
-  	if err != nil {
-  		respondWithError(w, http.StatusInternalServerError, "Failed to check memberships")
-  		return
-  	}
+          if err != nil {
+                  respondWithError(w, http.StatusInternalServerError, "Failed to check memberships")
+                  return
+          }
   ```
-- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2223` in `DeleteAccount`
+- **[MEDIUM] Logged only (no return)** — `backend/internal/api/handlers/auth.go:2247` in `DeleteAccount`
   ```go
-  	if err := cursor.All(ctx, &memberships); err != nil {
-  		cursor.Close(ctx)
-  		slog.Error("Failed to decode memberships during account deletion", "userId", user.ID.Hex(), "error", err)
-  		respondWithError(w, http.StatusInternalServerError, "Failed to check memberships")
-  		return
-  	}
+          if err := cursor.All(ctx, &memberships); err != nil {
+                  cursor.Close(ctx)
+                  slog.Error("Failed to decode memberships during account deletion", "userId", user.ID.Hex(), "error", err)
+                  respondWithError(w, http.StatusInternalServerError, "Failed to check memberships")
+                  return
+          }
   ```
-- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2180` in `storeRefreshToken`
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:105` in `generateTokenPair`
   ```go
-  	if _, err := database.RefreshTokens().InsertOne(r.Context(), rt); err != nil {
-  		return fmt.Errorf("failed to store refresh token: %w", err)
-  	}
+          if err != nil {
+                  return "", "", 0, fmt.Errorf("failed to generate access token: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:109` in `generateTokenPair`
+  ```go
+          if err != nil {
+                  return "", "", 0, fmt.Errorf("failed to generate refresh token: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2049` in `getUserMemberships`
+  ```go
+          if err != nil {
+                  return nil, fmt.Errorf("failed to query memberships: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2055` in `getUserMemberships`
+  ```go
+          if err := cursor.All(ctx, &memberships); err != nil {
+                  return nil, fmt.Errorf("failed to decode memberships: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2087` in `acceptInvitationForUser`
+  ```go
+          if err != nil {
+                  return fmt.Errorf("invalid or expired invitation: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2129` in `acceptInvitationForUser`
+  ```go
+          if _, err := h.db.TenantMemberships().InsertOne(ctx, membership); err != nil {
+                  return fmt.Errorf("failed to create membership: %w", err)
+          }
+  ```
+- **[LOW] Proper handling** — `backend/internal/api/handlers/auth.go:2204` in `storeRefreshToken`
+  ```go
+          if _, err := database.RefreshTokens().InsertOne(r.Context(), rt); err != nil {
+                  return fmt.Errorf("failed to store refresh token: %w", err)
+          }
   ```
 
 ### `backend/internal/api/handlers/billing.go`
