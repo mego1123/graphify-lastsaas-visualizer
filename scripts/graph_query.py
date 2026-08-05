@@ -1,0 +1,110 @@
+"""Shared helper for querying the enriched graphify graph.
+
+All Python analysis tools use this instead of calling Go tools as subprocesses.
+The graph must be enriched first: python graphify_enrich.py . --all
+"""
+import json
+from pathlib import Path
+from typing import Optional
+
+
+def load_graph(repo: Path) -> dict:
+    """Load the enriched graph.json."""
+    graph_path = repo / "graphify-out" / "graph.json"
+    if not graph_path.exists():
+        return {"nodes": [], "links": []}
+    return json.loads(graph_path.read_text(encoding="utf-8"))
+
+
+def get_struct_fields(graph: dict, struct_name: str) -> set[str]:
+    """Get all JSON field names for a struct, including embedded fields.
+    
+    Queries type_resolves_to edges in the enriched graph.
+    Falls back to empty set if graph is not enriched.
+    """
+    # Find the struct definition node (in models/ directory, not a variable)
+    struct_node = None
+    for n in graph.get("nodes", []):
+        if n.get("label") == struct_name and n.get("file_type") == "code":
+            src = n.get("source_file", "")
+            # Prefer the models/ definition, not variable declarations
+            if "models/" in src or "types/" in src:
+                struct_node = n
+                break
+    
+    # Fallback: any node with this label
+    if not struct_node:
+        for n in graph.get("nodes", []):
+            if n.get("label") == struct_name and n.get("file_type") == "code":
+                struct_node = n
+                break
+    
+    if not struct_node:
+        return set()
+    
+    # Query type_resolves_to edges
+    struct_id = struct_node["id"]
+    fields = set()
+    for edge in graph.get("links", []):
+        if edge.get("source") == struct_id and edge.get("relation") == "type_resolves_to":
+            field_node = next((n for n in graph["nodes"] if n["id"] == edge["target"]), None)
+            if field_node:
+                field_name = field_node.get("label", "")
+                if field_name and field_name != "-":
+                    fields.add(field_name)
+    
+    return fields
+
+
+def get_function_filter_fields(graph: dict, function_name: str) -> set[str]:
+    """Get all filter field names written by a function.
+    
+    Queries filter_writes_field edges in the enriched graph.
+    Returns fields from both literal and dynamic (map_update) construction.
+    """
+    # Find the function node
+    func_node = None
+    for n in graph.get("nodes", []):
+        label = n.get("label", "")
+        if label == function_name or label == function_name + "()":
+            func_node = n
+            break
+    
+    if not func_node:
+        return set()
+    
+    func_id = func_node["id"]
+    fields = set()
+    for edge in graph.get("links", []):
+        if edge.get("source") == func_id and edge.get("relation") == "filter_writes_field":
+            field_node = next((n for n in graph["nodes"] if n["id"] == edge["target"]), None)
+            if field_node:
+                field_name = field_node.get("label", "")
+                if field_name and field_name != "?":
+                    fields.add(field_name)
+    
+    return fields
+
+
+def is_graph_enriched(graph: dict) -> bool:
+    """Check if the graph has been enriched with go/types + go/ssa data."""
+    return graph.get("graph", {}).get("enriched", False)
+
+
+def has_struct_field(graph: dict, struct_name: str, field_name: str) -> bool:
+    """Check if a struct has a specific field (including embedded)."""
+    return field_name in get_struct_fields(graph, struct_name)
+
+
+def get_all_struct_names(graph: dict) -> list[str]:
+    """Get all struct names that have type_resolves_to edges."""
+    struct_ids = set()
+    for edge in graph.get("links", []):
+        if edge.get("relation") == "type_resolves_to":
+            struct_ids.add(edge.get("source", ""))
+    
+    names = []
+    for n in graph.get("nodes", []):
+        if n.get("id") in struct_ids:
+            names.append(n.get("label", ""))
+    return sorted(set(names))
