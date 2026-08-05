@@ -1,0 +1,628 @@
+{
+  "repository": "/home/z/my-project/repos/lastsaas/backend",
+  "summary": {
+    "middleware_definitions": 13,
+    "chain_sites": 38,
+    "short_circuiting": 7,
+    "runs_before": 13,
+    "runs_after": 12
+  },
+  "definitions": [
+    {
+      "name": "BootstrapGuard",
+      "file": "internal/api/handlers/bootstrap.go",
+      "package": "handlers",
+      "line": 75,
+      "doc": "BootstrapGuard returns middleware that blocks non-bootstrap routes when system is not initialized.",
+      "is_method": true,
+      "receiver_type": "BootstrapHandler",
+      "is_factory": false,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func (h *BootstrapHandler) BootstrapGuard(next http.Handler) http.Handler"
+    },
+    {
+      "name": "APIVersion",
+      "file": "internal/middleware/apiversion.go",
+      "package": "middleware",
+      "line": 10,
+      "doc": "APIVersion sets the X-API-Version response header on all API responses.",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": false,
+      "short_circuits": false,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func APIVersion(next http.Handler) http.Handler"
+    },
+    {
+      "name": "RequireAuth",
+      "file": "internal/middleware/auth.go",
+      "package": "middleware",
+      "line": 40,
+      "doc": "",
+      "is_method": true,
+      "receiver_type": "AuthMiddleware",
+      "is_factory": false,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": false,
+      "raw_signature": "func (m *AuthMiddleware) RequireAuth(next http.Handler) http.Handler"
+    },
+    {
+      "name": "BodySizeLimit",
+      "file": "internal/middleware/bodylimit.go",
+      "package": "middleware",
+      "line": 7,
+      "doc": "",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": false,
+      "short_circuits": false,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func BodySizeLimit(next http.Handler) http.Handler"
+    },
+    {
+      "name": "Middleware",
+      "file": "internal/middleware/metrics.go",
+      "package": "middleware",
+      "line": 93,
+      "doc": "Middleware returns an http.Handler that records request metrics.",
+      "is_method": true,
+      "receiver_type": "MetricsCollector",
+      "is_factory": false,
+      "short_circuits": false,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func (mc *MetricsCollector) Middleware(next http.Handler) http.Handler"
+    },
+    {
+      "name": "RequireRole",
+      "file": "internal/middleware/rbac.go",
+      "package": "middleware",
+      "line": 9,
+      "doc": "",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": true,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func RequireRole(minRole models.MemberRole) func(http.Handler) http.Handler"
+    },
+    {
+      "name": "RequireRootTenant",
+      "file": "internal/middleware/rbac.go",
+      "package": "middleware",
+      "line": 26,
+      "doc": "",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": true,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func RequireRootTenant() func(http.Handler) http.Handler"
+    },
+    {
+      "name": "Recovery",
+      "file": "internal/middleware/recovery.go",
+      "package": "middleware",
+      "line": 11,
+      "doc": "Recovery returns middleware that recovers from panics in HTTP handlers, logs the stack trace, and returns a 500 response instead of crashing the process.",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": false,
+      "short_circuits": false,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func Recovery(next http.Handler) http.Handler"
+    },
+    {
+      "name": "RequestID",
+      "file": "internal/middleware/requestid.go",
+      "package": "middleware",
+      "line": 15,
+      "doc": "RequestID generates a unique ID for each request, sets it as a response header, and stores it in the request context for downstream logging.",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": false,
+      "short_circuits": false,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func RequestID(next http.Handler) http.Handler"
+    },
+    {
+      "name": "SecurityHeaders",
+      "file": "internal/middleware/security.go",
+      "package": "middleware",
+      "line": 8,
+      "doc": "",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": false,
+      "short_circuits": false,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func SecurityHeaders(next http.Handler) http.Handler"
+    },
+    {
+      "name": "RequireTenant",
+      "file": "internal/middleware/tenant.go",
+      "package": "middleware",
+      "line": 28,
+      "doc": "",
+      "is_method": true,
+      "receiver_type": "TenantMiddleware",
+      "is_factory": false,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func (m *TenantMiddleware) RequireTenant(next http.Handler) http.Handler"
+    },
+    {
+      "name": "RequireActiveBilling",
+      "file": "internal/middleware/tenant.go",
+      "package": "middleware",
+      "line": 92,
+      "doc": "RequireActiveBilling returns middleware that blocks requests when the tenant's billing status is not active (and not waived/root). This prevents users from accessing paid features after subscription expiration or cancellation.",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": true,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func RequireActiveBilling() func(http.Handler) http.Handler"
+    },
+    {
+      "name": "RequireEntitlement",
+      "file": "internal/middleware/tenant.go",
+      "package": "middleware",
+      "line": 120,
+      "doc": "RequireEntitlement returns middleware that checks whether the tenant's plan grants a specific boolean entitlement. Requires a DB handle to look up the plan.",
+      "is_method": false,
+      "receiver_type": null,
+      "is_factory": true,
+      "short_circuits": true,
+      "runs_before": true,
+      "runs_after": true,
+      "raw_signature": "func RequireEntitlement(database *db.MongoDB, feature string) func(http.Handler) http.Handler"
+    }
+  ],
+  "chains": [
+    {
+      "router": "api",
+      "file": "cmd/server/main.go",
+      "line": 393,
+      "pattern": "use",
+      "links": [
+        "RequestID",
+        "APIVersion"
+      ],
+      "raw": "api.Use(middleware.RequestID) ; api.Use(middleware.APIVersion)",
+      "visual": "Request \u2192 RequestID \u2192 APIVersion \u2192 Response"
+    },
+    {
+      "router": "guarded",
+      "file": "cmd/server/main.go",
+      "line": 420,
+      "pattern": "use",
+      "links": [
+        "BootstrapGuard"
+      ],
+      "raw": "guarded.Use(bootstrapHandler.BootstrapGuard)",
+      "visual": "Request \u2192 BootstrapGuard \u270b \u2192 Response"
+    },
+    {
+      "router": "protectedAuth",
+      "file": "cmd/server/main.go",
+      "line": 522,
+      "pattern": "use",
+      "links": [
+        "RequireAuth"
+      ],
+      "raw": "protectedAuth.Use(authMiddleware.RequireAuth)",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 Response"
+    },
+    {
+      "router": "tenantAPI",
+      "file": "cmd/server/main.go",
+      "line": 541,
+      "pattern": "use",
+      "links": [
+        "RequireAuth",
+        "RequireTenant"
+      ],
+      "raw": "tenantAPI.Use(authMiddleware.RequireAuth) ; tenantAPI.Use(tenantMiddleware.RequireTenant)",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 RequireTenant \u270b \u2192 Response"
+    },
+    {
+      "router": "tenantSettingsRouter",
+      "file": "cmd/server/main.go",
+      "line": 549,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "tenantSettingsRouter.Use(middleware.RequireRole(models.RoleOwner))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "inviteRouter",
+      "file": "cmd/server/main.go",
+      "line": 554,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "inviteRouter.Use(middleware.RequireRole(models.RoleAdmin))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "removeRouter",
+      "file": "cmd/server/main.go",
+      "line": 563,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "removeRouter.Use(middleware.RequireRole(models.RoleAdmin))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "ownerRouter",
+      "file": "cmd/server/main.go",
+      "line": 568,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "ownerRouter.Use(middleware.RequireRole(models.RoleOwner))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "messageAPI",
+      "file": "cmd/server/main.go",
+      "line": 574,
+      "pattern": "use",
+      "links": [
+        "RequireAuth"
+      ],
+      "raw": "messageAPI.Use(authMiddleware.RequireAuth)",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 Response"
+    },
+    {
+      "router": "usageAPI",
+      "file": "cmd/server/main.go",
+      "line": 590,
+      "pattern": "use",
+      "links": [
+        "RequireAuth",
+        "RequireTenant",
+        "RequireActiveBilling"
+      ],
+      "raw": "usageAPI.Use(authMiddleware.RequireAuth) ; usageAPI.Use(tenantMiddleware.RequireTenant) ; usageAPI.Use(middleware.RequireActiveBilling())",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 RequireTenant \u270b \u2192 RequireActiveBilling \u270b \u2192 Response"
+    },
+    {
+      "router": "telemetryAPI",
+      "file": "cmd/server/main.go",
+      "line": 609,
+      "pattern": "use",
+      "links": [
+        "RequireAuth",
+        "RequireTenant"
+      ],
+      "raw": "telemetryAPI.Use(authMiddleware.RequireAuth) ; telemetryAPI.Use(tenantMiddleware.RequireTenant)",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 RequireTenant \u270b \u2192 Response"
+    },
+    {
+      "router": "billingAPI",
+      "file": "cmd/server/main.go",
+      "line": 639,
+      "pattern": "use",
+      "links": [
+        "RequireAuth",
+        "RequireTenant"
+      ],
+      "raw": "billingAPI.Use(authMiddleware.RequireAuth) ; billingAPI.Use(tenantMiddleware.RequireTenant)",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 RequireTenant \u270b \u2192 Response"
+    },
+    {
+      "router": "billingOwner",
+      "file": "cmd/server/main.go",
+      "line": 648,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "billingOwner.Use(middleware.RequireRole(models.RoleOwner))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "adminAPI",
+      "file": "cmd/server/main.go",
+      "line": 658,
+      "pattern": "use",
+      "links": [
+        "RequireAuth",
+        "RequireTenant",
+        "RequireRootTenant",
+        "RequireRole"
+      ],
+      "raw": "adminAPI.Use(authMiddleware.RequireAuth) ; adminAPI.Use(tenantMiddleware.RequireTenant) ; adminAPI.Use(middleware.RequireRootTenant()) ; adminAPI.Use(middleware.RequireRole(models.RoleUser))",
+      "visual": "Request \u2192 RequireAuth \u270b \u2192 RequireTenant \u270b \u2192 RequireRootTenant \u270b \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "adminWrite",
+      "file": "cmd/server/main.go",
+      "line": 721,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "adminWrite.Use(middleware.RequireRole(models.RoleAdmin))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "adminOwner",
+      "file": "cmd/server/main.go",
+      "line": 761,
+      "pattern": "use",
+      "links": [
+        "RequireRole"
+      ],
+      "raw": "adminOwner.Use(middleware.RequireRole(models.RoleOwner))",
+      "visual": "Request \u2192 RequireRole \u270b \u2192 Response"
+    },
+    {
+      "router": "(global)",
+      "file": "cmd/server/main.go",
+      "line": 806,
+      "pattern": "manual-wrap",
+      "links": [
+        "Recovery",
+        "BodySizeLimit",
+        "SecurityHeaders",
+        "Handler",
+        "Middleware",
+        "router"
+      ],
+      "raw": "handler := middleware.Recovery(middleware.BodySizeLimit(middleware.SecurityHeaders(c.Handler(metricsCollector.Middleware(router)))))",
+      "visual": "Request \u2192 Recovery \u2192 BodySizeLimit \u2192 SecurityHeaders \u2192 CORS \u2192 Metrics \u2192 Router (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 423,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 429,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 435,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 441,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 447,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 453,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 459,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 472,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 479,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 484,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 492,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 502,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 512,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 555,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 593,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 601,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 611,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 622,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 668,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 676,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    },
+    {
+      "router": "(ratelimit)",
+      "file": "cmd/server/main.go",
+      "line": 699,
+      "pattern": "ratelimit",
+      "links": [
+        "RateLimitHandler"
+      ],
+      "raw": "rateLimiter.RateLimitHandler(",
+      "visual": "Request \u2192 RateLimit (Handler) \u2192 Response"
+    }
+  ]
+}

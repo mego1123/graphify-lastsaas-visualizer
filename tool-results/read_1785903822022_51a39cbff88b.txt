@@ -1,0 +1,452 @@
+   370→        // Initialize daily metrics service
+   371→        metricsService := metrics.New(database)
+   372→        metricsService.Start()
+   373→        defer metricsService.Stop()
+   374→
+   375→        // Setup router
+   376→        router := mux.NewRouter()
+   377→
+   378→        // Health check — pings DB to verify actual readiness
+   379→        router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+   380→                ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+   381→                defer cancel()
+   382→                w.Header().Set("Content-Type", "application/json")
+   383→                if err := database.Client.Ping(ctx, nil); err != nil {
+   384→                        w.WriteHeader(http.StatusServiceUnavailable)
+   385→                        w.Write([]byte(`{"status":"unhealthy","error":"database unreachable"}`))
+   386→                        return
+   387→                }
+   388→                w.WriteHeader(http.StatusOK)
+   389→                w.Write([]byte(`{"status":"ok"}`))
+   390→        }).Methods("GET")
+   391→
+   392→        api := router.PathPrefix("/api").Subrouter()
+   393→        api.Use(middleware.RequestID)
+   394→        api.Use(middleware.APIVersion)
+   395→        // Note: BodySizeLimit is applied at the outermost handler layer — not here to avoid double-wrapping
+   396→
+   397→        // Version endpoint (public, no auth)
+   398→        api.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
+   399→                w.Header().Set("Content-Type", "application/json")
+   400→                w.Write([]byte(fmt.Sprintf(`{"version":%q}`, version.Current)))
+   401→        }).Methods("GET")
+   402→
+   403→        // --- Bootstrap status (always accessible, init is CLI-only) ---
+   404→        api.HandleFunc("/bootstrap/status", bootstrapHandler.Status).Methods("GET")
+   405→
+   406→        // API documentation (public, no auth)
+   407→        api.HandleFunc("/docs", handlers.DocsHTML).Methods("GET")
+   408→        api.HandleFunc("/docs/markdown", handlers.DocsMarkdown).Methods("GET")
+   409→        api.HandleFunc("/docs/openapi.json", handlers.DocsOpenAPI).Methods("GET")
+   410→
+   411→        // --- Public branding routes (no auth, no bootstrap guard) ---
+   412→        api.HandleFunc("/branding", brandingHandler.GetBranding).Methods("GET")
+   413→        api.HandleFunc("/branding/asset/{key}", brandingHandler.ServeAsset).Methods("GET")
+   414→        api.HandleFunc("/branding/media/{id}", brandingHandler.ServeMedia).Methods("GET")
+   415→        api.HandleFunc("/branding/page/{slug}", brandingHandler.GetPublicPage).Methods("GET")
+   416→        api.HandleFunc("/branding/pages", brandingHandler.ListPublicPages).Methods("GET")
+   417→
+   418→        // --- Guarded routes (require system to be initialized) ---
+   419→        guarded := api.PathPrefix("").Subrouter()
+   420→        guarded.Use(bootstrapHandler.BootstrapGuard)
+   421→
+   422→        // Public auth routes
+   423→        guarded.HandleFunc("/auth/register", rateLimiter.RateLimitHandler(
+   424→                middleware.AccountCreationLimit,
+   425→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   426→                authHandler.Register,
+   427→        )).Methods("POST")
+   428→
+   429→        guarded.HandleFunc("/auth/login", rateLimiter.RateLimitHandler(
+   430→                middleware.LoginAttemptLimit,
+   431→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   432→                authHandler.Login,
+   433→        )).Methods("POST")
+   434→
+   435→        guarded.HandleFunc("/auth/refresh", rateLimiter.RateLimitHandler(
+   436→                middleware.TokenRefreshLimit,
+   437→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   438→                authHandler.Refresh,
+   439→        )).Methods("POST")
+   440→
+   441→        guarded.HandleFunc("/auth/verify-email", rateLimiter.RateLimitHandler(
+   442→                middleware.EmailVerificationLimit,
+   443→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   444→                authHandler.VerifyEmail,
+   445→        )).Methods("POST")
+   446→
+   447→        guarded.HandleFunc("/auth/resend-verification", rateLimiter.RateLimitHandler(
+   448→                middleware.ResendVerificationLimit,
+   449→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   450→                authHandler.ResendVerification,
+   451→        )).Methods("POST")
+   452→
+   453→        guarded.HandleFunc("/auth/forgot-password", rateLimiter.RateLimitHandler(
+   454→                middleware.PasswordResetLimit,
+   455→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   456→                authHandler.ForgotPassword,
+   457→        )).Methods("POST")
+   458→
+   459→        guarded.HandleFunc("/auth/reset-password", rateLimiter.RateLimitHandler(
+   460→                middleware.ResetTokenVerifyLimit,
+   461→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   462→                authHandler.ResetPassword,
+   463→        )).Methods("POST")
+   464→
+   465→        // OAuth code exchange (public — exchanges one-time code for tokens)
+   466→        guarded.HandleFunc("/auth/exchange-code", authHandler.ExchangeCode).Methods("POST")
+   467→
+   468→        // Auth providers discovery (public)
+   469→        guarded.HandleFunc("/auth/providers", authHandler.GetProviders).Methods("GET")
+   470→
+   471→        // MFA challenge (public — uses special mfa token)
+   472→        guarded.HandleFunc("/auth/mfa/challenge", rateLimiter.RateLimitHandler(
+   473→                middleware.MFAChallengeLimit,
+   474→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   475→                authHandler.MFAChallenge,
+   476→        )).Methods("POST")
+   477→
+   478→        // Magic link (public)
+   479→        guarded.HandleFunc("/auth/magic-link", rateLimiter.RateLimitHandler(
+   480→                middleware.MagicLinkLimit,
+   481→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   482→                authHandler.MagicLinkRequest,
+   483→        )).Methods("POST")
+   484→        guarded.HandleFunc("/auth/magic-link/verify", rateLimiter.RateLimitHandler(
+   485→                middleware.MagicLinkVerifyLimit,
+   486→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   487→                authHandler.MagicLinkVerify,
+   488→        )).Methods("POST")
+   489→
+   490→        // Google OAuth routes
+   491→        if googleOAuth != nil {
+   492→                guarded.HandleFunc("/auth/google", rateLimiter.RateLimitHandler(
+   493→                        middleware.OAuthInitLimit,
+   494→                        func(r *http.Request) string { return middleware.GetClientIP(r) },
+   495→                        authHandler.GoogleOAuth,
+   496→                )).Methods("GET")
+   497→                guarded.HandleFunc("/auth/google/callback", authHandler.GoogleOAuthCallback).Methods("GET")
+   498→        }
+   499→
+   500→        // GitHub OAuth routes
+   501→        if githubOAuth != nil {
+   502→                guarded.HandleFunc("/auth/github", rateLimiter.RateLimitHandler(
+   503→                        middleware.OAuthInitLimit,
+   504→                        func(r *http.Request) string { return middleware.GetClientIP(r) },
+   505→                        authHandler.GitHubOAuth,
+   506→                )).Methods("GET")
+   507→                guarded.HandleFunc("/auth/github/callback", authHandler.GitHubOAuthCallback).Methods("GET")
+   508→        }
+   509→
+   510→        // Microsoft OAuth routes
+   511→        if microsoftOAuth != nil {
+   512→                guarded.HandleFunc("/auth/microsoft", rateLimiter.RateLimitHandler(
+   513→                        middleware.OAuthInitLimit,
+   514→                        func(r *http.Request) string { return middleware.GetClientIP(r) },
+   515→                        authHandler.MicrosoftOAuth,
+   516→                )).Methods("GET")
+   517→                guarded.HandleFunc("/auth/microsoft/callback", authHandler.MicrosoftOAuthCallback).Methods("GET")
+   518→        }
+   519→
+   520→        // Protected auth routes (require JWT)
+   521→        protectedAuth := guarded.PathPrefix("/auth").Subrouter()
+   522→        protectedAuth.Use(authMiddleware.RequireAuth)
+   523→        protectedAuth.HandleFunc("/me", authHandler.GetMe).Methods("GET")
+   524→        protectedAuth.HandleFunc("/logout", authHandler.Logout).Methods("POST")
+   525→        protectedAuth.HandleFunc("/change-password", authHandler.ChangePassword).Methods("POST")
+   526→        protectedAuth.HandleFunc("/accept-invitation", authHandler.AcceptInvitation).Methods("POST")
+   527→        protectedAuth.HandleFunc("/mfa/setup", authHandler.MFASetup).Methods("POST")
+   528→        protectedAuth.HandleFunc("/mfa/verify-setup", authHandler.MFAVerifySetup).Methods("POST")
+   529→        protectedAuth.HandleFunc("/mfa/disable", authHandler.MFADisable).Methods("POST")
+   530→        protectedAuth.HandleFunc("/mfa/regenerate-codes", authHandler.MFARegenerateRecoveryCodes).Methods("POST")
+   531→        protectedAuth.HandleFunc("/sessions", authHandler.ListSessions).Methods("GET")
+   532→        protectedAuth.HandleFunc("/sessions/{id}", authHandler.RevokeSession).Methods("DELETE")
+   533→        protectedAuth.HandleFunc("/sessions", authHandler.RevokeAllSessions).Methods("DELETE")
+   534→        protectedAuth.HandleFunc("/preferences", authHandler.UpdatePreferences).Methods("PATCH")
+   535→        protectedAuth.HandleFunc("/complete-onboarding", authHandler.CompleteOnboarding).Methods("POST")
+   536→        protectedAuth.HandleFunc("/delete-account", authHandler.DeleteAccount).Methods("POST")
+   537→        protectedAuth.HandleFunc("/export-data", authHandler.ExportData).Methods("GET")
+   538→
+   539→        // Tenant-scoped routes (require JWT + tenant context)
+   540→        tenantAPI := guarded.PathPrefix("/tenant").Subrouter()
+   541→        tenantAPI.Use(authMiddleware.RequireAuth)
+   542→        tenantAPI.Use(tenantMiddleware.RequireTenant)
+   543→
+   544→        tenantAPI.HandleFunc("/members", tenantHandler.ListMembers).Methods("GET")
+   545→        tenantAPI.HandleFunc("/activity", tenantHandler.GetActivity).Methods("GET")
+   546→
+   547→        // Tenant settings (owner only)
+   548→        tenantSettingsRouter := tenantAPI.PathPrefix("/settings").Subrouter()
+   549→        tenantSettingsRouter.Use(middleware.RequireRole(models.RoleOwner))
+   550→        tenantSettingsRouter.HandleFunc("", tenantHandler.UpdateTenantSettings).Methods("PATCH")
+   551→
+   552→        // Invite requires admin+
+   553→        inviteRouter := tenantAPI.PathPrefix("/members/invite").Subrouter()
+   554→        inviteRouter.Use(middleware.RequireRole(models.RoleAdmin))
+   555→        inviteRouter.HandleFunc("", rateLimiter.RateLimitHandler(
+   556→                middleware.InvitationLimit,
+   557→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   558→                tenantHandler.InviteMember,
+   559→        )).Methods("POST")
+   560→
+   561→        // Remove requires admin+
+   562→        removeRouter := tenantAPI.PathPrefix("/members/{userId}").Subrouter()
+   563→        removeRouter.Use(middleware.RequireRole(models.RoleAdmin))
+   564→        removeRouter.HandleFunc("", tenantHandler.RemoveMember).Methods("DELETE")
+   565→
+   566→        // Role change + ownership transfer require owner
+   567→        ownerRouter := tenantAPI.PathPrefix("/members/{userId}").Subrouter()
+   568→        ownerRouter.Use(middleware.RequireRole(models.RoleOwner))
+   569→        ownerRouter.HandleFunc("/role", tenantHandler.ChangeRole).Methods("PATCH")
+   570→        ownerRouter.HandleFunc("/transfer-ownership", tenantHandler.TransferOwnership).Methods("POST")
+   571→
+   572→        // Message routes (require JWT, user-scoped)
+   573→        messageAPI := guarded.PathPrefix("/messages").Subrouter()
+   574→        messageAPI.Use(authMiddleware.RequireAuth)
+   575→        messageAPI.HandleFunc("", messageHandler.ListMessages).Methods("GET")
+   576→        messageAPI.HandleFunc("/unread-count", messageHandler.UnreadCount).Methods("GET")
+   577→        messageAPI.HandleFunc("/{messageId}/read", messageHandler.MarkRead).Methods("PATCH")
+   578→
+   579→        // Public plans route (require JWT, not admin)
+   580→        guarded.Handle("/plans", authMiddleware.RequireAuth(http.HandlerFunc(plansHandler.ListPlansPublic))).Methods("GET")
+   581→
+   582→        // Public credit bundles route (require JWT, not admin)
+   583→        guarded.Handle("/credit-bundles", authMiddleware.RequireAuth(http.HandlerFunc(bundlesHandler.ListBundlesPublic))).Methods("GET")
+   584→
+   585→        // Public announcements route (require JWT)
+   586→        guarded.Handle("/announcements", authMiddleware.RequireAuth(http.HandlerFunc(announcementsHandler.ListPublic))).Methods("GET")
+   587→
+   588→        // Usage metering routes (require JWT + tenant + active billing)
+   589→        usageAPI := guarded.PathPrefix("/usage").Subrouter()
+   590→        usageAPI.Use(authMiddleware.RequireAuth)
+   591→        usageAPI.Use(tenantMiddleware.RequireTenant)
+   592→        usageAPI.Use(middleware.RequireActiveBilling())
+   593→        usageAPI.HandleFunc("/record", rateLimiter.RateLimitHandler(
+   594→                middleware.UsageRecordLimit,
+   595→                func(r *http.Request) string { return "usage:" + middleware.GetClientIP(r) },
+   596→                usageHandler.RecordUsage,
+   597→        )).Methods("POST")
+   598→        usageAPI.HandleFunc("/summary", usageHandler.GetSummary).Methods("GET")
+   599→
+   600→        // Anonymous telemetry route (rate-limited by IP, no auth)
+   601→        guarded.HandleFunc("/telemetry/track", rateLimiter.RateLimitHandler(
+   602→                middleware.TelemetryAnonymousLimit,
+   603→                func(r *http.Request) string { return "telemetry:" + middleware.GetClientIP(r) },
+   604→                telemetryHandler.TrackAnonymous,
+   605→        )).Methods("POST")
+   606→
+   607→        // Authenticated telemetry routes (require JWT + tenant)
+   608→        telemetryAPI := guarded.PathPrefix("/telemetry").Subrouter()
+   609→        telemetryAPI.Use(authMiddleware.RequireAuth)
+   610→        telemetryAPI.Use(tenantMiddleware.RequireTenant)
+   611→        telemetryAPI.HandleFunc("/events", rateLimiter.RateLimitHandler(
+   612→                middleware.TelemetryAuthenticatedLimit,
+   613→                func(r *http.Request) string {
+   614→                        user, _ := middleware.GetUserFromContext(r.Context())
+   615→                        if user != nil {
+   616→                                return "telemetry:" + user.ID.Hex()
+   617→                        }
+   618→                        return "telemetry:" + middleware.GetClientIP(r)
+   619→                },
+   620→                telemetryHandler.TrackAuthenticated,
+   621→        )).Methods("POST")
+   622→        telemetryAPI.HandleFunc("/events/batch", rateLimiter.RateLimitHandler(
+   623→                middleware.TelemetryAuthenticatedLimit,
+   624→                func(r *http.Request) string {
+   625→                        user, _ := middleware.GetUserFromContext(r.Context())
+   626→                        if user != nil {
+   627→                                return "telemetry:" + user.ID.Hex()
+   628→                        }
+   629→                        return "telemetry:" + middleware.GetClientIP(r)
+   630→                },
+   631→                telemetryHandler.TrackBatch,
+   632→        )).Methods("POST")
+   633→
+   634→        // Webhook route (no auth — uses Stripe signature verification)
+   635→        api.HandleFunc("/billing/webhook", webhookHandler.HandleWebhook).Methods("POST")
+   636→
+   637→        // Billing routes (require JWT + tenant)
+   638→        billingAPI := guarded.PathPrefix("/billing").Subrouter()
+   639→        billingAPI.Use(authMiddleware.RequireAuth)
+   640→        billingAPI.Use(tenantMiddleware.RequireTenant)
+   641→        billingAPI.HandleFunc("/transactions", billingHandler.ListTransactions).Methods("GET")
+   642→        billingAPI.HandleFunc("/transactions/{id}/invoice", billingHandler.GetInvoice).Methods("GET")
+   643→        billingAPI.HandleFunc("/transactions/{id}/invoice/pdf", billingHandler.GetInvoicePDF).Methods("GET")
+   644→        billingAPI.HandleFunc("/config", billingHandler.GetConfig).Methods("GET")
+   645→
+   646→        // Billing actions that modify the subscription (owner only)
+   647→        billingOwner := billingAPI.PathPrefix("").Subrouter()
+   648→        billingOwner.Use(middleware.RequireRole(models.RoleOwner))
+   649→        billingOwner.HandleFunc("/checkout", billingHandler.Checkout).Methods("POST")
+   650→        billingOwner.HandleFunc("/portal", billingHandler.Portal).Methods("POST")
+   651→        billingOwner.HandleFunc("/cancel", billingHandler.CancelSubscription).Methods("POST")
+   652→
+   653→        // Admin routes — three tiers:
+   654→        //   adminAPI   = root tenant + user role  (read-only access to all admin data)
+   655→        //   adminWrite = root tenant + admin role (read-write: manage users, tenants, config, etc.)
+   656→        //   adminOwner = root tenant + owner role (destructive/sensitive: delete users, impersonate, branding, billing)
+   657→        adminAPI := guarded.PathPrefix("/admin").Subrouter()
+   658→        adminAPI.Use(authMiddleware.RequireAuth)
+   659→        adminAPI.Use(tenantMiddleware.RequireTenant)
+   660→        adminAPI.Use(middleware.RequireRootTenant())
+   661→        adminAPI.Use(middleware.RequireRole(models.RoleUser))
+   662→
+   663→        // Read-only routes (user+ role)
+   664→        adminAPI.HandleFunc("/about", adminHandler.GetAbout).Methods("GET")
+   665→        adminAPI.HandleFunc("/dashboard", adminHandler.GetDashboard).Methods("GET")
+   666→        adminAPI.HandleFunc("/logs", logHandler.ListLogs).Methods("GET")
+   667→        adminAPI.HandleFunc("/logs/severity-counts", logHandler.SeverityCounts).Methods("GET")
+   668→        adminAPI.HandleFunc("/logs/export", rateLimiter.RateLimitHandler(
+   669→                middleware.CSVExportLimit,
+   670→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   671→                logHandler.ExportCSV,
+   672→        )).Methods("GET")
+   673→        adminAPI.HandleFunc("/config", configHandler.ListConfig).Methods("GET")
+   674→        adminAPI.HandleFunc("/config/{name}", configHandler.GetConfig).Methods("GET")
+   675→        adminAPI.HandleFunc("/tenants", adminHandler.ListTenants).Methods("GET")
+   676→        adminAPI.HandleFunc("/tenants/export", rateLimiter.RateLimitHandler(
+   677→                middleware.CSVExportLimit,
+   678→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   679→                adminHandler.ExportTenantsCSV,
+   680→        )).Methods("GET")
+   681→        adminAPI.HandleFunc("/tenants/{tenantId}", adminHandler.GetTenant).Methods("GET")
+   682→        adminAPI.HandleFunc("/plans", plansHandler.ListPlans).Methods("GET")
+   683→        adminAPI.HandleFunc("/plans/{planId}", plansHandler.GetPlan).Methods("GET")
+   684→        adminAPI.HandleFunc("/entitlement-keys", plansHandler.ListEntitlementKeys).Methods("GET")
+   685→        adminAPI.HandleFunc("/credit-bundles", bundlesHandler.ListBundles).Methods("GET")
+   686→        adminAPI.HandleFunc("/health/nodes", healthHandler.ListNodes).Methods("GET")
+   687→        adminAPI.HandleFunc("/health/metrics", healthHandler.GetMetrics).Methods("GET")
+   688→        adminAPI.HandleFunc("/health/current", healthHandler.GetCurrent).Methods("GET")
+   689→        adminAPI.HandleFunc("/health/integrations", healthHandler.GetIntegrations).Methods("GET")
+   690→        adminAPI.HandleFunc("/health/test-email", healthHandler.SendTestEmail).Methods("POST")
+   691→        adminAPI.HandleFunc("/promotions", promotionsHandler.ListPromotions).Methods("GET")
+   692→        adminAPI.HandleFunc("/promotions/eligible-products", promotionsHandler.ListEligibleProducts).Methods("GET")
+   693→        adminAPI.HandleFunc("/announcements", announcementsHandler.ListAll).Methods("GET")
+   694→        adminAPI.HandleFunc("/financial/transactions", billingHandler.AdminListTransactions).Methods("GET")
+   695→        adminAPI.HandleFunc("/financial/metrics", billingHandler.AdminGetMetrics).Methods("GET")
+   696→        adminAPI.HandleFunc("/api-keys", apiKeysHandler.ListAPIKeys).Methods("GET")
+   697→        adminAPI.HandleFunc("/members", adminHandler.ListRootMembers).Methods("GET")
+   698→        adminAPI.HandleFunc("/users", adminHandler.ListUsers).Methods("GET")
+   699→        adminAPI.HandleFunc("/users/export", rateLimiter.RateLimitHandler(
+   700→                middleware.CSVExportLimit,
+   701→                func(r *http.Request) string { return middleware.GetClientIP(r) },
+   702→                adminHandler.ExportUsersCSV,
+   703→        )).Methods("GET")
+   704→        adminAPI.HandleFunc("/users/{userId}", adminHandler.GetUser).Methods("GET")
+   705→        adminAPI.HandleFunc("/webhooks", webhooksHandler.ListWebhooks).Methods("GET")
+   706→        adminAPI.HandleFunc("/webhooks/event-types", webhooksHandler.ListEventTypes).Methods("GET")
+   707→        adminAPI.HandleFunc("/webhooks/{webhookId}", webhooksHandler.GetWebhook).Methods("GET")
+   708→        adminAPI.HandleFunc("/branding/media", brandingHandler.ListMedia).Methods("GET")
+   709→        adminAPI.HandleFunc("/branding/pages", brandingHandler.AdminListPages).Methods("GET")
+   710→        adminAPI.HandleFunc("/pm/funnel", pmHandler.GetFunnel).Methods("GET")
+   711→        adminAPI.HandleFunc("/pm/retention", pmHandler.GetRetention).Methods("GET")
+   712→        adminAPI.HandleFunc("/pm/engagement", pmHandler.GetEngagement).Methods("GET")
+   713→        adminAPI.HandleFunc("/pm/kpis", pmHandler.GetKPIs).Methods("GET")
+   714→        adminAPI.HandleFunc("/pm/events", pmHandler.GetCustomEvents).Methods("GET")
+   715→        adminAPI.HandleFunc("/pm/events/types", pmHandler.ListEventTypes).Methods("GET")
+   716→        adminAPI.HandleFunc("/pm/event-definitions", eventDefsHandler.ListEventDefinitions).Methods("GET")
+   717→        adminAPI.HandleFunc("/pm/event-definitions/sankey", eventDefsHandler.GetSankeyData).Methods("GET")
+   718→
+   719→        // Admin-level write routes (admin+ role)
+   720→        adminWrite := adminAPI.PathPrefix("").Subrouter()
+   721→        adminWrite.Use(middleware.RequireRole(models.RoleAdmin))
+   722→        adminWrite.HandleFunc("/config", configHandler.CreateConfig).Methods("POST")
+   723→        adminWrite.HandleFunc("/config/{name}", configHandler.UpdateConfig).Methods("PUT")
+   724→        adminWrite.HandleFunc("/config/{name}", configHandler.DeleteConfig).Methods("DELETE")
+   725→        adminWrite.HandleFunc("/users/{userId}", adminHandler.UpdateUser).Methods("PUT")
+   726→        adminWrite.HandleFunc("/users/{userId}/status", adminHandler.UpdateUserStatus).Methods("PATCH")
+   727→        adminWrite.HandleFunc("/users/{userId}/role/{tenantId}", adminHandler.UpdateUserRole).Methods("PATCH")
+   728→        adminWrite.HandleFunc("/tenants/{tenantId}", adminHandler.UpdateTenant).Methods("PUT")
+   729→        adminWrite.HandleFunc("/tenants/{tenantId}/status", adminHandler.UpdateTenantStatus).Methods("PATCH")
+   730→        adminWrite.HandleFunc("/plans", plansHandler.CreatePlan).Methods("POST")
+   731→        adminWrite.HandleFunc("/plans/{planId}", plansHandler.UpdatePlan).Methods("PUT")
+   732→        adminWrite.HandleFunc("/plans/{planId}", plansHandler.DeletePlan).Methods("DELETE")
+   733→        adminWrite.HandleFunc("/plans/{planId}/archive", plansHandler.ArchivePlan).Methods("POST")
+   734→        adminWrite.HandleFunc("/plans/{planId}/unarchive", plansHandler.UnarchivePlan).Methods("POST")
+   735→        adminWrite.HandleFunc("/tenants/{tenantId}/plan", plansHandler.AssignPlan).Methods("PATCH")
+   736→        adminWrite.HandleFunc("/credit-bundles", bundlesHandler.CreateBundle).Methods("POST")
+   737→        adminWrite.HandleFunc("/credit-bundles/{bundleId}", bundlesHandler.UpdateBundle).Methods("PUT")
+   738→        adminWrite.HandleFunc("/credit-bundles/{bundleId}", bundlesHandler.DeleteBundle).Methods("DELETE")
+   739→        adminWrite.HandleFunc("/promotions", promotionsHandler.CreatePromotion).Methods("POST")
+   740→        adminWrite.HandleFunc("/promotions/update", promotionsHandler.UpdatePromotion).Methods("POST")
+   741→        adminWrite.HandleFunc("/promotions/deactivate", promotionsHandler.DeactivatePromotion).Methods("POST")
+   742→        adminWrite.HandleFunc("/announcements", announcementsHandler.Create).Methods("POST")
+   743→        adminWrite.HandleFunc("/announcements/{id}", announcementsHandler.Update).Methods("PUT")
+   744→        adminWrite.HandleFunc("/announcements/{id}", announcementsHandler.Delete).Methods("DELETE")
+   745→        adminWrite.HandleFunc("/api-keys", apiKeysHandler.CreateAPIKey).Methods("POST")
+   746→        adminWrite.HandleFunc("/api-keys/{keyId}", apiKeysHandler.DeleteAPIKey).Methods("DELETE")
+   747→        adminWrite.HandleFunc("/members/invite", adminHandler.InviteRootMember).Methods("POST")
+   748→        adminWrite.HandleFunc("/members/invitations/{invitationId}", adminHandler.CancelRootInvitation).Methods("DELETE")
+   749→        adminWrite.HandleFunc("/members/{userId}", adminHandler.RemoveRootMember).Methods("DELETE")
+   750→        adminWrite.HandleFunc("/webhooks", webhooksHandler.CreateWebhook).Methods("POST")
+   751→        adminWrite.HandleFunc("/webhooks/{webhookId}", webhooksHandler.UpdateWebhook).Methods("PUT")
+   752→        adminWrite.HandleFunc("/webhooks/{webhookId}", webhooksHandler.DeleteWebhook).Methods("DELETE")
+   753→        adminWrite.HandleFunc("/webhooks/{webhookId}/test", webhooksHandler.TestWebhook).Methods("POST")
+   754→        adminWrite.HandleFunc("/webhooks/{webhookId}/regenerate-secret", webhooksHandler.RegenerateSecret).Methods("POST")
+   755→        adminWrite.HandleFunc("/pm/event-definitions", eventDefsHandler.CreateEventDefinition).Methods("POST")
+   756→        adminWrite.HandleFunc("/pm/event-definitions/{defId}", eventDefsHandler.UpdateEventDefinition).Methods("PUT")
+   757→        adminWrite.HandleFunc("/pm/event-definitions/{defId}", eventDefsHandler.DeleteEventDefinition).Methods("DELETE")
+   758→
+   759→        // Owner-only admin actions (impersonate, delete users, branding, billing management)
+   760→        adminOwner := adminAPI.PathPrefix("").Subrouter()
+   761→        adminOwner.Use(middleware.RequireRole(models.RoleOwner))
+   762→        adminOwner.HandleFunc("/members/{userId}/role", adminHandler.ChangeRootMemberRole).Methods("PATCH")
+   763→        adminOwner.HandleFunc("/users/{userId}/preflight-delete", adminHandler.PreflightDeleteUser).Methods("GET")
+   764→        adminOwner.HandleFunc("/users/{userId}/impersonate", adminHandler.ImpersonateUser).Methods("POST")
+   765→        adminOwner.HandleFunc("/users/{userId}", adminHandler.DeleteUser).Methods("DELETE")
+   766→        adminOwner.HandleFunc("/tenants/{tenantId}/cancel-subscription", billingHandler.AdminCancelSubscription).Methods("POST")
+   767→        adminOwner.HandleFunc("/tenants/{tenantId}/subscription", billingHandler.AdminUpdateSubscription).Methods("PATCH")
+   768→        adminOwner.HandleFunc("/branding", brandingHandler.UpdateBranding).Methods("PUT")
+   769→        adminOwner.HandleFunc("/branding/asset", brandingHandler.UploadAsset).Methods("POST")
+   770→        adminOwner.HandleFunc("/branding/asset/{key}", brandingHandler.DeleteAsset).Methods("DELETE")
+   771→        adminOwner.HandleFunc("/branding/media", brandingHandler.UploadMedia).Methods("POST")
+   772→        adminOwner.HandleFunc("/branding/media/{id}", brandingHandler.DeleteMedia).Methods("DELETE")
+   773→        adminOwner.HandleFunc("/branding/pages", brandingHandler.CreatePage).Methods("POST")
+   774→        adminOwner.HandleFunc("/branding/pages/{id}", brandingHandler.UpdatePage).Methods("PUT")
+   775→        adminOwner.HandleFunc("/branding/pages/{id}", brandingHandler.DeletePage).Methods("DELETE")
+   776→
+   777→        // Serve frontend static files in production
+   778→        if cfg.Frontend.StaticDir != "" {
+   779→                slog.Info("Serving frontend", "staticDir", cfg.Frontend.StaticDir)
+   780→                spa := spaHandler{
+   781→                        staticPath: cfg.Frontend.StaticDir,
+   782→                        indexPath:  "index.html",
+   783→                        getAppName: func() string {
+   784→                                // Check branding config in DB first, fall back to configstore app.name.
+   785→                                var bc models.BrandingConfig
+   786→                                if err := database.BrandingConfig().FindOne(context.Background(), bson.M{}).Decode(&bc); err == nil && bc.AppName != "" {
+   787→                                        return bc.AppName
+   788→                                }
+   789→                                return cfgStore.Get("app.name")
+   790→                        },
+   791→                }
+   792→                router.PathPrefix("/").Handler(spa)
+   793→        }
+   794→
+   795→        // CORS
+   796→        c := cors.New(cors.Options{
+   797→                AllowedOrigins:   []string{cfg.Frontend.URL},
+   798→                AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+   799→                AllowedHeaders:   []string{"Authorization", "Content-Type", "X-Tenant-ID"},
+   800→                ExposedHeaders:   []string{"X-Request-ID", "X-API-Version"},
+   801→                AllowCredentials: true,
+   802→                MaxAge:           86400,
+   803→        })
+   804→
+   805→        // Wrap with recovery + body size limit + security headers + CORS + metrics
+   806→        handler := middleware.Recovery(middleware.BodySizeLimit(middleware.SecurityHeaders(c.Handler(metricsCollector.Middleware(router)))))
+   807→
+   808→        // Start server
+   809→        addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+   810→        srv := &http.Server{
+   811→                Addr:              addr,
+   812→                Handler:           handler,
+   813→                ReadHeaderTimeout: 5 * time.Second,
+   814→                ReadTimeout:       15 * time.Second,
+   815→                WriteTimeout:      15 * time.Second,
+   816→                IdleTimeout:       60 * time.Second,
+   817→        }
+   818→
+   819→        // Graceful shutdown
+
+[showing lines 370-819 of 845; use offset=820 with limit to continue reading]

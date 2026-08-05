@@ -1,0 +1,506 @@
+{
+  "target": "/home/z/my-project/repos/lastsaas/backend",
+  "total_goroutines": 21,
+  "summary": {
+    "SAFE": 18,
+    "RISKY": 2,
+    "DANGEROUS": 1
+  },
+  "findings": [
+    {
+      "file": "cmd/server/main.go",
+      "line": 820,
+      "column": 2,
+      "enclosing_function": "main",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tslog.Info(\"Server listening\", \"addr\", addr) \t\tif err := srv.Listen",
+      "purpose": "HTTP server ListenAndServe (shutdown via http.Server.Shutdown)",
+      "has_context": false,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "DANGEROUS",
+      "signals": [],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tslog.Info(\"Server listening\", \"addr\", addr)\n\t\tif err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {\n\t\t\tslog.Error(\"Server failed\", \"error\", err)\n\t\t\tos.Exit(1)\n\t\t}"
+    },
+    {
+      "file": "internal/webhooks/dispatcher.go",
+      "line": 100,
+      "column": 4,
+      "enclosing_function": "retryWorker",
+      "launch_kind": "func_literal",
+      "launch_text": "go func(j retryJob) { \t\t\t\tdefer func() { <-sem }() \t\t\t\tdefer func() { \t\t\t\t\tif r",
+      "purpose": "Webhook dispatch / delivery",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": false,
+      "has_recover": true,
+      "risk_level": "RISKY",
+      "signals": [
+        "context",
+        "recover"
+      ],
+      "notes": [
+        "uses context.Context but no ctx.Done() receive or WithTimeout \u2014 context may not actually cancel the goroutine"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\t\t\tdefer func() { <-sem }()\n\t\t\t\tdefer func() {\n\t\t\t\t\tif r := recover(); r != nil {\n\t\t\t\t\t\tslog.Error(\"webhooks: dispatch panic\", \"panic\", r, \"webhook\", j.hook.Name)\n\t\t\t\t\t}\n\t\t\t\t}()\n\t\t\t\td.deliverWithRetry(context.Background(), j.hook, j.eventType, j.event, j.retry)"
+    },
+    {
+      "file": "internal/webhooks/dispatcher.go",
+      "line": 123,
+      "column": 3,
+      "enclosing_function": "Emit",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\t\tdefer func() { <-d.emitSem }() \t\t\tdefer func() { \t\t\t\tif r := reco",
+      "purpose": "Webhook dispatch / delivery",
+      "has_context": false,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": false,
+      "has_recover": true,
+      "risk_level": "RISKY",
+      "signals": [
+        "recover"
+      ],
+      "notes": [],
+      "is_test_file": false,
+      "body_preview": "\t\t\tdefer func() { <-d.emitSem }()\n\t\t\tdefer func() {\n\t\t\t\tif r := recover(); r != nil {\n\t\t\t\t\tslog.Error(\"webhooks: emit panic\", \"panic\", r, \"event_type\", eventType)\n\t\t\t\t}\n\t\t\t}()\n\t\t\td.dispatch(eventType, event)"
+    },
+    {
+      "file": "internal/api/handlers/admin.go",
+      "line": 1753,
+      "column": 2,
+      "enclosing_function": "InviteRootMember",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.S",
+      "purpose": "Send invitation email in the background",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)\n\t\tdefer cancel()\n\t\t_ = ctx\n\t\tif h.emailService != nil {\n\t\t\tif err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, rootTenant.Name, token); err != nil {\n\t\t\t\tslog.Error(\"Failed to send root member invitation email\", \"to\", req.Email, \"error\", err)\n\t\t\t}\n\t\t}"
+    },
+    {
+      "file": "internal/api/handlers/auth.go",
+      "line": 698,
+      "column": 2,
+      "enclosing_function": "ForgotPassword",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.S",
+      "purpose": "Send password-reset email in the background",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)\n\t\tdefer cancel()\n\t\t_ = ctx\n\t\tif h.emailService != nil {\n\t\t\tif err := h.emailService.SendPasswordResetEmail(user.Email, user.DisplayName, resetToken); err != nil {\n\t\t\t\tslog.Error(\"Failed to send password reset email\", \"error\", err)\n\t\t\t}\n\t\t}"
+    },
+    {
+      "file": "internal/api/handlers/auth.go",
+      "line": 1188,
+      "column": 2,
+      "enclosing_function": "MagicLinkRequest",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.S",
+      "purpose": "Send magic-link email in the background",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)\n\t\tdefer cancel()\n\t\t_ = ctx\n\t\tif h.emailService != nil {\n\t\t\tif err := h.emailService.SendMagicLinkEmail(user.Email, user.DisplayName, magicToken); err != nil {\n\t\t\t\tslog.Error(\"Failed to send magic link email\", \"error\", err)\n\t\t\t}\n\t\t}"
+    },
+    {
+      "file": "internal/api/handlers/auth.go",
+      "line": 2009,
+      "column": 2,
+      "enclosing_function": "sendVerificationEmail",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.S",
+      "purpose": "Send verification email in the background",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)\n\t\tdefer cancel()\n\t\t_ = ctx\n\t\tif h.emailService != nil {\n\t\t\tif err := h.emailService.SendVerificationEmail(userEmail, displayName, verificationToken); err != nil {\n\t\t\t\tslog.Error(\"Failed to send verification email\", \"to\", userEmail, \"error\", err)\n\t\t\t}\n\t\t} else {\n\t\t\tslog.Warn(\"Email service not configured, logging verification token\", \"email\", userEmail, \"token\", verificationToken)\n\t\t}"
+    },
+    {
+      "file": "internal/api/handlers/tenant.go",
+      "line": 262,
+      "column": 2,
+      "enclosing_function": "InviteMember",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.S",
+      "purpose": "Send invitation email in the background",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)\n\t\tdefer cancel()\n\t\t_ = ctx\n\t\tif h.emailService != nil {\n\t\t\tif err := h.emailService.SendInvitationEmail(req.Email, user.DisplayName, tenant.Name, token); err != nil {\n\t\t\t\tslog.Error(\"Failed to send invitation email\", \"to\", req.Email, \"error\", err)\n\t\t\t}\n\t\t}"
+    },
+    {
+      "file": "internal/configstore/store.go",
+      "line": 120,
+      "column": 2,
+      "enclosing_function": "StartAutoReload",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tticker := time.NewTicker(interval) \t\tdefer ticker.Stop() \t\tfor {",
+      "purpose": "Background config auto-reload",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel",
+        "waitgroup"
+      ],
+      "notes": [
+        "wg.Done() in body but no nearby wg.Add() \u2014 check caller adds to WaitGroup",
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tticker := time.NewTicker(interval)\n\t\tdefer ticker.Stop()\n\t\tfor {\n\t\t\tselect {\n\t\t\tcase <-ctx.Done():\n\t\t\t\treturn\n\t\t\tcase <-ticker.C:\n\t\t\t\tif err := s.Load(ctx); err != nil {\n\t\t\t\t\tslog.Warn(\"configstore: auto-reload failed\", \"error\", err)\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    },
+    {
+      "file": "internal/datadog/client.go",
+      "line": 119,
+      "column": 2,
+      "enclosing_function": "New",
+      "launch_kind": "func_call",
+      "launch_text": "go c.metricsFlushLoop() \tgo c.eventsFlushLoop() \tgo c.logsFlushLoop() \tgo c.chec",
+      "purpose": "DataDog metrics flush loop",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel",
+        "waitgroup"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\tdefer c.wg.Done()\n\tbackoff := flushInterval\n\ttimer := time.NewTimer(backoff)\n\ttimer.Stop()\n\tbuf := make([]metricPoint, 0, metricsBufferSize)\n\tflush := func() bool {\n\t\tif len(buf) == 0 {\n\t\t\treturn true\n\t\t}\n\t\tif err := c.submitMetrics(buf); err != nil {\n\t\t\tslog.Warn(\"datadog: metrics flush failed, will retry\", \"count\", len(buf), \"error\", err)\n\t\t\treturn false"
+    },
+    {
+      "file": "internal/datadog/client.go",
+      "line": 120,
+      "column": 2,
+      "enclosing_function": "New",
+      "launch_kind": "func_call",
+      "launch_text": "go c.eventsFlushLoop() \tgo c.logsFlushLoop() \tgo c.checksFlushLoop() \treturn c }",
+      "purpose": "DataDog events flush loop",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel",
+        "waitgroup"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\tdefer c.wg.Done()\n\tfor {\n\t\tselect {\n\t\tcase evt := <-c.eventsCh:\n\t\t\tif err := c.submitEvent(evt); err != nil {\n\t\t\t\tslog.Warn(\"datadog: event submission failed\", \"title\", evt.Title, \"error\", err)\n\t\t\t}\n\t\tcase <-c.stopCh:\n\t\t\tfor {\n\t\t\t\tselect {\n\t\t\t\tcase evt := <-c.eventsCh:\n\t\t\t\t\tif err := c.submitEvent(evt); err != nil {"
+    },
+    {
+      "file": "internal/datadog/client.go",
+      "line": 121,
+      "column": 2,
+      "enclosing_function": "New",
+      "launch_kind": "func_call",
+      "launch_text": "go c.logsFlushLoop() \tgo c.checksFlushLoop() \treturn c }    func resolveHostname",
+      "purpose": "DataDog logs flush loop",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel",
+        "waitgroup"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\tdefer c.wg.Done()\n\tbackoff := logsFlushInterval\n\ttimer := time.NewTimer(backoff)\n\ttimer.Stop()\n\tbuf := make([]ddLog, 0, logsBufferSize)\n\tflush := func() bool {\n\t\tif len(buf) == 0 {\n\t\t\treturn true\n\t\t}\n\t\tif err := c.submitLogs(buf); err != nil {\n\t\t\tslog.Warn(\"datadog: logs flush failed, will retry\", \"count\", len(buf), \"error\", err)\n\t\t\treturn false"
+    },
+    {
+      "file": "internal/datadog/client.go",
+      "line": 122,
+      "column": 2,
+      "enclosing_function": "New",
+      "launch_kind": "func_call",
+      "launch_text": "go c.checksFlushLoop() \treturn c }    func resolveHostname(configHostname string",
+      "purpose": "DataDog service-check flush loop",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel",
+        "waitgroup"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\tdefer c.wg.Done()\n\tfor {\n\t\tselect {\n\t\tcase check := <-c.checksCh:\n\t\t\tif err := c.submitServiceCheck(check); err != nil {\n\t\t\t\tslog.Warn(\"datadog: service check submission failed\", \"check\", check.Check, \"error\", err)\n\t\t\t}\n\t\tcase <-c.stopCh:\n\t\t\tfor {\n\t\t\t\tselect {\n\t\t\t\tcase check := <-c.checksCh:\n\t\t\t\t\tif err := c.submitServiceCheck(check); err != nil {"
+    },
+    {
+      "file": "internal/health/health.go",
+      "line": 65,
+      "column": 2,
+      "enclosing_function": "Start",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tdefer s.wg.Done() \t\ts.heartbeatLoop() \t}() \tgo func() { \t\tdefer s.",
+      "purpose": "Health heartbeat loop",
+      "has_context": false,
+      "has_done_channel": false,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "waitgroup"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tdefer s.wg.Done()\n\t\ts.heartbeatLoop()"
+    },
+    {
+      "file": "internal/health/health.go",
+      "line": 69,
+      "column": 2,
+      "enclosing_function": "Start",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tdefer s.wg.Done() \t\ts.collectorLoop() \t}() \tgo func() { \t\tdefer s.",
+      "purpose": "Metrics collector loop",
+      "has_context": false,
+      "has_done_channel": false,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "waitgroup"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tdefer s.wg.Done()\n\t\ts.collectorLoop()"
+    },
+    {
+      "file": "internal/health/health.go",
+      "line": 73,
+      "column": 2,
+      "enclosing_function": "Start",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tdefer s.wg.Done() \t\ts.integrationCheckLoop() \t}() \tslog.Info(\"Heal",
+      "purpose": "Integration-check loop",
+      "has_context": false,
+      "has_done_channel": false,
+      "has_waitgroup": true,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "waitgroup"
+      ],
+      "notes": [
+        "wg.Done() in body but no nearby wg.Add() \u2014 check caller adds to WaitGroup",
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tdefer s.wg.Done()\n\t\ts.integrationCheckLoop()"
+    },
+    {
+      "file": "internal/metrics/metrics.go",
+      "line": 43,
+      "column": 2,
+      "enclosing_function": "Start",
+      "launch_kind": "func_call",
+      "launch_text": "go s.run() \tslog.Info(\"Daily metrics service started\", \"holder\", s.holderID) }",
+      "purpose": "Periodic ticker-driven background task",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": false,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\tif s.tryAcquireOrRenew() {\n\t\ts.collectDaily()\n\t}\n\trenewTicker := time.NewTicker(renewalTick)\n\tcollectTicker := time.NewTicker(collectTick)\n\tdefer renewTicker.Stop()\n\tdefer collectTicker.Stop()\n\tfor {\n\t\tselect {\n\t\tcase <-renewTicker.C:\n\t\t\ts.tryAcquireOrRenew()\n\t\tcase <-collectTicker.C:"
+    },
+    {
+      "file": "internal/middleware/auth.go",
+      "line": 151,
+      "column": 2,
+      "enclosing_function": "authenticateAPIKey",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tctx, cancel := context.WithTimeout(context.Background(), 5*time.Se",
+      "purpose": "Asynchronous DB update",
+      "has_context": true,
+      "has_done_channel": false,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)\n\t\tdefer cancel()\n\t\tnow := time.Now()\n\t\t_, _ = m.db.APIKeys().UpdateByID(ctx, apiKey.ID,\n\t\t\tbson.M{\"$set\": bson.M{\"lastUsedAt\": now}})"
+    },
+    {
+      "file": "internal/middleware/ratelimit.go",
+      "line": 77,
+      "column": 2,
+      "enclosing_function": "NewRateLimiter",
+      "launch_kind": "func_literal",
+      "launch_text": "go func() { \t\tfor { \t\t\tselect { \t\t\tcase <-rl.cleanup.C: \t\t\t\trl.cleanupExpired()",
+      "purpose": "Periodic cleanup of expired entries",
+      "has_context": false,
+      "has_done_channel": true,
+      "has_waitgroup": false,
+      "has_timeout": false,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "done-channel"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\t\tfor {\n\t\t\tselect {\n\t\t\tcase <-rl.cleanup.C:\n\t\t\t\trl.cleanupExpired()\n\t\t\tcase <-rl.done:\n\t\t\t\treturn\n\t\t\t}\n\t\t}"
+    },
+    {
+      "file": "internal/telemetry/service.go",
+      "line": 58,
+      "column": 2,
+      "enclosing_function": "New",
+      "launch_kind": "func_call",
+      "launch_text": "go s.flushLoop() \treturn s }   func (s *Service) Stop() { \tclose(s.stopCh) \t<-s.",
+      "purpose": "Telemetry flush loop",
+      "has_context": true,
+      "has_done_channel": true,
+      "has_waitgroup": false,
+      "has_timeout": true,
+      "has_recover": false,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "done-channel",
+        "timeout"
+      ],
+      "notes": [
+        "no defer recover() \u2014 a panic will crash the process"
+      ],
+      "is_test_file": false,
+      "body_preview": "\tdefer close(s.stopped)\n\tbackoff := trackFlushInterval\n\ttimer := time.NewTimer(backoff)\n\ttimer.Stop()\n\tbuf := make([]interface{}, 0, trackBufferSize)\n\tflush := func() bool {\n\t\tif len(buf) == 0 {\n\t\t\treturn true\n\t\t}\n\t\tctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)\n\t\t_, err := s.db.TelemetryEvents().InsertMany(ctx, buf)\n\t\tcancel()"
+    },
+    {
+      "file": "internal/webhooks/dispatcher.go",
+      "line": 59,
+      "column": 2,
+      "enclosing_function": "NewDispatcher",
+      "launch_kind": "func_call",
+      "launch_text": "go d.retryWorker() \treturn d }   func (d *Dispatcher) EncryptionKey() []byte {",
+      "purpose": "Webhook retry worker loop",
+      "has_context": true,
+      "has_done_channel": true,
+      "has_waitgroup": false,
+      "has_timeout": false,
+      "has_recover": true,
+      "risk_level": "SAFE",
+      "signals": [
+        "context",
+        "done-channel",
+        "recover"
+      ],
+      "notes": [],
+      "is_test_file": false,
+      "body_preview": "\tdefer close(d.stopped)\n\tsem := make(chan struct{}, maxRetryWorkers)\n\tfor {\n\t\tselect {\n\t\tcase <-d.stopCh:\n\t\t\treturn\n\t\tcase job := <-d.retryQ:\n\t\t\tdelay := time.Until(job.fireAt)\n\t\t\tif delay > 0 {\n\t\t\t\ttimer := time.NewTimer(delay)\n\t\t\t\tselect {\n\t\t\t\tcase <-timer.C:"
+    }
+  ]
+}

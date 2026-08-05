@@ -1,0 +1,3144 @@
+{
+  "repository": "/home/z/my-project/repos/lastsaas/backend",
+  "summary": {
+    "interfaces": 1,
+    "structs": 144,
+    "total_interface_methods": 1,
+    "dead_interfaces": [],
+    "single_implementor_interfaces": []
+  },
+  "interfaces": [
+    {
+      "name": "Emitter",
+      "file": "internal/events/emitter.go",
+      "package": "events",
+      "methods": [
+        {
+          "name": "Emit",
+          "signature": "Emit(event Event)"
+        }
+      ],
+      "embedded": [],
+      "doc": "",
+      "implementors": [],
+      "pointer_only_implementors": [
+        "Dispatcher",
+        "NoopEmitter"
+      ],
+      "implementor_count": 2
+    }
+  ],
+  "structs": [
+    {
+      "name": "AdminHandler",
+      "file": "internal/api/handlers/admin.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 24,
+      "value_method_count": 0,
+      "pointer_method_count": 24,
+      "methods": [
+        {
+          "name": "SetHealthService",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) SetHealthService(svc *health.Service, getConfig func(string) string) {"
+        },
+        {
+          "name": "SetJWTService",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) SetJWTService(svc *auth.JWTService) {"
+        },
+        {
+          "name": "SetEmailService",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) SetEmailService(svc *email.ResendService) {"
+        },
+        {
+          "name": "ListTenants",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ListTenants(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ExportTenantsCSV",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ExportTenantsCSV(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetTenant",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) GetTenant(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateTenantStatus",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) UpdateTenantStatus(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListUsers",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ExportUsersCSV",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ExportUsersCSV(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateUserStatus",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) UpdateUserStatus(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetAbout",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) GetAbout(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetDashboard",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetUser",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateUser",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateUserRole",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "PreflightDeleteUser",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) PreflightDeleteUser(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteUser",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateTenant",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) UpdateTenant(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ImpersonateUser",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ImpersonateUser(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListRootMembers",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ListRootMembers(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "InviteRootMember",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) InviteRootMember(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "RemoveRootMember",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) RemoveRootMember(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ChangeRootMemberRole",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) ChangeRootMemberRole(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CancelRootInvitation",
+          "pointer_receiver": true,
+          "signature": "func (h *AdminHandler) CancelRootInvitation(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "TenantListItem",
+      "file": "internal/api/handlers/admin.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "UserListItem",
+      "file": "internal/api/handlers/admin.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "UserDetail",
+      "file": "internal/api/handlers/admin.go",
+      "package": "handlers",
+      "doc": "--- User Profile Handlers ---",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "UserMembershipDetail",
+      "file": "internal/api/handlers/admin.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AnnouncementsHandler",
+      "file": "internal/api/handlers/announcements.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 5,
+      "value_method_count": 0,
+      "pointer_method_count": 5,
+      "methods": [
+        {
+          "name": "ListPublic",
+          "pointer_receiver": true,
+          "signature": "func (h *AnnouncementsHandler) ListPublic(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListAll",
+          "pointer_receiver": true,
+          "signature": "func (h *AnnouncementsHandler) ListAll(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Create",
+          "pointer_receiver": true,
+          "signature": "func (h *AnnouncementsHandler) Create(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Update",
+          "pointer_receiver": true,
+          "signature": "func (h *AnnouncementsHandler) Update(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Delete",
+          "pointer_receiver": true,
+          "signature": "func (h *AnnouncementsHandler) Delete(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "APIKeysHandler",
+      "file": "internal/api/handlers/apikeys.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "ListAPIKeys",
+          "pointer_receiver": true,
+          "signature": "func (h *APIKeysHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreateAPIKey",
+          "pointer_receiver": true,
+          "signature": "func (h *APIKeysHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteAPIKey",
+          "pointer_receiver": true,
+          "signature": "func (h *APIKeysHandler) DeleteAPIKey(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "AuthHandler",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 39,
+      "value_method_count": 0,
+      "pointer_method_count": 39,
+      "methods": [
+        {
+          "name": "SetGitHubOAuth",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) SetGitHubOAuth(svc *auth.GitHubOAuthService)       { h.githubOAuth = svc }"
+        },
+        {
+          "name": "SetMicrosoftOAuth",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) SetMicrosoftOAuth(svc *auth.MicrosoftOAuthService) { h.microsoftOAuth = svc }"
+        },
+        {
+          "name": "SetGetConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) SetGetConfig(fn func(string) string)               { h.getConfig = fn }"
+        },
+        {
+          "name": "SetRateLimiter",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) SetRateLimiter(rl *middleware.RateLimiter)          { h.rateLimiter = rl }"
+        },
+        {
+          "name": "SetTelemetry",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) SetTelemetry(svc *telemetry.Service)               { h.telemetrySvc = svc }"
+        },
+        {
+          "name": "SetTOTPEncryptionKey",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) SetTOTPEncryptionKey(key []byte) {"
+        },
+        {
+          "name": "GetProviders",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) GetProviders(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Register",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Login",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Logout",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Refresh",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetMe",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "VerifyEmail",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ResendVerification",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ForgotPassword",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ResetPassword",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ChangePassword",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MFASetup",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MFASetup(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MFAVerifySetup",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MFAVerifySetup(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MFADisable",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MFADisable(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MFAChallenge",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MFAChallenge(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MFARegenerateRecoveryCodes",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MFARegenerateRecoveryCodes(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MagicLinkRequest",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MagicLinkRequest(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MagicLinkVerify",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MagicLinkVerify(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ExchangeCode",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ExchangeCode(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GoogleOAuth",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) GoogleOAuth(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GoogleOAuthCallback",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) GoogleOAuthCallback(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GitHubOAuth",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) GitHubOAuth(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GitHubOAuthCallback",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) GitHubOAuthCallback(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MicrosoftOAuth",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MicrosoftOAuth(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MicrosoftOAuthCallback",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) MicrosoftOAuthCallback(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListSessions",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ListSessions(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "RevokeSession",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "RevokeAllSessions",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) RevokeAllSessions(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdatePreferences",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CompleteOnboarding",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AcceptInvitation",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteAccount",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ExportData",
+          "pointer_receiver": true,
+          "signature": "func (h *AuthHandler) ExportData(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "RegisterRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "--- Request/Response types ---",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "LoginRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "RefreshRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AuthResponse",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "MFARequiredResponse",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "MembershipInfo",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "VerifyEmailRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ResendVerificationRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ForgotPasswordRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ResetPasswordRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ChangePasswordRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AcceptInvitationRequest",
+      "file": "internal/api/handlers/auth.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "BillingHandler",
+      "file": "internal/api/handlers/billing.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 12,
+      "value_method_count": 0,
+      "pointer_method_count": 12,
+      "methods": [
+        {
+          "name": "SetTelemetry",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) SetTelemetry(svc *telemetry.Service) { h.telemetrySvc = svc }"
+        },
+        {
+          "name": "Checkout",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) Checkout(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "Portal",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) Portal(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListTransactions",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) ListTransactions(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetInvoice",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) GetInvoice(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetInvoicePDF",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) GetInvoicePDF(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CancelSubscription",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) CancelSubscription(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) GetConfig(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AdminListTransactions",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) AdminListTransactions(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AdminGetMetrics",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) AdminGetMetrics(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AdminCancelSubscription",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) AdminCancelSubscription(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AdminUpdateSubscription",
+          "pointer_receiver": true,
+          "signature": "func (h *BillingHandler) AdminUpdateSubscription(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "BootstrapHandler",
+      "file": "internal/api/handlers/bootstrap.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "IsInitialized",
+          "pointer_receiver": true,
+          "signature": "func (h *BootstrapHandler) IsInitialized() bool {"
+        },
+        {
+          "name": "Status",
+          "pointer_receiver": true,
+          "signature": "func (h *BootstrapHandler) Status(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "BootstrapGuard",
+          "pointer_receiver": true,
+          "signature": "func (h *BootstrapHandler) BootstrapGuard(next http.Handler) http.Handler {"
+        }
+      ]
+    },
+    {
+      "name": "BrandingHandler",
+      "file": "internal/api/handlers/branding.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 16,
+      "value_method_count": 0,
+      "pointer_method_count": 16,
+      "methods": [
+        {
+          "name": "SetAuthProviders",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) SetAuthProviders(providers map[string]bool) { h.authProviders = providers }"
+        },
+        {
+          "name": "GetBranding",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) GetBranding(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ServeAsset",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) ServeAsset(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ServeMedia",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) ServeMedia(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetPublicPage",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) GetPublicPage(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListPublicPages",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) ListPublicPages(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateBranding",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UploadAsset",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) UploadAsset(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteAsset",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) DeleteAsset(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListMedia",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) ListMedia(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UploadMedia",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteMedia",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) DeleteMedia(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AdminListPages",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) AdminListPages(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreatePage",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) CreatePage(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdatePage",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) UpdatePage(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeletePage",
+          "pointer_receiver": true,
+          "signature": "func (h *BrandingHandler) DeletePage(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "BundlesHandler",
+      "file": "internal/api/handlers/bundles.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 5,
+      "value_method_count": 0,
+      "pointer_method_count": 5,
+      "methods": [
+        {
+          "name": "ListBundles",
+          "pointer_receiver": true,
+          "signature": "func (h *BundlesHandler) ListBundles(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreateBundle",
+          "pointer_receiver": true,
+          "signature": "func (h *BundlesHandler) CreateBundle(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateBundle",
+          "pointer_receiver": true,
+          "signature": "func (h *BundlesHandler) UpdateBundle(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteBundle",
+          "pointer_receiver": true,
+          "signature": "func (h *BundlesHandler) DeleteBundle(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListBundlesPublic",
+          "pointer_receiver": true,
+          "signature": "func (h *BundlesHandler) ListBundlesPublic(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "ConfigHandler",
+      "file": "internal/api/handlers/config.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 5,
+      "value_method_count": 0,
+      "pointer_method_count": 5,
+      "methods": [
+        {
+          "name": "ListConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *ConfigHandler) ListConfig(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *ConfigHandler) GetConfig(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreateConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *ConfigHandler) CreateConfig(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteConfig",
+          "pointer_receiver": true,
+          "signature": "func (h *ConfigHandler) DeleteConfig(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "EventDefinitionsHandler",
+      "file": "internal/api/handlers/event_definitions.go",
+      "package": "handlers",
+      "doc": "EventDefinitionsHandler manages event definition CRUD and Sankey data.",
+      "method_count": 5,
+      "value_method_count": 0,
+      "pointer_method_count": 5,
+      "methods": [
+        {
+          "name": "ListEventDefinitions",
+          "pointer_receiver": true,
+          "signature": "func (h *EventDefinitionsHandler) ListEventDefinitions(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreateEventDefinition",
+          "pointer_receiver": true,
+          "signature": "func (h *EventDefinitionsHandler) CreateEventDefinition(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateEventDefinition",
+          "pointer_receiver": true,
+          "signature": "func (h *EventDefinitionsHandler) UpdateEventDefinition(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteEventDefinition",
+          "pointer_receiver": true,
+          "signature": "func (h *EventDefinitionsHandler) DeleteEventDefinition(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetSankeyData",
+          "pointer_receiver": true,
+          "signature": "func (h *EventDefinitionsHandler) GetSankeyData(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "HealthHandler",
+      "file": "internal/api/handlers/health.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 6,
+      "value_method_count": 0,
+      "pointer_method_count": 6,
+      "methods": [
+        {
+          "name": "SetEmailService",
+          "pointer_receiver": true,
+          "signature": "func (h *HealthHandler) SetEmailService(svc *email.ResendService) {"
+        },
+        {
+          "name": "ListNodes",
+          "pointer_receiver": true,
+          "signature": "func (h *HealthHandler) ListNodes(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetMetrics",
+          "pointer_receiver": true,
+          "signature": "func (h *HealthHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetCurrent",
+          "pointer_receiver": true,
+          "signature": "func (h *HealthHandler) GetCurrent(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetIntegrations",
+          "pointer_receiver": true,
+          "signature": "func (h *HealthHandler) GetIntegrations(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "SendTestEmail",
+          "pointer_receiver": true,
+          "signature": "func (h *HealthHandler) SendTestEmail(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "ErrorResponse",
+      "file": "internal/api/handlers/helpers.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "LogHandler",
+      "file": "internal/api/handlers/logs.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "ListLogs",
+          "pointer_receiver": true,
+          "signature": "func (h *LogHandler) ListLogs(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "SeverityCounts",
+          "pointer_receiver": true,
+          "signature": "func (h *LogHandler) SeverityCounts(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ExportCSV",
+          "pointer_receiver": true,
+          "signature": "func (h *LogHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "MessageHandler",
+      "file": "internal/api/handlers/messages.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "ListMessages",
+          "pointer_receiver": true,
+          "signature": "func (h *MessageHandler) ListMessages(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UnreadCount",
+          "pointer_receiver": true,
+          "signature": "func (h *MessageHandler) UnreadCount(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "MarkRead",
+          "pointer_receiver": true,
+          "signature": "func (h *MessageHandler) MarkRead(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "PlansHandler",
+      "file": "internal/api/handlers/plans.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 10,
+      "value_method_count": 0,
+      "pointer_method_count": 10,
+      "methods": [
+        {
+          "name": "ListPlans",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) ListPlans(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetPlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) GetPlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListEntitlementKeys",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) ListEntitlementKeys(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreatePlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) CreatePlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdatePlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) UpdatePlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeletePlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) DeletePlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ArchivePlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) ArchivePlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UnarchivePlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) UnarchivePlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "AssignPlan",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) AssignPlan(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListPlansPublic",
+          "pointer_receiver": true,
+          "signature": "func (h *PlansHandler) ListPlansPublic(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "KeyInfo",
+      "file": "internal/api/handlers/plans.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "PMHandler",
+      "file": "internal/api/handlers/pm.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 6,
+      "value_method_count": 0,
+      "pointer_method_count": 6,
+      "methods": [
+        {
+          "name": "GetFunnel",
+          "pointer_receiver": true,
+          "signature": "func (h *PMHandler) GetFunnel(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetRetention",
+          "pointer_receiver": true,
+          "signature": "func (h *PMHandler) GetRetention(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetEngagement",
+          "pointer_receiver": true,
+          "signature": "func (h *PMHandler) GetEngagement(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetKPIs",
+          "pointer_receiver": true,
+          "signature": "func (h *PMHandler) GetKPIs(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetCustomEvents",
+          "pointer_receiver": true,
+          "signature": "func (h *PMHandler) GetCustomEvents(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListEventTypes",
+          "pointer_receiver": true,
+          "signature": "func (h *PMHandler) ListEventTypes(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "PromotionsHandler",
+      "file": "internal/api/handlers/promotions.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 5,
+      "value_method_count": 0,
+      "pointer_method_count": 5,
+      "methods": [
+        {
+          "name": "ListPromotions",
+          "pointer_receiver": true,
+          "signature": "func (h *PromotionsHandler) ListPromotions(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListEligibleProducts",
+          "pointer_receiver": true,
+          "signature": "func (h *PromotionsHandler) ListEligibleProducts(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreatePromotion",
+          "pointer_receiver": true,
+          "signature": "func (h *PromotionsHandler) CreatePromotion(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdatePromotion",
+          "pointer_receiver": true,
+          "signature": "func (h *PromotionsHandler) UpdatePromotion(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeactivatePromotion",
+          "pointer_receiver": true,
+          "signature": "func (h *PromotionsHandler) DeactivatePromotion(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "TelemetryHandler",
+      "file": "internal/api/handlers/telemetry.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "TrackAnonymous",
+          "pointer_receiver": true,
+          "signature": "func (h *TelemetryHandler) TrackAnonymous(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "TrackAuthenticated",
+          "pointer_receiver": true,
+          "signature": "func (h *TelemetryHandler) TrackAuthenticated(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "TrackBatch",
+          "pointer_receiver": true,
+          "signature": "func (h *TelemetryHandler) TrackBatch(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "TenantHandler",
+      "file": "internal/api/handlers/tenant.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 8,
+      "value_method_count": 0,
+      "pointer_method_count": 8,
+      "methods": [
+        {
+          "name": "SetStripe",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) SetStripe(s *stripeservice.Service) { h.stripe = s }"
+        },
+        {
+          "name": "ListMembers",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) ListMembers(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "InviteMember",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) InviteMember(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "RemoveMember",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ChangeRole",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) ChangeRole(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "TransferOwnership",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) TransferOwnership(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetActivity",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) GetActivity(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateTenantSettings",
+          "pointer_receiver": true,
+          "signature": "func (h *TenantHandler) UpdateTenantSettings(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "InviteMemberRequest",
+      "file": "internal/api/handlers/tenant.go",
+      "package": "handlers",
+      "doc": "--- Request types ---",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ChangeRoleRequest",
+      "file": "internal/api/handlers/tenant.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "MemberResponse",
+      "file": "internal/api/handlers/tenant.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "UsageHandler",
+      "file": "internal/api/handlers/usage.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 2,
+      "value_method_count": 0,
+      "pointer_method_count": 2,
+      "methods": [
+        {
+          "name": "RecordUsage",
+          "pointer_receiver": true,
+          "signature": "func (h *UsageHandler) RecordUsage(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetSummary",
+          "pointer_receiver": true,
+          "signature": "func (h *UsageHandler) GetSummary(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "WebhookHandler",
+      "file": "internal/api/handlers/webhook.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 2,
+      "value_method_count": 0,
+      "pointer_method_count": 2,
+      "methods": [
+        {
+          "name": "SetTelemetry",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhookHandler) SetTelemetry(svc *telemetry.Service) { h.telemetrySvc = svc }"
+        },
+        {
+          "name": "HandleWebhook",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "WebhooksHandler",
+      "file": "internal/api/handlers/webhooks.go",
+      "package": "handlers",
+      "doc": "",
+      "method_count": 8,
+      "value_method_count": 0,
+      "pointer_method_count": 8,
+      "methods": [
+        {
+          "name": "ListWebhooks",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "GetWebhook",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) GetWebhook(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "CreateWebhook",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "UpdateWebhook",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) UpdateWebhook(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "DeleteWebhook",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) DeleteWebhook(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "RegenerateSecret",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) RegenerateSecret(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "TestWebhook",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) TestWebhook(w http.ResponseWriter, r *http.Request) {"
+        },
+        {
+          "name": "ListEventTypes",
+          "pointer_receiver": true,
+          "signature": "func (h *WebhooksHandler) ListEventTypes(w http.ResponseWriter, r *http.Request) {"
+        }
+      ]
+    },
+    {
+      "name": "Response",
+      "file": "internal/apierror/apierror.go",
+      "package": "apierror",
+      "doc": "Response is the JSON error response structure. The \"error\" field is always present for backward compatibility.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "GitHubOAuthService",
+      "file": "internal/auth/github_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "GetAuthURL",
+          "pointer_receiver": true,
+          "signature": "func (s *GitHubOAuthService) GetAuthURL(state string) string {"
+        },
+        {
+          "name": "ExchangeCode",
+          "pointer_receiver": true,
+          "signature": "func (s *GitHubOAuthService) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {"
+        },
+        {
+          "name": "GetUserInfo",
+          "pointer_receiver": true,
+          "signature": "func (s *GitHubOAuthService) GetUserInfo(ctx context.Context, token *oauth2.Token) (*GitHubUserInfo, error) {"
+        }
+      ]
+    },
+    {
+      "name": "GitHubUserInfo",
+      "file": "internal/auth/github_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "GitHubEmail",
+      "file": "internal/auth/github_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "GoogleOAuthService",
+      "file": "internal/auth/google_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "GetAuthURL",
+          "pointer_receiver": true,
+          "signature": "func (s *GoogleOAuthService) GetAuthURL(state string) string {"
+        },
+        {
+          "name": "ExchangeCode",
+          "pointer_receiver": true,
+          "signature": "func (s *GoogleOAuthService) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {"
+        },
+        {
+          "name": "GetUserInfo",
+          "pointer_receiver": true,
+          "signature": "func (s *GoogleOAuthService) GetUserInfo(ctx context.Context, token *oauth2.Token) (*GoogleUserInfo, error) {"
+        }
+      ]
+    },
+    {
+      "name": "GoogleUserInfo",
+      "file": "internal/auth/google_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "JWTService",
+      "file": "internal/auth/jwt.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 10,
+      "value_method_count": 0,
+      "pointer_method_count": 10,
+      "methods": [
+        {
+          "name": "GenerateAccessToken",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GenerateAccessToken(userID, email, displayName string) (string, error) {"
+        },
+        {
+          "name": "GenerateAccessTokenWithTTL",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GenerateAccessTokenWithTTL(userID, email, displayName string, ttl time.Duration) (string, error) {"
+        },
+        {
+          "name": "GenerateMFAToken",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GenerateMFAToken(userID, email string) (string, error) {"
+        },
+        {
+          "name": "GenerateImpersonationToken",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GenerateImpersonationToken(userID, email, displayName, impersonatedBy string) (string, error) {"
+        },
+        {
+          "name": "GenerateRefreshToken",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GenerateRefreshToken(userID string) (string, error) {"
+        },
+        {
+          "name": "GenerateRefreshTokenWithTTL",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GenerateRefreshTokenWithTTL(userID string, ttl time.Duration) (string, error) {"
+        },
+        {
+          "name": "ValidateAccessToken",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) ValidateAccessToken(tokenString string) (*AccessTokenClaims, error) {"
+        },
+        {
+          "name": "ValidateRefreshToken",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) ValidateRefreshToken(tokenString string) (*RefreshTokenClaims, error) {"
+        },
+        {
+          "name": "GetAccessTTL",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GetAccessTTL() time.Duration {"
+        },
+        {
+          "name": "GetRefreshTTL",
+          "pointer_receiver": true,
+          "signature": "func (s *JWTService) GetRefreshTTL() time.Duration {"
+        }
+      ]
+    },
+    {
+      "name": "AccessTokenClaims",
+      "file": "internal/auth/jwt.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "RefreshTokenClaims",
+      "file": "internal/auth/jwt.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "MicrosoftOAuthService",
+      "file": "internal/auth/microsoft_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "GetAuthURL",
+          "pointer_receiver": true,
+          "signature": "func (s *MicrosoftOAuthService) GetAuthURL(state string) string {"
+        },
+        {
+          "name": "ExchangeCode",
+          "pointer_receiver": true,
+          "signature": "func (s *MicrosoftOAuthService) ExchangeCode(ctx context.Context, code string) (*oauth2.Token, error) {"
+        },
+        {
+          "name": "GetUserInfo",
+          "pointer_receiver": true,
+          "signature": "func (s *MicrosoftOAuthService) GetUserInfo(ctx context.Context, token *oauth2.Token) (*MicrosoftUserInfo, error) {"
+        }
+      ]
+    },
+    {
+      "name": "MicrosoftUserInfo",
+      "file": "internal/auth/microsoft_oauth.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 1,
+      "value_method_count": 0,
+      "pointer_method_count": 1,
+      "methods": [
+        {
+          "name": "GetEmail",
+          "pointer_receiver": true,
+          "signature": "func (u *MicrosoftUserInfo) GetEmail() string {"
+        }
+      ]
+    },
+    {
+      "name": "PasswordService",
+      "file": "internal/auth/password.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 4,
+      "value_method_count": 0,
+      "pointer_method_count": 4,
+      "methods": [
+        {
+          "name": "HashPassword",
+          "pointer_receiver": true,
+          "signature": "func (s *PasswordService) HashPassword(password string) (string, error) {"
+        },
+        {
+          "name": "ComparePassword",
+          "pointer_receiver": true,
+          "signature": "func (s *PasswordService) ComparePassword(hashedPassword, password string) error {"
+        },
+        {
+          "name": "DummyCompare",
+          "pointer_receiver": true,
+          "signature": "func (s *PasswordService) DummyCompare(password string) {"
+        },
+        {
+          "name": "ValidatePasswordStrength",
+          "pointer_receiver": true,
+          "signature": "func (s *PasswordService) ValidatePasswordStrength(password string) error {"
+        }
+      ]
+    },
+    {
+      "name": "TOTPService",
+      "file": "internal/auth/totp.go",
+      "package": "auth",
+      "doc": "",
+      "method_count": 7,
+      "value_method_count": 0,
+      "pointer_method_count": 7,
+      "methods": [
+        {
+          "name": "EncryptSecret",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) EncryptSecret(secret string) (string, error) {"
+        },
+        {
+          "name": "DecryptSecret",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) DecryptSecret(stored string) string {"
+        },
+        {
+          "name": "GenerateSecret",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) GenerateSecret(issuer, email string) (*otp.Key, error) {"
+        },
+        {
+          "name": "ValidateCode",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) ValidateCode(secret, code string) bool {"
+        },
+        {
+          "name": "GenerateRecoveryCodes",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) GenerateRecoveryCodes(count int) ([]string, []string, error) {"
+        },
+        {
+          "name": "ValidateRecoveryCode",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) ValidateRecoveryCode(code string, hashedCodes []string) (int, bool) {"
+        },
+        {
+          "name": "ValidateCodeWithWindow",
+          "pointer_receiver": true,
+          "signature": "func (s *TOTPService) ValidateCodeWithWindow(secret, code string) bool {"
+        }
+      ]
+    },
+    {
+      "name": "Config",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "WebhooksConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ServerConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "DatabaseConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "FrontendConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "JWTConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "OAuthConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "WebAuthnConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "EmailConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AppConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "StripeConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "DataDogConfig",
+      "file": "internal/config/config.go",
+      "package": "config",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Store",
+      "file": "internal/configstore/store.go",
+      "package": "configstore",
+      "doc": "Store is a thread-safe in-memory cache of configuration variables backed by MongoDB.",
+      "method_count": 7,
+      "value_method_count": 0,
+      "pointer_method_count": 7,
+      "methods": [
+        {
+          "name": "Load",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) Load(ctx context.Context) error {"
+        },
+        {
+          "name": "Get",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) Get(name string) string {"
+        },
+        {
+          "name": "GetVar",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) GetVar(name string) (models.ConfigVar, bool) {"
+        },
+        {
+          "name": "GetAll",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) GetAll() []models.ConfigVar {"
+        },
+        {
+          "name": "Set",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) Set(ctx context.Context, name, value string) error {"
+        },
+        {
+          "name": "Reload",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) Reload(ctx context.Context, name string) error {"
+        },
+        {
+          "name": "StartAutoReload",
+          "pointer_receiver": true,
+          "signature": "func (s *Store) StartAutoReload(ctx context.Context, interval time.Duration) {"
+        }
+      ]
+    },
+    {
+      "name": "Client",
+      "file": "internal/datadog/client.go",
+      "package": "datadog",
+      "doc": "Client is an async-buffered DataDog REST API client. It submits metrics, events, logs, and service checks without requiring a DataDog Agent.",
+      "method_count": 7,
+      "value_method_count": 0,
+      "pointer_method_count": 7,
+      "methods": [
+        {
+          "name": "Startup",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) Startup(ctx context.Context, appVersion string) error {"
+        },
+        {
+          "name": "Stop",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) Stop() {"
+        },
+        {
+          "name": "TrackTelemetryEvent",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) TrackTelemetryEvent(event models.TelemetryEvent) {"
+        },
+        {
+          "name": "TrackSyslogEntry",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) TrackSyslogEntry(entry models.SystemLog) {"
+        },
+        {
+          "name": "TrackHealthSnapshot",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) TrackHealthSnapshot(metric models.SystemMetric) {"
+        },
+        {
+          "name": "TrackIntegrationChecks",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) TrackIntegrationChecks(checks []models.IntegrationCheck) {"
+        },
+        {
+          "name": "Validate",
+          "pointer_receiver": true,
+          "signature": "func (c *Client) Validate(ctx context.Context) error {"
+        }
+      ]
+    },
+    {
+      "name": "MongoDB",
+      "file": "internal/db/mongodb.go",
+      "package": "db",
+      "doc": "",
+      "method_count": 40,
+      "value_method_count": 0,
+      "pointer_method_count": 40,
+      "methods": [
+        {
+          "name": "Close",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Close(ctx context.Context) error {"
+        },
+        {
+          "name": "Users",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Users() *mongo.Collection {"
+        },
+        {
+          "name": "Tenants",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Tenants() *mongo.Collection {"
+        },
+        {
+          "name": "TenantMemberships",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) TenantMemberships() *mongo.Collection {"
+        },
+        {
+          "name": "RefreshTokens",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) RefreshTokens() *mongo.Collection {"
+        },
+        {
+          "name": "VerificationTokens",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) VerificationTokens() *mongo.Collection {"
+        },
+        {
+          "name": "OAuthStates",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) OAuthStates() *mongo.Collection {"
+        },
+        {
+          "name": "RevokedTokens",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) RevokedTokens() *mongo.Collection {"
+        },
+        {
+          "name": "SystemConfig",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) SystemConfig() *mongo.Collection {"
+        },
+        {
+          "name": "Invitations",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Invitations() *mongo.Collection {"
+        },
+        {
+          "name": "AuditLog",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) AuditLog() *mongo.Collection {"
+        },
+        {
+          "name": "Messages",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Messages() *mongo.Collection {"
+        },
+        {
+          "name": "SystemLogs",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) SystemLogs() *mongo.Collection {"
+        },
+        {
+          "name": "ConfigVars",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) ConfigVars() *mongo.Collection {"
+        },
+        {
+          "name": "Plans",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Plans() *mongo.Collection {"
+        },
+        {
+          "name": "CreditBundles",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) CreditBundles() *mongo.Collection {"
+        },
+        {
+          "name": "SystemNodes",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) SystemNodes() *mongo.Collection {"
+        },
+        {
+          "name": "SystemMetrics",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) SystemMetrics() *mongo.Collection {"
+        },
+        {
+          "name": "FinancialTransactions",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) FinancialTransactions() *mongo.Collection {"
+        },
+        {
+          "name": "StripeMappings",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) StripeMappings() *mongo.Collection {"
+        },
+        {
+          "name": "Counters",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Counters() *mongo.Collection {"
+        },
+        {
+          "name": "DailyMetrics",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) DailyMetrics() *mongo.Collection {"
+        },
+        {
+          "name": "WebhookEvents",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) WebhookEvents() *mongo.Collection {"
+        },
+        {
+          "name": "LeaderLocks",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) LeaderLocks() *mongo.Collection {"
+        },
+        {
+          "name": "APIKeys",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) APIKeys() *mongo.Collection {"
+        },
+        {
+          "name": "Webhooks",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Webhooks() *mongo.Collection {"
+        },
+        {
+          "name": "WebhookDeliveries",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) WebhookDeliveries() *mongo.Collection {"
+        },
+        {
+          "name": "BrandingConfig",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) BrandingConfig() *mongo.Collection {"
+        },
+        {
+          "name": "BrandingAssets",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) BrandingAssets() *mongo.Collection {"
+        },
+        {
+          "name": "CustomPages",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) CustomPages() *mongo.Collection {"
+        },
+        {
+          "name": "WebAuthnCredentials",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) WebAuthnCredentials() *mongo.Collection {"
+        },
+        {
+          "name": "WebAuthnSessions",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) WebAuthnSessions() *mongo.Collection {"
+        },
+        {
+          "name": "SSOConnections",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) SSOConnections() *mongo.Collection {"
+        },
+        {
+          "name": "Announcements",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) Announcements() *mongo.Collection {"
+        },
+        {
+          "name": "UsageEvents",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) UsageEvents() *mongo.Collection {"
+        },
+        {
+          "name": "AuthCodes",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) AuthCodes() *mongo.Collection {"
+        },
+        {
+          "name": "ImpersonationLogs",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) ImpersonationLogs() *mongo.Collection {"
+        },
+        {
+          "name": "TelemetryEvents",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) TelemetryEvents() *mongo.Collection {"
+        },
+        {
+          "name": "EventDefinitions",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) EventDefinitions() *mongo.Collection {"
+        },
+        {
+          "name": "EnsureSchemaValidation",
+          "pointer_receiver": true,
+          "signature": "func (m *MongoDB) EnsureSchemaValidation() {"
+        }
+      ]
+    },
+    {
+      "name": "CollectionSchema",
+      "file": "internal/db/schema.go",
+      "package": "db",
+      "doc": "CollectionSchema pairs a collection name with its JSON Schema validator.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ResendService",
+      "file": "internal/email/resend.go",
+      "package": "email",
+      "doc": "",
+      "method_count": 5,
+      "value_method_count": 0,
+      "pointer_method_count": 5,
+      "methods": [
+        {
+          "name": "SendEmail",
+          "pointer_receiver": true,
+          "signature": "func (s *ResendService) SendEmail(to, subject, html string) error {"
+        },
+        {
+          "name": "SendVerificationEmail",
+          "pointer_receiver": true,
+          "signature": "func (s *ResendService) SendVerificationEmail(to, displayName, token string) error {"
+        },
+        {
+          "name": "SendPasswordResetEmail",
+          "pointer_receiver": true,
+          "signature": "func (s *ResendService) SendPasswordResetEmail(to, displayName, token string) error {"
+        },
+        {
+          "name": "SendMagicLinkEmail",
+          "pointer_receiver": true,
+          "signature": "func (s *ResendService) SendMagicLinkEmail(to, displayName, token string) error {"
+        },
+        {
+          "name": "SendInvitationEmail",
+          "pointer_receiver": true,
+          "signature": "func (s *ResendService) SendInvitationEmail(to, inviterName, tenantName, token string) error {"
+        }
+      ]
+    },
+    {
+      "name": "Event",
+      "file": "internal/events/emitter.go",
+      "package": "events",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "NoopEmitter",
+      "file": "internal/events/emitter.go",
+      "package": "events",
+      "doc": "",
+      "method_count": 1,
+      "value_method_count": 0,
+      "pointer_method_count": 1,
+      "methods": [
+        {
+          "name": "Emit",
+          "pointer_receiver": true,
+          "signature": "func (n *NoopEmitter) Emit(_ Event) {}"
+        }
+      ]
+    },
+    {
+      "name": "Service",
+      "file": "internal/health/health.go",
+      "package": "health",
+      "doc": "Service manages node registration, metric collection, and queries.",
+      "method_count": 36,
+      "value_method_count": 0,
+      "pointer_method_count": 36,
+      "methods": [
+        {
+          "name": "Start",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) Start() {"
+        },
+        {
+          "name": "Stop",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) Stop() {"
+        },
+        {
+          "name": "SetOnHealthSnapshot",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) SetOnHealthSnapshot(fn func(models.SystemMetric)) {"
+        },
+        {
+          "name": "SetOnIntegrationCheck",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) SetOnIntegrationCheck(fn func([]models.IntegrationCheck)) {"
+        },
+        {
+          "name": "RegisterIntegration",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) RegisterIntegration(name string, checker IntegrationChecker) {"
+        },
+        {
+          "name": "GetIntegrationStatus",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetIntegrationStatus() []models.IntegrationCheck {"
+        },
+        {
+          "name": "IntegrationsHealthy",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) IntegrationsHealthy() (bool, []string) {"
+        },
+        {
+          "name": "ListNodes",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) ListNodes(ctx context.Context) ([]models.SystemNode, error) {"
+        },
+        {
+          "name": "GetMetrics",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetMetrics(ctx context.Context, nodeID string, from, to time.Time) ([]models.SystemMetric, error) {"
+        },
+        {
+          "name": "GetAggregateMetrics",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetAggregateMetrics(ctx context.Context, from, to time.Time) ([]models.SystemMetric, error) {"
+        },
+        {
+          "name": "GetCurrentMetrics",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetCurrentMetrics(ctx context.Context) ([]models.SystemMetric, error) {"
+        },
+        {
+          "name": "GetIntegrationCounts24h",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetIntegrationCounts24h(ctx context.Context) (stripeCalls, resendEmails int64) {"
+        },
+        {
+          "name": "InstanceID",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) InstanceID() string { return s.instanceID }"
+        },
+        {
+          "name": "GetOrCreateCustomer",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetOrCreateCustomer(ctx context.Context, tenant *models.Tenant, userEmail string) (string, error) {"
+        },
+        {
+          "name": "GetOrCreatePrice",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetOrCreatePrice(ctx context.Context, entityType string, entityID primitive.ObjectID, name string, amountCents int64, interval string, currency string) (string, error) {"
+        },
+        {
+          "name": "CreateCheckoutSession",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) CreateCheckoutSession(ctx context.Context, req CheckoutRequest) (string, error) {"
+        },
+        {
+          "name": "CreateBillingPortalSession",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) CreateBillingPortalSession(ctx context.Context, customerID string) (string, error) {"
+        },
+        {
+          "name": "CancelSubscriptionAtPeriodEnd",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) CancelSubscriptionAtPeriodEnd(ctx context.Context, subscriptionID string) (*time.Time, error) {"
+        },
+        {
+          "name": "CancelSubscriptionImmediately",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) CancelSubscriptionImmediately(ctx context.Context, subscriptionID string) error {"
+        },
+        {
+          "name": "ConstructEvent",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) ConstructEvent(payload []byte, sigHeader string) (stripe.Event, error) {"
+        },
+        {
+          "name": "NextInvoiceNumber",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) NextInvoiceNumber(ctx context.Context) (string, error) {"
+        },
+        {
+          "name": "GetCheckoutSession",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetCheckoutSession(ctx context.Context, sessionID string) (*stripe.CheckoutSession, error) {"
+        },
+        {
+          "name": "UpdateSubscriptionQuantity",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) UpdateSubscriptionQuantity(ctx context.Context, subscriptionID string, quantity int64) error {"
+        },
+        {
+          "name": "GetSubscription",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) GetSubscription(ctx context.Context, subscriptionID string) (*stripe.Subscription, error) {"
+        },
+        {
+          "name": "SetOnTrack",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) SetOnTrack(fn func(models.TelemetryEvent)) {"
+        },
+        {
+          "name": "Track",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) Track(ctx context.Context, event models.TelemetryEvent) error {"
+        },
+        {
+          "name": "TrackBatch",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) TrackBatch(ctx context.Context, events []models.TelemetryEvent) error {"
+        },
+        {
+          "name": "TrackPageView",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) TrackPageView(ctx context.Context, sessionID, page string, userID *primitive.ObjectID) error {"
+        },
+        {
+          "name": "TrackCheckoutStarted",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) TrackCheckoutStarted(ctx context.Context, userID, tenantID primitive.ObjectID, planName string) error {"
+        },
+        {
+          "name": "TrackLogin",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) TrackLogin(ctx context.Context, userID primitive.ObjectID) error {"
+        },
+        {
+          "name": "FunnelMetrics",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) FunnelMetrics(ctx context.Context, start, end time.Time) (*FunnelData, error) {"
+        },
+        {
+          "name": "RetentionCohorts",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) RetentionCohorts(ctx context.Context, granularity string, periods int) ([]CohortRow, error) {"
+        },
+        {
+          "name": "EngagementMetrics",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) EngagementMetrics(ctx context.Context, start, end time.Time) (*EngagementData, error) {"
+        },
+        {
+          "name": "KPIs",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) KPIs(ctx context.Context) (*KPIData, error) {"
+        },
+        {
+          "name": "CustomEventSummary",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) CustomEventSummary(ctx context.Context, start, end time.Time, eventName string) (*CustomEventData, error) {"
+        },
+        {
+          "name": "ListEventTypes",
+          "pointer_receiver": true,
+          "signature": "func (s *Service) ListEventTypes(ctx context.Context) ([]EventTypeSummary, error) {"
+        }
+      ]
+    },
+    {
+      "name": "Service",
+      "file": "internal/metrics/metrics.go",
+      "package": "metrics",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AuthMiddleware",
+      "file": "internal/middleware/auth.go",
+      "package": "middleware",
+      "doc": "",
+      "method_count": 1,
+      "value_method_count": 0,
+      "pointer_method_count": 1,
+      "methods": [
+        {
+          "name": "RequireAuth",
+          "pointer_receiver": true,
+          "signature": "func (m *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {"
+        }
+      ]
+    },
+    {
+      "name": "MetricsCollector",
+      "file": "internal/middleware/metrics.go",
+      "package": "middleware",
+      "doc": "MetricsCollector tracks HTTP request metrics in-memory. A background collector goroutine calls Snapshot() each interval to read and reset.",
+      "method_count": 2,
+      "value_method_count": 0,
+      "pointer_method_count": 2,
+      "methods": [
+        {
+          "name": "Snapshot",
+          "pointer_receiver": true,
+          "signature": "func (mc *MetricsCollector) Snapshot() HTTPMetricsSnapshot {"
+        },
+        {
+          "name": "Middleware",
+          "pointer_receiver": true,
+          "signature": "func (mc *MetricsCollector) Middleware(next http.Handler) http.Handler {"
+        }
+      ]
+    },
+    {
+      "name": "HTTPMetricsSnapshot",
+      "file": "internal/middleware/metrics.go",
+      "package": "middleware",
+      "doc": "HTTPMetricsSnapshot holds a point-in-time snapshot of collected HTTP metrics.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "RateLimiter",
+      "file": "internal/middleware/ratelimit.go",
+      "package": "middleware",
+      "doc": "",
+      "method_count": 3,
+      "value_method_count": 0,
+      "pointer_method_count": 3,
+      "methods": [
+        {
+          "name": "Stop",
+          "pointer_receiver": true,
+          "signature": "func (rl *RateLimiter) Stop() {"
+        },
+        {
+          "name": "Allow",
+          "pointer_receiver": true,
+          "signature": "func (rl *RateLimiter) Allow(key string, config RateLimitConfig) (bool, int, time.Time) {"
+        },
+        {
+          "name": "RateLimitHandler",
+          "pointer_receiver": true,
+          "signature": "func (rl *RateLimiter) RateLimitHandler(config RateLimitConfig, keyFunc func(*http.Request) string, handler http.HandlerFunc) http.HandlerFunc {"
+        }
+      ]
+    },
+    {
+      "name": "RateLimitConfig",
+      "file": "internal/middleware/ratelimit.go",
+      "package": "middleware",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "TenantMiddleware",
+      "file": "internal/middleware/tenant.go",
+      "package": "middleware",
+      "doc": "",
+      "method_count": 1,
+      "value_method_count": 0,
+      "pointer_method_count": 1,
+      "methods": [
+        {
+          "name": "RequireTenant",
+          "pointer_receiver": true,
+          "signature": "func (m *TenantMiddleware) RequireTenant(next http.Handler) http.Handler {"
+        }
+      ]
+    },
+    {
+      "name": "Announcement",
+      "file": "internal/models/announcement.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "APIKey",
+      "file": "internal/models/api_key.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "FinancialTransaction",
+      "file": "internal/models/billing.go",
+      "package": "models",
+      "doc": "FinancialTransaction records every payment event.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "StripeMapping",
+      "file": "internal/models/billing.go",
+      "package": "models",
+      "doc": "StripeMapping maps internal entities (plans, bundles) to Stripe Products/Prices.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "InvoiceCounter",
+      "file": "internal/models/billing.go",
+      "package": "models",
+      "doc": "InvoiceCounter is used for atomic invoice number generation.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "DailyMetric",
+      "file": "internal/models/billing.go",
+      "package": "models",
+      "doc": "DailyMetric stores daily business metrics for dashboard charts.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "NavItem",
+      "file": "internal/models/branding.go",
+      "package": "models",
+      "doc": "NavItem represents a navigation item in the app sidebar.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "BrandingConfig",
+      "file": "internal/models/branding.go",
+      "package": "models",
+      "doc": "BrandingConfig stores the global branding settings.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "BrandingAsset",
+      "file": "internal/models/branding.go",
+      "package": "models",
+      "doc": "BrandingAsset stores binary assets (logo, favicon, etc.).",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CustomPage",
+      "file": "internal/models/branding.go",
+      "package": "models",
+      "doc": "CustomPage stores user-created pages with arbitrary HTML content.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "ConfigVar",
+      "file": "internal/models/config_var.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CreditBundle",
+      "file": "internal/models/credit_bundle.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "EventDefinition",
+      "file": "internal/models/event_definition.go",
+      "package": "models",
+      "doc": "EventDefinition represents a user-defined event type with optional parent dependency.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "SystemNode",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "SystemNode represents a registered server instance.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "SystemMetric",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "SystemMetric represents a point-in-time metrics snapshot from a single node.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CPUMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "MemoryMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "DiskMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "NetworkMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "HTTPMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "MongoMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "GoRuntimeMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "IntegrationCountMetrics",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "IntegrationCheck",
+      "file": "internal/models/health.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Invitation",
+      "file": "internal/models/invitation.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "TenantMembership",
+      "file": "internal/models/membership.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Message",
+      "file": "internal/models/message.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "EntitlementValue",
+      "file": "internal/models/plan.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Plan",
+      "file": "internal/models/plan.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "SSOConnection",
+      "file": "internal/models/sso_connection.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "SSOAttributeMap",
+      "file": "internal/models/sso_connection.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "SystemConfig",
+      "file": "internal/models/system.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "SystemLog",
+      "file": "internal/models/system_log.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "TelemetryEvent",
+      "file": "internal/models/telemetry.go",
+      "package": "models",
+      "doc": "TelemetryEvent represents a single telemetry event for product analytics.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Tenant",
+      "file": "internal/models/tenant.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "VerificationToken",
+      "file": "internal/models/tokens.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "RefreshToken",
+      "file": "internal/models/tokens.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "RevokedToken",
+      "file": "internal/models/tokens.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "OAuthState",
+      "file": "internal/models/tokens.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AuthCodeTokenData",
+      "file": "internal/models/tokens.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "AuthCode",
+      "file": "internal/models/tokens.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "UsageEvent",
+      "file": "internal/models/usage_event.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "User",
+      "file": "internal/models/user.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 2,
+      "value_method_count": 0,
+      "pointer_method_count": 2,
+      "methods": [
+        {
+          "name": "HasAuthMethod",
+          "pointer_receiver": true,
+          "signature": "func (u *User) HasAuthMethod(method AuthMethod) bool {"
+        },
+        {
+          "name": "IsLocked",
+          "pointer_receiver": true,
+          "signature": "func (u *User) IsLocked() bool {"
+        }
+      ]
+    },
+    {
+      "name": "WebAuthnCredential",
+      "file": "internal/models/webauthn_credential.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Webhook",
+      "file": "internal/models/webhook.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "WebhookDelivery",
+      "file": "internal/models/webhook.go",
+      "package": "models",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Service",
+      "file": "internal/stripe/stripe.go",
+      "package": "stripe",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CheckoutLineItem",
+      "file": "internal/stripe/stripe.go",
+      "package": "stripe",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CheckoutRequest",
+      "file": "internal/stripe/stripe.go",
+      "package": "stripe",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Logger",
+      "file": "internal/syslog/syslog.go",
+      "package": "syslog",
+      "doc": "Logger writes structured log entries to the database.",
+      "method_count": 13,
+      "value_method_count": 0,
+      "pointer_method_count": 13,
+      "methods": [
+        {
+          "name": "SetOnLog",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) SetOnLog(fn func(models.SystemLog)) {"
+        },
+        {
+          "name": "Log",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) Log(ctx context.Context, severity models.LogSeverity, message string) {"
+        },
+        {
+          "name": "LogWithUser",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) LogWithUser(ctx context.Context, severity models.LogSeverity, message string, userID primitive.ObjectID) {"
+        },
+        {
+          "name": "LogCat",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) LogCat(ctx context.Context, severity models.LogSeverity, category models.LogCategory, message string) {"
+        },
+        {
+          "name": "LogCatWithUser",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) LogCatWithUser(ctx context.Context, severity models.LogSeverity, category models.LogCategory, message string, userID primitive.ObjectID) {"
+        },
+        {
+          "name": "Critical",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) Critical(ctx context.Context, message string) {"
+        },
+        {
+          "name": "High",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) High(ctx context.Context, message string) {"
+        },
+        {
+          "name": "Medium",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) Medium(ctx context.Context, message string) {"
+        },
+        {
+          "name": "Low",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) Low(ctx context.Context, message string) {"
+        },
+        {
+          "name": "Debug",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) Debug(ctx context.Context, message string) {"
+        },
+        {
+          "name": "CriticalWithUser",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) CriticalWithUser(ctx context.Context, message string, userID primitive.ObjectID) {"
+        },
+        {
+          "name": "HighWithUser",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) HighWithUser(ctx context.Context, message string, userID primitive.ObjectID) {"
+        },
+        {
+          "name": "LogTenantActivity",
+          "pointer_receiver": true,
+          "signature": "func (l *Logger) LogTenantActivity(ctx context.Context, severity models.LogSeverity, message string, userID, tenantID primitive.ObjectID, action string, metadata map[string]interface{}) {"
+        }
+      ]
+    },
+    {
+      "name": "Service",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "Service provides telemetry tracking and querying for product analytics. Apps using LastSaaS as a library can call Track/TrackBatch directly without going through the HTTP API.",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "FunnelData",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "--- Query types ---",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "FunnelStep",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CohortRow",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "EngagementData",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "DailyPoint",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "FeatureUse",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "KPIData",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "PlanShare",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "CustomEventData",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "EventTypeSummary",
+      "file": "internal/telemetry/service.go",
+      "package": "telemetry",
+      "doc": "",
+      "method_count": 0,
+      "value_method_count": 0,
+      "pointer_method_count": 0,
+      "methods": []
+    },
+    {
+      "name": "Dispatcher",
+      "file": "internal/webhooks/dispatcher.go",
+      "package": "webhooks",
+      "doc": "Dispatcher listens for events and fires matching webhooks.",
+      "method_count": 4,
+      "value_method_count": 0,
+      "pointer_method_count": 4,
+      "methods": [
+        {
+          "name": "EncryptionKey",
+          "pointer_receiver": true,
+          "signature": "func (d *Dispatcher) EncryptionKey() []byte {"
+        },
+        {
+          "name": "Stop",
+          "pointer_receiver": true,
+          "signature": "func (d *Dispatcher) Stop() {"
+        },
+        {
+          "name": "Emit",
+          "pointer_receiver": true,
+          "signature": "func (d *Dispatcher) Emit(event events.Event) {"
+        },
+        {
+          "name": "DeliverTest",
+          "pointer_receiver": true,
+          "signature": "func (d *Dispatcher) DeliverTest(ctx context.Context, hook models.Webhook) models.WebhookDelivery {"
+        }
+      ]
+    }
+  ]
+}
