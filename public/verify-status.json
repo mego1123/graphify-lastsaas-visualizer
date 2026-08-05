@@ -1,0 +1,45 @@
+{
+  "last_run": "2026-08-05 00:15:32",
+  "running": false,
+  "results": [
+    {
+      "function": "ParseEncryptionKey",
+      "file": "backend/internal/webhooks/crypto.go",
+      "status": "EQUIVALE",
+      "iterations": 208,
+      "language": "go",
+      "affected_callers": [
+        "EncryptSecret",
+        "DecryptSecret",
+        "NewWebhooksHandler"
+      ]
+    },
+    {
+      "function": "GenerateRefreshTokenWithTTL",
+      "file": "backend/internal/auth/jwt.go",
+      "status": "EQUIVALE",
+      "iterations": 58,
+      "language": "go",
+      "affected_callers": [
+        "GenerateRefreshToken",
+        "main()"
+      ]
+    },
+    {
+      "function": "getErrorMessage",
+      "file": "frontend/src/utils/errors.ts",
+      "status": "EQUIVALE",
+      "iterations": 50,
+      "language": "ts",
+      "affected_callers": [
+        "AuthContext.tsx",
+        "api/client.ts"
+      ]
+    }
+  ],
+  "summary": {
+    "equivalent": 3,
+    "breaking": 0,
+    "inconclusive": 0
+  }
+}

@@ -3,8 +3,9 @@
 import { useState, useCallback } from 'react'
 import GraphView from './GraphView'
 import ArchitectureView from './ArchitectureView'
+import VerifyView from './VerifyView'
 
-type Tab = 'graph' | 'architecture'
+type Tab = 'graph' | 'architecture' | 'verify'
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('graph')
@@ -45,6 +46,15 @@ export default function Home() {
           >
             Architecture
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(tab === 'verify' ? styles.tabActive : {}),
+            }}
+            onClick={() => setTab('verify')}
+          >
+            Verify
+          </button>
         </nav>
         <div style={styles.headerRight}>
           <a
@@ -74,6 +84,9 @@ export default function Home() {
         </div>
         <div style={{ display: tab === 'architecture' ? 'block' : 'none', height: '100%' }}>
           <ArchitectureView onSelectNode={handleSelectCommunity} />
+        </div>
+        <div style={{ display: tab === 'verify' ? 'block' : 'none', height: '100%' }}>
+          <VerifyView />
         </div>
       </main>
     </div>

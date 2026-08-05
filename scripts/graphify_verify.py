@@ -119,19 +119,34 @@ def extract_func(node, source: str, is_method: bool = False) -> Optional[GoFunc]
     for child in node.children:
         if child.type == "identifier" and name is None:
             name = source[child.start_byte:child.end_byte]
+        elif child.type == "field_identifier" and name is None:
+            # method_declaration uses field_identifier for the method name
+            name = source[child.start_byte:child.end_byte]
+            is_method = True
         elif child.type == "receiver_type":
             receiver = source[child.start_byte:child.end_byte]
         elif child.type == "parameter_list":
             seen_param_list += 1
-            if seen_param_list == 1:
-                # First parameter_list = input params
+            if seen_param_list == 1 and is_method:
+                # First parameter_list = receiver (for methods)
+                # Extract receiver type from "(f *Foo)" or "(Foo)"
+                recv_text = source[child.start_byte:child.end_byte].strip().lstrip("(").rstrip(")")
+                # Remove the receiver variable name, keep the type
+                # "(f *Foo)" -> "*Foo", "(Foo)" -> "Foo"
+                parts = recv_text.split(None, 1)
+                if len(parts) == 2:
+                    receiver = parts[1].strip()
+                else:
+                    receiver = recv_text.strip()
+            elif (seen_param_list == 1 and not is_method) or (seen_param_list == 2 and is_method):
+                # Input params
                 for param_node in child.children:
                     if param_node.type == "parameter_declaration":
                         p = parse_param(param_node, source)
                         if p:
                             params.append(p)
-            elif seen_param_list == 2:
-                # Second parameter_list = return types (parenthesized)
+            elif seen_param_list == 3 or (seen_param_list == 2 and not is_method):
+                # Return types (parenthesized)
                 for pn in child.children:
                     if pn.type == "parameter_declaration":
                         for tnode in pn.children:
@@ -140,10 +155,9 @@ def extract_func(node, source: str, is_method: bool = False) -> Optional[GoFunc]
                                               "map_type", "channel_type"):
                                 return_types.append(source[tnode.start_byte:tnode.end_byte])
         elif child.type == "result":
-            # Unparenthesized result (single type, no parens)
             return_types = parse_result(child, source)
         elif child.type in ("type_identifier", "qualified_type", "pointer_type",
-                            "slice_type", "array_type", "map_type", "channel_type") and seen_param_list == 1 and not return_types:
+                            "slice_type", "array_type", "map_type", "channel_type") and seen_param_list >= 1 and not return_types:
             # Bare return type (no parens) — e.g. `func Foo() error`
             return_types.append(source[child.start_byte:child.end_byte])
 
@@ -281,31 +295,42 @@ def is_quick_generatable(type_str: str) -> bool:
     if t.startswith("*"):
         inner = t[1:].strip()
         return inner in QUICK_GENERATABLE
+    # Common Go aliases that are backed by primitives
+    if t in ("time.Duration", "byte", "rune"):
+        return True
     return False
 
 
 def can_verify(func: GoFunc) -> tuple[bool, str]:
-    """Check if we can verify this function. Returns (can_verify, reason_if_not)."""
-    # Skip methods (receiver functions) — they need a constructed receiver
-    if func.receiver:
-        return False, "method (has receiver)"
+    """Check if we can verify this function. Returns (can_verify, reason_if_not).
+
+    Methods are now supported via zero-value receiver construction.
+    Complex param types are supported via LLM-generated test cases.
+    """
     # Skip variadic functions
     if any("..." in p.type_str for p in func.params):
         return False, "variadic params"
     # Skip functions with no return (nothing to compare)
     if not func.return_types:
         return False, "no return value"
-    # Skip if any param isn't generatable
+    # For methods, check if the receiver type is a simple struct (not interface)
+    if func.receiver:
+        recv = func.receiver.strip().lstrip("*")
+        if recv in ("error", "io.Reader", "io.Writer"):
+            return False, f"interface receiver {func.receiver}"
+    return True, ""
+
+
+def has_complex_params(func: GoFunc) -> bool:
+    """Check if the function has params that testing/quick can't auto-generate."""
     for p in func.params:
-        names = p.name.split("|")
-        for _ in names:
+        for _ in p.name.split("|"):
             if not is_quick_generatable(p.type_str):
-                return False, f"param type {p.type_str} not generatable"
-    # Skip if any return type isn't comparable (allow []byte and error)
+                return True
     for rt in func.return_types:
         if not is_quick_generatable(rt) and rt not in ("error",):
-            return False, f"return type {rt} not comparable"
-    return True, ""
+            return True
+    return False
 
 
 def normalize_params(func: GoFunc) -> list[GoParam]:
@@ -465,14 +490,10 @@ def _generate_curated_inputs(param_types: list[str]) -> list[list[str]]:
     # Per-type curated values
     type_values: dict[str, list[str]] = {
         "string": [
-            '""',           # empty
-            '"a"',          # single char
-            '"0000000000000000000000000000000000000000000000000000000000000000"',  # 64-char hex (32 bytes)
-            '"00000000000000000000000000000000"',  # 32-char hex (16 bytes)
-            '"abcdef0123456789"',  # 16-char hex
-            '"hello world"',
-            '"null"',
-            '"true"',
+            '""', '"a"',
+            '"0000000000000000000000000000000000000000000000000000000000000000"',
+            '"00000000000000000000000000000000"',
+            '"abcdef0123456789"', '"hello world"', '"null"', '"true"',
         ],
         "int": ["0", "1", "-1", "32", "64", "255", "1000", "-1000"],
         "int32": ["0", "1", "-1", "32", "64"],
@@ -482,6 +503,7 @@ def _generate_curated_inputs(param_types: list[str]) -> list[list[str]]:
         "float64": ["0.0", "1.0", "-1.0", "3.14", "1e10"],
         "float32": ["0.0", "1.0", "-1.0"],
         "[]byte": ["nil", "[]byte{}", "[]byte{0}", "[]byte{0,1,2,3}", "make([]byte, 32)"],
+        "time.Duration": ["0", "time.Second", "time.Minute", "-time.Second", "24 * time.Hour"],
     }
 
     if not param_types:
@@ -504,6 +526,41 @@ def _generate_curated_inputs(param_types: list[str]) -> list[list[str]]:
                 new_result.append(r + [v])
         result = new_result
     return result[:20]  # cap at 20 combinations
+
+
+def _split_args(line: str) -> list[str]:
+    """Split a comma-separated argument list, respecting parens and braces."""
+    parts = []
+    depth = 0
+    in_str = False
+    str_ch = ""
+    current = ""
+    for c in line:
+        if in_str:
+            current += c
+            if c == "\\":
+                continue
+            if c == str_ch:
+                in_str = False
+        else:
+            if c in ('"', "'", "`"):
+                in_str = True
+                str_ch = c
+                current += c
+            elif c in "([{":
+                depth += 1
+                current += c
+            elif c in ")]}":
+                depth -= 1
+                current += c
+            elif c == "," and depth == 0:
+                parts.append(current.strip())
+                current = ""
+            else:
+                current += c
+    if current.strip():
+        parts.append(current.strip())
+    return parts
 
 
 # ---------- main verification flow ----------
@@ -595,17 +652,27 @@ def verify_repo(repo: Path, iterations: int = 500, timeout: int = 30, function_f
                 if not can:
                     continue
                 old_body = old_func.body_source
-                pattern = rf"\bfunc\s+({re.escape(old_func.name)})\s*\("
-                renamed_body = re.sub(pattern, rf"func Old_\1(", old_body, count=1)
+                # Rename the function/method
+                # For free functions: "func Name(" → "func Old_Name("
+                # For methods: "func (recv) Name(" → "func (recv) Old_Name("
+                if old_func.receiver:
+                    # Method — rename after the receiver declaration
+                    pattern = rf"(\bfunc\s*\([^)]+\)\s*){re.escape(old_func.name)}\s*\("
+                    renamed_body = re.sub(pattern, rf"\1Old_{old_func.name}(", old_body, count=1)
+                else:
+                    pattern = rf"\bfunc\s+({re.escape(old_func.name)})\s*\("
+                    renamed_body = re.sub(pattern, rf"func Old_\1(", old_body, count=1)
                 old_func_blocks.append(renamed_body)
 
             if not old_func_blocks:
                 print(f"  SKIP: no verifiable functions")
                 continue
 
-            # Extract imports from each changed file's old version, but only keep
-            # imports that are actually referenced in the old function bodies we're including.
-            combined_old_bodies = "\n".join(old_func_blocks)
+            # Extract ALL imports from each changed file's old version.
+            # We include all imports because Go package names don't always match
+            # the import path's last segment (e.g. "github.com/golang-jwt/jwt/v5"
+            # is used as "jwt" in code, not "v5"). Unused imports will cause
+            # compile errors that we report as ERROR status.
             import_blocks: set[str] = set()
             for rel_path in rel_paths:
                 old_source = git_show(repo, rel_path, "HEAD")
@@ -615,19 +682,7 @@ def verify_repo(repo: Path, iterations: int = 500, timeout: int = 30, function_f
                         for line in m.group(1).strip().split("\n"):
                             line = line.strip()
                             if line and not line.startswith("//"):
-                                # Extract package name from import — Go uses the LAST segment
-                                # of the import path as the package name
-                                # "encoding/hex" -> hex, "crypto/aes" -> aes, "fmt" -> fmt
-                                pkg_match = re.search(r'"([^"]+)"', line)
-                                if pkg_match:
-                                    import_path = pkg_match.group(1)
-                                    imported_pkg = import_path.split("/")[-1]
-                                    # Check if the old function bodies reference this package
-                                    # Use word-boundary matching to avoid false positives
-                                    if re.search(rf'\b{re.escape(imported_pkg)}\b', combined_old_bodies):
-                                        import_blocks.add(line)
-                                else:
-                                    import_blocks.add(line)
+                                import_blocks.add(line)
                     else:
                         m2 = re.findall(r'^import\s+(.+)$', old_source, re.MULTILINE)
                         for imp in m2:
@@ -662,6 +717,7 @@ import (
                 param_names = [p.name for p in params]
                 param_types = [p.type_str for p in params]
                 return_types = old_f.return_types
+                complex_params = has_complex_params(old_f)
 
                 call_args = ", ".join(param_names)
                 rets_old = ", ".join([f"r_old_{i}" for i in range(len(return_types))])
@@ -669,43 +725,109 @@ import (
                 closure_params = ", ".join(f"{n} {t}" for n, t in zip(param_names, param_types))
 
                 # Generate curated test inputs based on param types.
-                # These complement random testing by hitting boundary values
-                # that random generation is unlikely to produce (e.g. valid hex strings of exact length).
                 curated_inputs = _generate_curated_inputs(param_types)
+
+                # If the function has complex params, also generate LLM-based test cases
+                # that construct realistic struct/interface values
+                llm_cases: list[list[str]] = []
+                if complex_params:
+                    print(f"    Generating LLM test cases for {old_f.name} (complex params)...")
+                    sys.path.insert(0, str(Path(__file__).parent))
+                    try:
+                        from llm_test_cases import generate_llm_test_cases, extract_call_sites_from_graph
+                        graph_json = repo / "graphify-out" / "graph.json"
+                        call_sites = extract_call_sites_from_graph(graph_json, old_f.name, limit=3)
+                        llm_inputs = generate_llm_test_cases(
+                            old_f.name, old_f.body_source, param_types, call_sites, num_cases=5
+                        )
+                        # Parse each LLM input line into a list of expressions
+                        for line in llm_inputs:
+                            # Split by comma, but respect parentheses and braces
+                            parts = _split_args(line)
+                            if len(parts) == len(param_types):
+                                llm_cases.append(parts)
+                    except Exception as e:
+                        print(f"    LLM case generation failed: {e}")
+
+                # Build the call expression — methods need a receiver
+                if old_f.receiver:
+                    recv_type = old_f.receiver.strip().lstrip("*").strip()
+                    if old_f.receiver.strip().startswith("*"):
+                        recv_construct = f"&{recv_type}{{}}"
+                    else:
+                        recv_construct = f"{recv_type}{{}}"
+                    call_old_expr = f"({recv_construct}).Old_{old_f.name}"
+                    call_new_expr = f"({recv_construct}).{old_f.name}"
+                else:
+                    call_old_expr = f"Old_{old_f.name}"
+                    call_new_expr = f"{old_f.name}"
+
                 n_returns = len(return_types)
-                # For multi-return functions, use separate vars and compare each
                 if n_returns == 1:
                     curated_cases = "\n        ".join(
                         f'{{ // input #{i+1}\n'
-                        f'            v_old := Old_{old_f.name}({", ".join(curated)})\n'
-                        f'            v_new := {old_f.name}({", ".join(curated)})\n'
+                        f'            v_old := {call_old_expr}({", ".join(curated)})\n'
+                        f'            v_new := {call_new_expr}({", ".join(curated)})\n'
                         f'            if !reflect.DeepEqual(v_old, v_new) {{\n'
                         f'                t.Errorf("BREAKING INPUT #{i+1}: old=%v, new=%v", v_old, v_new)\n'
                         f'            }}\n'
                         f'        }}'
                         for i, curated in enumerate(curated_inputs)
                     )
+                    llm_cases_str = "\n        ".join(
+                        f'{{ // LLM input #{i+1}\n'
+                        f'            v_old := {call_old_expr}({", ".join(case)})\n'
+                        f'            v_new := {call_new_expr}({", ".join(case)})\n'
+                        f'            if !reflect.DeepEqual(v_old, v_new) {{\n'
+                        f'                t.Errorf("BREAKING INPUT (LLM) #{i+1}: old=%v, new=%v", v_old, v_new)\n'
+                        f'            }}\n'
+                        f'        }}'
+                        for i, case in enumerate(llm_cases)
+                    )
                 else:
                     old_vars = ", ".join([f"o{j}" for j in range(n_returns)])
                     new_vars = ", ".join([f"n{j}" for j in range(n_returns)])
                     curated_cases = "\n        ".join(
                         f'{{ // input #{i+1}\n'
-                        f'            {old_vars} := Old_{old_f.name}({", ".join(curated)})\n'
-                        f'            {new_vars} := {old_f.name}({", ".join(curated)})\n'
+                        f'            {old_vars} := {call_old_expr}({", ".join(curated)})\n'
+                        f'            {new_vars} := {call_new_expr}({", ".join(curated)})\n'
                         f'            if !reflect.DeepEqual([]interface{{}}{{{old_vars}}}, []interface{{}}{{{new_vars}}}) {{\n'
                         f'                t.Errorf("BREAKING INPUT #{i+1}: old=%v, new=%v", []interface{{}}{{{old_vars}}}, []interface{{}}{{{new_vars}}})\n'
                         f'            }}\n'
                         f'        }}'
                         for i, curated in enumerate(curated_inputs)
                     )
+                    llm_cases_str = "\n        ".join(
+                        f'{{ // LLM input #{i+1}\n'
+                        f'            {old_vars} := {call_old_expr}({", ".join(case)})\n'
+                        f'            {new_vars} := {call_new_expr}({", ".join(case)})\n'
+                        f'            if !reflect.DeepEqual([]interface{{}}{{{old_vars}}}, []interface{{}}{{{new_vars}}}) {{\n'
+                        f'                t.Errorf("BREAKING INPUT (LLM) #{i+1}: old=%v, new=%v", []interface{{}}{{{old_vars}}}, []interface{{}}{{{new_vars}}})\n'
+                        f'            }}\n'
+                        f'        }}'
+                        for i, case in enumerate(llm_cases)
+                    )
 
-                test_block = f"""func TestDiffCheck_{old_f.name}(t *testing.T) {{
+                # For quick.CheckEqual, also use the receiver-aware call
+                call_old = f"{call_old_expr}({call_args})"
+                call_new = f"{call_new_expr}({call_args})"
+
+                # If complex params, skip quick.CheckEqual (can't generate random inputs)
+                # and rely only on curated + LLM cases
+                if complex_params:
+                    test_block = f"""func TestDiffCheck_{old_f.name}_Curated(t *testing.T) {{
+        // Curated + LLM-generated inputs (complex params — random testing skipped)
+        {curated_cases if curated_inputs else '_ = t'}
+        {llm_cases_str if llm_cases else '// no LLM cases generated'}
+    }}"""
+                else:
+                    test_block = f"""func TestDiffCheck_{old_f.name}(t *testing.T) {{
         f_old := func({closure_params}) ({", ".join(return_types)}) {{
-            {rets_old} := Old_{old_f.name}({call_args})
+            {rets_old} := {call_old}
             return {rets_old}
         }}
         f_new := func({closure_params}) ({", ".join(return_types)}) {{
-            {rets_new} := {old_f.name}({call_args})
+            {rets_new} := {call_new}
             return {rets_new}
         }}
         config := &quick.Config{{MaxCount: {iterations}}}
@@ -718,17 +840,30 @@ import (
 func TestDiffCheck_{old_f.name}_Curated(t *testing.T) {{
         // Curated boundary-value inputs (complement random testing)
         {curated_cases if curated_inputs else '_ = t // no curated inputs for this signature'}
+        {llm_cases_str if llm_cases else ''}
     }}"""
                 test_blocks.append(test_block)
+
+            # Collect all imports needed by the test file
+            # We need reflect, testing, testing/quick, plus any types used in closures
+            test_imports = {"reflect", "testing", "testing/quick"}
+            # Check if any param or return type needs time package
+            for sig, old_f, new_f in changed_funcs:
+                for p in old_f.params:
+                    if "time." in p.type_str:
+                        test_imports.add("time")
+                for rt in old_f.return_types:
+                    if "time." in rt:
+                        test_imports.add("time")
+
+            test_import_str = "\n    ".join(f'"{p}"' for p in sorted(test_imports))
 
             test_file_content = f"""// Code generated by graphify verify. DO NOT EDIT.
 
 package {pkg_name}
 
 import (
-    "reflect"
-    "testing"
-    "testing/quick"
+    {test_import_str}
 )
 
 {chr(10).join(test_blocks)}
@@ -776,6 +911,51 @@ import (
             timeout=timeout + 30,
             env=env,
         )
+
+        # If compile fails due to unused imports, try to fix and retry
+        retry_count = 0
+        while result.returncode != 0 and retry_count < 5:
+            unused_match = re.search(r'"([^"]+)" imported and not used', result.stderr + result.stdout)
+            if unused_match:
+                unused_import = unused_match.group(1)
+                # Try to find the file — go test may report relative paths
+                file_match = re.search(r'(\S+\.go):\d+:\d+: "' + re.escape(unused_import) + r'" imported and not used', result.stderr + result.stdout)
+                if file_match:
+                    file_path_str = file_match.group(1)
+                    # Try multiple path resolutions
+                    candidates = [
+                        Path(file_path_str),
+                        pkg_dir / Path(file_path_str).name,
+                        go_mod_dir / file_path_str,
+                    ]
+                    file_path = None
+                    for c in candidates:
+                        if c.exists():
+                            file_path = c
+                            break
+                else:
+                    # Just try to remove from all zz_diffcheck files
+                    file_path = None
+
+                removed = False
+                for zz_file in [pkg_dir / "zz_diffcheck_old.go", pkg_dir / "zz_diffcheck_test.go"]:
+                    if zz_file.exists():
+                        content = zz_file.read_text(encoding="utf-8")
+                        if f'"{unused_import}"' in content:
+                            lines = content.split("\n")
+                            new_lines = [l for l in lines if l.strip() != f'"{unused_import}"']
+                            zz_file.write_text("\n".join(new_lines), encoding="utf-8")
+                            removed = True
+                if removed:
+                    retry_count += 1
+                    result = subprocess.run(
+                        ["go", "test", "-v", "-run", test_pattern, "-timeout", f"{timeout}s", pkg_import_path],
+                        cwd=go_mod_dir,
+                        capture_output=True, text=True,
+                        timeout=timeout + 30, env=env,
+                    )
+                    continue
+            break
 
         # Parse results per function
         for sig, old_f, new_f in changed_funcs:
