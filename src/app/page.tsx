@@ -6,8 +6,9 @@ import ArchitectureView from './ArchitectureView'
 import VerifyView from './VerifyView'
 import AuditView from './AuditView'
 import FrontendView from './FrontendView'
+import UploadView from './UploadView'
 
-type Tab = 'graph' | 'architecture' | 'verify' | 'audit' | 'frontend'
+type Tab = 'graph' | 'architecture' | 'verify' | 'audit' | 'frontend' | 'upload'
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('graph')
@@ -75,6 +76,15 @@ export default function Home() {
           >
             Frontend
           </button>
+          <button
+            style={{
+              ...styles.tab,
+              ...(tab === 'upload' ? styles.tabActive : {}),
+            }}
+            onClick={() => setTab('upload')}
+          >
+            Upload
+          </button>
         </nav>
         <div style={styles.headerRight}>
           <a
@@ -129,6 +139,9 @@ export default function Home() {
         </div>
         <div style={{ display: tab === 'frontend' ? 'block' : 'none', height: '100%' }}>
           <FrontendView />
+        </div>
+        <div style={{ display: tab === 'upload' ? 'block' : 'none', height: '100%' }}>
+          <UploadView />
         </div>
       </main>
     </div>
