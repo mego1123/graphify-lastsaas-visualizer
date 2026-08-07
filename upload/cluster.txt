@@ -1,0 +1,7 @@
+kayanacademy612_db_user
+TBuVtQrWXqzO9kAI
+
+aYjC YDFc Jj97 0ZlK wXjP Htgh
+
+
+mongodb+srv://<db_username>:TBuVtQrWXqzO9kAI@cluster0.xuqtpg2.mongodb.net/?appName=Cluster0
