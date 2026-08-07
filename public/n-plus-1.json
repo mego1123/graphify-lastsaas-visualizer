@@ -1,5 +1,5 @@
 {
-  "root": "/home/z/my-project/repos/lastsaas",
+  "root": "/home/z/my-project/repos/lastsaas/backend",
   "total_findings": 21,
   "severity_breakdown": {
     "LOW": 15,
@@ -85,37 +85,37 @@
   ],
   "top_files": [
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "count": 9
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "count": 5
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "count": 2
     },
     {
-      "file": "backend/internal/configstore/seed.go",
+      "file": "internal/configstore/seed.go",
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "count": 1
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "count": 1
     },
     {
-      "file": "backend/internal/health/query.go",
+      "file": "internal/health/query.go",
       "count": 1
     }
   ],
   "findings": [
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1277,
       "end_line": 1332,
       "call_line": 1280,
@@ -130,7 +130,7 @@
       "note": "Find call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1277,
       "end_line": 1332,
       "call_line": 1301,
@@ -145,7 +145,7 @@
       "note": "Find call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1398,
@@ -160,7 +160,7 @@
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1414,
@@ -175,7 +175,7 @@
       "note": "UpdateOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1430,
@@ -190,7 +190,7 @@
       "note": "CountDocuments call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1454,
@@ -205,7 +205,7 @@
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1457,
@@ -220,7 +220,7 @@
       "note": "DeleteOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1392,
       "end_line": 1476,
       "call_line": 1460,
@@ -235,7 +235,7 @@
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1678,
       "end_line": 1690,
       "call_line": 1680,
@@ -250,7 +250,7 @@
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 2280,
       "end_line": 2324,
       "call_line": 2286,
@@ -265,7 +265,7 @@
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 2280,
       "end_line": 2324,
       "call_line": 2295,
@@ -280,7 +280,7 @@
       "note": "CountDocuments call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 2280,
       "end_line": 2324,
       "call_line": 2305,
@@ -295,7 +295,7 @@
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 2280,
       "end_line": 2324,
       "call_line": 2308,
@@ -310,7 +310,7 @@
       "note": "DeleteOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 2280,
       "end_line": 2324,
       "call_line": 2311,
@@ -325,7 +325,7 @@
       "note": "DeleteMany call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 457,
       "end_line": 472,
       "call_line": 463,
@@ -340,7 +340,7 @@
       "note": "FindOne call inside infinite loop"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 518,
       "end_line": 527,
       "call_line": 519,
@@ -355,7 +355,7 @@
       "note": "InsertOne call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "line": 69,
       "end_line": 86,
       "call_line": 71,
@@ -370,7 +370,7 @@
       "note": "CountDocuments call inside range loop"
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "line": 69,
       "end_line": 86,
       "call_line": 83,
@@ -385,7 +385,7 @@
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "backend/internal/configstore/seed.go",
+      "file": "internal/configstore/seed.go",
       "line": 379,
       "end_line": 391,
       "call_line": 380,
@@ -400,7 +400,7 @@
       "note": "FindOne call inside range loop"
     },
     {
-      "file": "backend/internal/configstore/seed.go",
+      "file": "internal/configstore/seed.go",
       "line": 379,
       "end_line": 391,
       "call_line": 384,
@@ -415,7 +415,7 @@
       "note": "InsertOne call inside range loop"
     },
     {
-      "file": "backend/internal/health/query.go",
+      "file": "internal/health/query.go",
       "line": 96,
       "end_line": 105,
       "call_line": 98,

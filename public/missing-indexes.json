@@ -1,5 +1,5 @@
 {
-  "root": "/home/z/my-project/repos/lastsaas",
+  "root": "/home/z/my-project/repos/lastsaas/backend",
   "total_queries_scanned": 413,
   "total_findings": 22,
   "suppressed_findings": 11,
@@ -35,12 +35,16 @@
       "count": 8
     },
     {
+      "collection": "financial_transactions",
+      "count": 3
+    },
+    {
       "collection": "system_logs",
       "count": 3
     },
     {
-      "collection": "financial_transactions",
-      "count": 3
+      "collection": "api_keys",
+      "count": 2
     },
     {
       "collection": "announcements",
@@ -48,10 +52,6 @@
     },
     {
       "collection": "webhooks",
-      "count": 2
-    },
-    {
-      "collection": "api_keys",
       "count": 2
     },
     {
@@ -65,43 +65,43 @@
   ],
   "top_files": [
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "count": 7
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_logs.go",
+      "file": "cmd/lastsaas/cmd_logs.go",
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/announcements.go",
+      "file": "internal/api/handlers/apikeys.go",
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/promotions.go",
+      "file": "internal/api/handlers/promotions.go",
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/announcements.go",
       "count": 2
     },
     {
-      "file": "backend/internal/api/handlers/apikeys.go",
+      "file": "internal/api/handlers/webhooks.go",
       "count": 2
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_financial.go",
+      "file": "cmd/lastsaas/cmd_financial.go",
       "count": 1
     },
     {
-      "file": "backend/internal/telemetry/service.go",
+      "file": "internal/telemetry/service.go",
       "count": 1
     },
     {
-      "file": "backend/internal/api/handlers/logs.go",
+      "file": "internal/api/handlers/logs.go",
       "count": 1
     }
   ],
@@ -1617,33 +1617,7 @@
   ],
   "findings": [
     {
-      "file": "backend/cmd/lastsaas/cmd_logs.go",
-      "line": 140,
-      "function": "queryLogs",
-      "collection": "system_logs",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "MEDIUM",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := database.SystemLogs().Find(ctx, filter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/cmd/lastsaas/cmd_logs.go",
-      "line": 193,
-      "function": "logsFollow",
-      "collection": "system_logs",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "MEDIUM",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := database.SystemLogs().Find(ctx, followFilter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/cmd/lastsaas/cmd_financial.go",
+      "file": "cmd/lastsaas/cmd_financial.go",
       "line": 254,
       "function": "cmdFinancialTransactions",
       "collection": "financial_transactions",
@@ -1656,7 +1630,33 @@
       "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
     },
     {
-      "file": "backend/internal/telemetry/service.go",
+      "file": "cmd/lastsaas/cmd_logs.go",
+      "line": 140,
+      "function": "queryLogs",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := database.SystemLogs().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "cmd/lastsaas/cmd_logs.go",
+      "line": 193,
+      "function": "logsFollow",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := database.SystemLogs().Find(ctx, followFilter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/telemetry/service.go",
       "line": 624,
       "function": "computeKPIs",
       "collection": "tenants",
@@ -1671,239 +1671,7 @@
       "suggestion": "Add an index on `canceledAt` (or a compound index starting with it) on `tenants`."
     },
     {
-      "file": "backend/internal/api/handlers/announcements.go",
-      "line": 33,
-      "function": "ListPublic",
-      "collection": "announcements",
-      "operation": "Find",
-      "filter_fields": [
-        "isPublished"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_collection_indexes",
-      "reason": "collection `announcements` has no declared indexes \u2014 every query scans the full collection",
-      "snippet": "cursor, err := h.db.Announcements().Find(r.Context(), bson.M{\"isPublished\": true}, opts)",
-      "suggestion": "Add an index on the most-filtered field(s) of `announcements` (e.g. `isPublished` based on this query)."
-    },
-    {
-      "file": "backend/internal/api/handlers/announcements.go",
-      "line": 54,
-      "function": "ListAll",
-      "collection": "announcements",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "MEDIUM",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `announcements` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := h.db.Announcements().Find(r.Context(), bson.M{}, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/billing.go",
-      "line": 736,
-      "function": "AdminListTransactions",
-      "collection": "financial_transactions",
-      "operation": "CountDocuments",
-      "filter_fields": [],
-      "severity": "MEDIUM",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/billing.go",
-      "line": 747,
-      "function": "AdminListTransactions",
-      "collection": "financial_transactions",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "MEDIUM",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/logs.go",
-      "line": 198,
-      "function": "ExportCSV",
-      "collection": "system_logs",
-      "operation": "Find",
-      "filter_fields": [],
-      "severity": "MEDIUM",
-      "finding_type": "multi_tenant_unfiltered",
-      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
-      "snippet": "cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)",
-      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
-    },
-    {
-      "file": "backend/internal/api/handlers/promotions.go",
-      "line": 200,
-      "function": "ListEligibleProducts",
-      "collection": "plans",
-      "operation": "Find",
-      "filter_fields": [
-        "isArchived"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['isArchived'] are not covered by any index on `plans` (indexed leading fields: ['isSystem', 'name'])",
-      "snippet": "planCursor, err := h.db.Plans().Find(ctx, bson.M{\"isArchived\": bson.M{\"$ne\": true}})",
-      "suggestion": "Add an index on `isArchived` (or a compound index starting with it) on `plans`."
-    },
-    {
-      "file": "backend/internal/api/handlers/promotions.go",
-      "line": 226,
-      "function": "ListEligibleProducts",
-      "collection": "credit_bundles",
-      "operation": "Find",
-      "filter_fields": [
-        "isActive"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])",
-      "snippet": "bundleCursor, err := h.db.CreditBundles().Find(ctx, bson.M{\"isActive\": true})",
-      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhooks.go",
-      "line": 45,
-      "function": "ListWebhooks",
-      "collection": "webhooks",
-      "operation": "Find",
-      "filter_fields": [
-        "isActive"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])",
-      "snippet": "cursor, err := h.db.Webhooks().Find(ctx, bson.M{\"isActive\": true}, opts)",
-      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `webhooks`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhooks.go",
-      "line": 88,
-      "function": "ListWebhooks",
-      "collection": "webhooks",
-      "operation": "CountDocuments",
-      "filter_fields": [
-        "isActive"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])",
-      "snippet": "total, err := h.db.Webhooks().CountDocuments(ctx, bson.M{\"isActive\": true})",
-      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `webhooks`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 391,
-      "function": "handleInvoicePaid",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeSubscriptionId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": subscriptionID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 482,
-      "function": "handleInvoicePaymentFailed",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeSubscriptionId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": subscriptionID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 551,
-      "function": "handleSubscriptionUpdated",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeSubscriptionId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": sub.ID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 613,
-      "function": "handleSubscriptionDeleted",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeSubscriptionId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": sub.ID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 675,
-      "function": "handleChargeRefunded",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeCustomerId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": charge.Customer.ID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 726,
-      "function": "handleDisputeCreated",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeCustomerId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": customerID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/webhook.go",
-      "line": 771,
-      "function": "handleDisputeClosed",
-      "collection": "tenants",
-      "operation": "FindOne",
-      "filter_fields": [
-        "stripeCustomerId"
-      ],
-      "severity": "MEDIUM",
-      "finding_type": "no_index",
-      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
-      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": customerID}).Decode(&tenant); err != nil {",
-      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
-    },
-    {
-      "file": "backend/internal/api/handlers/apikeys.go",
+      "file": "internal/api/handlers/apikeys.go",
       "line": 45,
       "function": "ListAPIKeys",
       "collection": "api_keys",
@@ -1918,7 +1686,7 @@
       "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `api_keys`."
     },
     {
-      "file": "backend/internal/api/handlers/apikeys.go",
+      "file": "internal/api/handlers/apikeys.go",
       "line": 60,
       "function": "ListAPIKeys",
       "collection": "api_keys",
@@ -1931,11 +1699,243 @@
       "reason": "filter fields ['isActive'] are not covered by any index on `api_keys` (indexed leading fields: ['createdBy', 'keyHash'])",
       "snippet": "total, err := h.db.APIKeys().CountDocuments(r.Context(), bson.M{\"isActive\": true})",
       "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `api_keys`."
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "line": 736,
+      "function": "AdminListTransactions",
+      "collection": "financial_transactions",
+      "operation": "CountDocuments",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/billing.go",
+      "line": 747,
+      "function": "AdminListTransactions",
+      "collection": "financial_transactions",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `financial_transactions` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/promotions.go",
+      "line": 200,
+      "function": "ListEligibleProducts",
+      "collection": "plans",
+      "operation": "Find",
+      "filter_fields": [
+        "isArchived"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isArchived'] are not covered by any index on `plans` (indexed leading fields: ['isSystem', 'name'])",
+      "snippet": "planCursor, err := h.db.Plans().Find(ctx, bson.M{\"isArchived\": bson.M{\"$ne\": true}})",
+      "suggestion": "Add an index on `isArchived` (or a compound index starting with it) on `plans`."
+    },
+    {
+      "file": "internal/api/handlers/promotions.go",
+      "line": 226,
+      "function": "ListEligibleProducts",
+      "collection": "credit_bundles",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])",
+      "snippet": "bundleCursor, err := h.db.CreditBundles().Find(ctx, bson.M{\"isActive\": true})",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`."
+    },
+    {
+      "file": "internal/api/handlers/logs.go",
+      "line": 198,
+      "function": "ExportCSV",
+      "collection": "system_logs",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `system_logs` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/announcements.go",
+      "line": 33,
+      "function": "ListPublic",
+      "collection": "announcements",
+      "operation": "Find",
+      "filter_fields": [
+        "isPublished"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_collection_indexes",
+      "reason": "collection `announcements` has no declared indexes \u2014 every query scans the full collection",
+      "snippet": "cursor, err := h.db.Announcements().Find(r.Context(), bson.M{\"isPublished\": true}, opts)",
+      "suggestion": "Add an index on the most-filtered field(s) of `announcements` (e.g. `isPublished` based on this query)."
+    },
+    {
+      "file": "internal/api/handlers/announcements.go",
+      "line": 54,
+      "function": "ListAll",
+      "collection": "announcements",
+      "operation": "Find",
+      "filter_fields": [],
+      "severity": "MEDIUM",
+      "finding_type": "multi_tenant_unfiltered",
+      "reason": "empty-filter query on multi-tenant collection `announcements` \u2014 full collection scan, risks cross-tenant data leak",
+      "snippet": "cursor, err := h.db.Announcements().Find(r.Context(), bson.M{}, opts)",
+      "suggestion": "Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 391,
+      "function": "handleInvoicePaid",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": subscriptionID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 482,
+      "function": "handleInvoicePaymentFailed",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": subscriptionID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 551,
+      "function": "handleSubscriptionUpdated",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": sub.ID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 613,
+      "function": "handleSubscriptionDeleted",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeSubscriptionId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeSubscriptionId\": sub.ID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 675,
+      "function": "handleChargeRefunded",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeCustomerId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": charge.Customer.ID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 726,
+      "function": "handleDisputeCreated",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeCustomerId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": customerID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhook.go",
+      "line": 771,
+      "function": "handleDisputeClosed",
+      "collection": "tenants",
+      "operation": "FindOne",
+      "filter_fields": [
+        "stripeCustomerId"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])",
+      "snippet": "if err := h.db.Tenants().FindOne(ctx, bson.M{\"stripeCustomerId\": customerID}).Decode(&tenant); err != nil {",
+      "suggestion": "Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`."
+    },
+    {
+      "file": "internal/api/handlers/webhooks.go",
+      "line": 45,
+      "function": "ListWebhooks",
+      "collection": "webhooks",
+      "operation": "Find",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])",
+      "snippet": "cursor, err := h.db.Webhooks().Find(ctx, bson.M{\"isActive\": true}, opts)",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `webhooks`."
+    },
+    {
+      "file": "internal/api/handlers/webhooks.go",
+      "line": 88,
+      "function": "ListWebhooks",
+      "collection": "webhooks",
+      "operation": "CountDocuments",
+      "filter_fields": [
+        "isActive"
+      ],
+      "severity": "MEDIUM",
+      "finding_type": "no_index",
+      "reason": "filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])",
+      "snippet": "total, err := h.db.Webhooks().CountDocuments(ctx, bson.M{\"isActive\": true})",
+      "suggestion": "Add an index on `isActive` (or a compound index starting with it) on `webhooks`."
     }
   ],
   "suppressed": [
     {
-      "file": "backend/cmd/lastsaas/cmd_stats.go",
+      "file": "cmd/lastsaas/cmd_stats.go",
       "line": 33,
       "function": "cmdStats",
       "collection": "users",
@@ -1949,7 +1949,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/telemetry/service.go",
+      "file": "internal/telemetry/service.go",
       "line": 323,
       "function": "FunnelMetrics",
       "collection": "users",
@@ -1963,7 +1963,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/telemetry/service.go",
+      "file": "internal/telemetry/service.go",
       "line": 350,
       "function": "FunnelMetrics",
       "collection": "financial_transactions",
@@ -1978,7 +1978,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/telemetry/service.go",
+      "file": "internal/telemetry/service.go",
       "line": 708,
       "function": "CustomEventSummary",
       "collection": "telemetry_events",
@@ -1990,7 +1990,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 406,
       "function": "ListTransactions",
       "collection": "financial_transactions",
@@ -2002,7 +2002,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 417,
       "function": "ListTransactions",
       "collection": "financial_transactions",
@@ -2014,7 +2014,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 237,
       "function": "ListBundlesPublic",
       "collection": "credit_bundles",
@@ -2028,7 +2028,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 596,
       "function": "GetActivity",
       "collection": "system_logs",
@@ -2040,7 +2040,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 609,
       "function": "GetActivity",
       "collection": "system_logs",
@@ -2052,7 +2052,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/logs.go",
+      "file": "internal/api/handlers/logs.go",
       "line": 115,
       "function": "ListLogs",
       "collection": "system_logs",
@@ -2064,7 +2064,7 @@
       "suppression": "function"
     },
     {
-      "file": "backend/internal/api/handlers/logs.go",
+      "file": "internal/api/handlers/logs.go",
       "line": 127,
       "function": "ListLogs",
       "collection": "system_logs",

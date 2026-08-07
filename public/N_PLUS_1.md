@@ -1,6 +1,6 @@
 # N+1 Query Detection Report
 
-**Target:** `/home/z/my-project/repos/lastsaas`
+**Target:** `/home/z/my-project/repos/lastsaas/backend`
 
 Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 problem: the loop runs N times, and each iteration hits the database — N+1 round trips instead of one.
 
@@ -50,19 +50,19 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
 
 | File | Findings |
 | --- | ---: |
-| `backend/internal/api/handlers/admin.go` | 9 |
-| `backend/internal/api/handlers/auth.go` | 5 |
-| `backend/internal/api/handlers/webhooks.go` | 2 |
-| `backend/internal/configstore/seed.go` | 2 |
-| `backend/internal/api/handlers/event_definitions.go` | 1 |
-| `backend/internal/api/handlers/webhook.go` | 1 |
-| `backend/internal/health/query.go` | 1 |
+| `internal/api/handlers/admin.go` | 9 |
+| `internal/api/handlers/auth.go` | 5 |
+| `internal/api/handlers/webhooks.go` | 2 |
+| `internal/configstore/seed.go` | 2 |
+| `internal/api/handlers/event_definitions.go` | 1 |
+| `internal/api/handlers/webhook.go` | 1 |
+| `internal/health/query.go` | 1 |
 
 ## Detailed Findings
 
-### `backend/internal/api/handlers/admin.go`
+### `internal/api/handlers/admin.go`
 
-- **[LOW] Find on `tenant_memberships`** — `backend/internal/api/handlers/admin.go:1280` (loop at line 1277, range loop over `m`) in `PreflightDeleteUser`
+- **[LOW] Find on `tenant_memberships`** — `internal/api/handlers/admin.go:1280` (loop at line 1277, range loop over `m`) in `PreflightDeleteUser`
   - _Find call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -76,7 +76,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   		if err != nil {
   ... (48 more lines)
   ```
-- **[LOW] Find on `users`** — `backend/internal/api/handlers/admin.go:1301` (loop at line 1277, range loop over `m`) in `PreflightDeleteUser`
+- **[LOW] Find on `users`** — `internal/api/handlers/admin.go:1301` (loop at line 1277, range loop over `m`) in `PreflightDeleteUser`
   - _Find call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -90,7 +90,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   		if err != nil {
   ... (48 more lines)
   ```
-- **[LOW] FindOne on `tenants`** — `backend/internal/api/handlers/admin.go:1398` (loop at line 1392, range loop over `m`) in `DeleteUser`
+- **[LOW] FindOne on `tenants`** — `internal/api/handlers/admin.go:1398` (loop at line 1392, range loop over `m`) in `DeleteUser`
   - _FindOne call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -104,7 +104,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			respondWithError(w, http.StatusInternalServerError, "Failed to look up tenant")
   ... (77 more lines)
   ```
-- **[LOW] UpdateOne on `tenant_memberships`** — `backend/internal/api/handlers/admin.go:1414` (loop at line 1392, range loop over `m`) in `DeleteUser`
+- **[LOW] UpdateOne on `tenant_memberships`** — `internal/api/handlers/admin.go:1414` (loop at line 1392, range loop over `m`) in `DeleteUser`
   - _UpdateOne call inside range loop_
   - Suggestion: Use BulkWrite with a []mongo.WriteModel (UpdateOne models) instead of issuing UpdateOne per iteration.
   ```go
@@ -118,7 +118,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			respondWithError(w, http.StatusInternalServerError, "Failed to look up tenant")
   ... (77 more lines)
   ```
-- **[LOW] CountDocuments on `tenant_memberships`** — `backend/internal/api/handlers/admin.go:1430` (loop at line 1392, range loop over `m`) in `DeleteUser`
+- **[LOW] CountDocuments on `tenant_memberships`** — `internal/api/handlers/admin.go:1430` (loop at line 1392, range loop over `m`) in `DeleteUser`
   - _CountDocuments call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -132,7 +132,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			respondWithError(w, http.StatusInternalServerError, "Failed to look up tenant")
   ... (77 more lines)
   ```
-- **[LOW] DeleteMany on `tenant_memberships`** — `backend/internal/api/handlers/admin.go:1454` (loop at line 1392, range loop over `m`) in `DeleteUser`
+- **[LOW] DeleteMany on `tenant_memberships`** — `internal/api/handlers/admin.go:1454` (loop at line 1392, range loop over `m`) in `DeleteUser`
   - _DeleteMany call inside range loop_
   - Suggestion: Batch this operation — issue a single bulk/multi-document call instead of one DB call per loop iteration.
   ```go
@@ -146,7 +146,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			respondWithError(w, http.StatusInternalServerError, "Failed to look up tenant")
   ... (77 more lines)
   ```
-- **[LOW] DeleteOne on `tenants`** — `backend/internal/api/handlers/admin.go:1457` (loop at line 1392, range loop over `m`) in `DeleteUser`
+- **[LOW] DeleteOne on `tenants`** — `internal/api/handlers/admin.go:1457` (loop at line 1392, range loop over `m`) in `DeleteUser`
   - _DeleteOne call inside range loop_
   - Suggestion: Use DeleteMany with an $in filter instead of DeleteOne in a loop.
   ```go
@@ -160,7 +160,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			respondWithError(w, http.StatusInternalServerError, "Failed to look up tenant")
   ... (77 more lines)
   ```
-- **[LOW] DeleteMany on `invitations`** — `backend/internal/api/handlers/admin.go:1460` (loop at line 1392, range loop over `m`) in `DeleteUser`
+- **[LOW] DeleteMany on `invitations`** — `internal/api/handlers/admin.go:1460` (loop at line 1392, range loop over `m`) in `DeleteUser`
   - _DeleteMany call inside range loop_
   - Suggestion: Batch this operation — issue a single bulk/multi-document call instead of one DB call per loop iteration.
   ```go
@@ -174,7 +174,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			respondWithError(w, http.StatusInternalServerError, "Failed to look up tenant")
   ... (77 more lines)
   ```
-- **[LOW] FindOne on `tenants`** — `backend/internal/api/handlers/admin.go:1680` (loop at line 1678, range loop over `m`) in `ImpersonateUser`
+- **[LOW] FindOne on `tenants`** — `internal/api/handlers/admin.go:1680` (loop at line 1678, range loop over `m`) in `ImpersonateUser`
   - _FindOne call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -189,9 +189,9 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   ... (5 more lines)
   ```
 
-### `backend/internal/api/handlers/auth.go`
+### `internal/api/handlers/auth.go`
 
-- **[LOW] FindOne on `tenants`** — `backend/internal/api/handlers/auth.go:2286` (loop at line 2280, range loop over `m`) in `DeleteAccount`
+- **[LOW] FindOne on `tenants`** — `internal/api/handlers/auth.go:2286` (loop at line 2280, range loop over `m`) in `DeleteAccount`
   - _FindOne call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -205,7 +205,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
                           continue
   ... (37 more lines)
   ```
-- **[LOW] CountDocuments on `tenant_memberships`** — `backend/internal/api/handlers/auth.go:2295` (loop at line 2280, range loop over `m`) in `DeleteAccount`
+- **[LOW] CountDocuments on `tenant_memberships`** — `internal/api/handlers/auth.go:2295` (loop at line 2280, range loop over `m`) in `DeleteAccount`
   - _CountDocuments call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -219,7 +219,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
                           continue
   ... (37 more lines)
   ```
-- **[LOW] DeleteMany on `tenant_memberships`** — `backend/internal/api/handlers/auth.go:2305` (loop at line 2280, range loop over `m`) in `DeleteAccount`
+- **[LOW] DeleteMany on `tenant_memberships`** — `internal/api/handlers/auth.go:2305` (loop at line 2280, range loop over `m`) in `DeleteAccount`
   - _DeleteMany call inside range loop_
   - Suggestion: Batch this operation — issue a single bulk/multi-document call instead of one DB call per loop iteration.
   ```go
@@ -233,7 +233,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
                           continue
   ... (37 more lines)
   ```
-- **[LOW] DeleteOne on `tenants`** — `backend/internal/api/handlers/auth.go:2308` (loop at line 2280, range loop over `m`) in `DeleteAccount`
+- **[LOW] DeleteOne on `tenants`** — `internal/api/handlers/auth.go:2308` (loop at line 2280, range loop over `m`) in `DeleteAccount`
   - _DeleteOne call inside range loop_
   - Suggestion: Use DeleteMany with an $in filter instead of DeleteOne in a loop.
   ```go
@@ -247,7 +247,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
                           continue
   ... (37 more lines)
   ```
-- **[LOW] DeleteMany on `invitations`** — `backend/internal/api/handlers/auth.go:2311` (loop at line 2280, range loop over `m`) in `DeleteAccount`
+- **[LOW] DeleteMany on `invitations`** — `internal/api/handlers/auth.go:2311` (loop at line 2280, range loop over `m`) in `DeleteAccount`
   - _DeleteMany call inside range loop_
   - Suggestion: Batch this operation — issue a single bulk/multi-document call instead of one DB call per loop iteration.
   ```go
@@ -262,9 +262,9 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   ... (37 more lines)
   ```
 
-### `backend/internal/api/handlers/event_definitions.go`
+### `internal/api/handlers/event_definitions.go`
 
-- **[MEDIUM] FindOne on `event_definitions`** — `backend/internal/api/handlers/event_definitions.go:463` (loop at line 457, infinite loop over `_`) in `wouldCreateCycle`
+- **[MEDIUM] FindOne on `event_definitions`** — `internal/api/handlers/event_definitions.go:463` (loop at line 457, infinite loop over `_`) in `wouldCreateCycle`
   - _FindOne call inside infinite loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -279,9 +279,9 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   ... (8 more lines)
   ```
 
-### `backend/internal/api/handlers/webhook.go`
+### `internal/api/handlers/webhook.go`
 
-- **[LOW] InsertOne on `messages`** — `backend/internal/api/handlers/webhook.go:519` (loop at line 518, range loop over `m`) in `handleInvoicePaymentFailed`
+- **[LOW] InsertOne on `messages`** — `internal/api/handlers/webhook.go:519` (loop at line 518, range loop over `m`) in `handleInvoicePaymentFailed`
   - _InsertOne call inside range loop_
   - Suggestion: Use InsertMany with a slice of documents instead of InsertOne in a loop.
   ```go
@@ -296,9 +296,9 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   ... (2 more lines)
   ```
 
-### `backend/internal/api/handlers/webhooks.go`
+### `internal/api/handlers/webhooks.go`
 
-- **[MEDIUM] CountDocuments on `webhook_deliveries`** — `backend/internal/api/handlers/webhooks.go:71` (loop at line 69, range loop over `hook`) in `ListWebhooks`
+- **[MEDIUM] CountDocuments on `webhook_deliveries`** — `internal/api/handlers/webhooks.go:71` (loop at line 69, range loop over `hook`) in `ListWebhooks`
   - _CountDocuments call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -312,7 +312,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   			slog.Warn("failed to count webhook deliveries", "webhookId", hook.ID, "error", err)
   ... (10 more lines)
   ```
-- **[MEDIUM] FindOne on `webhook_deliveries`** — `backend/internal/api/handlers/webhooks.go:83` (loop at line 69, range loop over `hook`) in `ListWebhooks`
+- **[MEDIUM] FindOne on `webhook_deliveries`** — `internal/api/handlers/webhooks.go:83` (loop at line 69, range loop over `hook`) in `ListWebhooks`
   - _FindOne call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -327,9 +327,9 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   ... (10 more lines)
   ```
 
-### `backend/internal/configstore/seed.go`
+### `internal/configstore/seed.go`
 
-- **[MEDIUM] FindOne on `config_vars`** — `backend/internal/configstore/seed.go:380` (loop at line 379, range loop over `def`) in `Seed`
+- **[MEDIUM] FindOne on `config_vars`** — `internal/configstore/seed.go:380` (loop at line 379, range loop over `def`) in `Seed`
   - _FindOne call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go
@@ -343,7 +343,7 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
                           }
   ... (5 more lines)
   ```
-- **[MEDIUM] InsertOne on `config_vars`** — `backend/internal/configstore/seed.go:384` (loop at line 379, range loop over `def`) in `Seed`
+- **[MEDIUM] InsertOne on `config_vars`** — `internal/configstore/seed.go:384` (loop at line 379, range loop over `def`) in `Seed`
   - _InsertOne call inside range loop_
   - Suggestion: Use InsertMany with a slice of documents instead of InsertOne in a loop.
   ```go
@@ -358,9 +358,9 @@ Finds MongoDB queries that run inside loop bodies. Each such query is an N+1 pro
   ... (5 more lines)
   ```
 
-### `backend/internal/health/query.go`
+### `internal/health/query.go`
 
-- **[MEDIUM] FindOne on `system_metrics`** — `backend/internal/health/query.go:98` (loop at line 96, range loop over `node`) in `GetCurrentMetrics`
+- **[MEDIUM] FindOne on `system_metrics`** — `internal/health/query.go:98` (loop at line 96, range loop over `node`) in `GetCurrentMetrics`
   - _FindOne call inside range loop_
   - Suggestion: Use $in operator with a batch of IDs instead of querying in a loop. e.g. `col.Find(ctx, bson.M{"_id": bson.M{"$in": ids}})`
   ```go

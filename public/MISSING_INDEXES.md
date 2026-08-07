@@ -1,6 +1,6 @@
 # Missing Index Report
 
-**Target:** `/home/z/my-project/repos/lastsaas`
+**Target:** `/home/z/my-project/repos/lastsaas/backend`
 
 For every MongoDB query in the codebase, checks whether the filter fields are covered by a declared index. Indexes are parsed from `Indexes().CreateMany(...)` / `CreateOne(...)` calls in the codebase (`internal/db/mongodb.go::ensureIndexes`, `internal/middleware/ratelimit.go`, etc.).
 
@@ -28,11 +28,11 @@ For every MongoDB query in the codebase, checks whether the filter fields are co
 | Collection | Findings |
 | --- | ---: |
 | `tenants` | 8 |
-| `system_logs` | 3 |
 | `financial_transactions` | 3 |
+| `system_logs` | 3 |
+| `api_keys` | 2 |
 | `announcements` | 2 |
 | `webhooks` | 2 |
-| `api_keys` | 2 |
 | `plans` | 1 |
 | `credit_bundles` | 1 |
 
@@ -48,22 +48,22 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
 
 | File | Findings |
 | --- | ---: |
-| `backend/internal/api/handlers/webhook.go` | 7 |
-| `backend/cmd/lastsaas/cmd_logs.go` | 2 |
-| `backend/internal/api/handlers/announcements.go` | 2 |
-| `backend/internal/api/handlers/billing.go` | 2 |
-| `backend/internal/api/handlers/promotions.go` | 2 |
-| `backend/internal/api/handlers/webhooks.go` | 2 |
-| `backend/internal/api/handlers/apikeys.go` | 2 |
-| `backend/cmd/lastsaas/cmd_financial.go` | 1 |
-| `backend/internal/telemetry/service.go` | 1 |
-| `backend/internal/api/handlers/logs.go` | 1 |
+| `internal/api/handlers/webhook.go` | 7 |
+| `cmd/lastsaas/cmd_logs.go` | 2 |
+| `internal/api/handlers/apikeys.go` | 2 |
+| `internal/api/handlers/billing.go` | 2 |
+| `internal/api/handlers/promotions.go` | 2 |
+| `internal/api/handlers/announcements.go` | 2 |
+| `internal/api/handlers/webhooks.go` | 2 |
+| `cmd/lastsaas/cmd_financial.go` | 1 |
+| `internal/telemetry/service.go` | 1 |
+| `internal/api/handlers/logs.go` | 1 |
 
 ## Detailed Findings
 
-### `backend/cmd/lastsaas/cmd_financial.go`
+### `cmd/lastsaas/cmd_financial.go`
 
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/cmd/lastsaas/cmd_financial.go:254` `Find` on `financial_transactions` in `cmdFinancialTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `cmd/lastsaas/cmd_financial.go:254` `Find` on `financial_transactions` in `cmdFinancialTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -71,16 +71,16 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   cursor, err := database.FinancialTransactions().Find(ctx, filter, opts)
   ```
 
-### `backend/cmd/lastsaas/cmd_logs.go`
+### `cmd/lastsaas/cmd_logs.go`
 
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/cmd/lastsaas/cmd_logs.go:140` `Find` on `system_logs` in `queryLogs`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `cmd/lastsaas/cmd_logs.go:140` `Find` on `system_logs` in `queryLogs`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
   ```go
   cursor, err := database.SystemLogs().Find(ctx, filter, opts)
   ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/cmd/lastsaas/cmd_logs.go:193` `Find` on `system_logs` in `logsFollow`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `cmd/lastsaas/cmd_logs.go:193` `Find` on `system_logs` in `logsFollow`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -88,16 +88,16 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   cursor, err := database.SystemLogs().Find(ctx, followFilter, opts)
   ```
 
-### `backend/internal/api/handlers/announcements.go`
+### `internal/api/handlers/announcements.go`
 
-- **[MEDIUM] Collection has no declared indexes** — `backend/internal/api/handlers/announcements.go:33` `Find` on `announcements` in `ListPublic`
+- **[MEDIUM] Collection has no declared indexes** — `internal/api/handlers/announcements.go:33` `Find` on `announcements` in `ListPublic`
   - Filter fields: `isPublished``
   - _collection `announcements` has no declared indexes — every query scans the full collection_
   - Suggestion: Add an index on the most-filtered field(s) of `announcements` (e.g. `isPublished` based on this query).
   ```go
   cursor, err := h.db.Announcements().Find(r.Context(), bson.M{"isPublished": true}, opts)
   ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/announcements.go:54` `Find` on `announcements` in `ListAll`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `internal/api/handlers/announcements.go:54` `Find` on `announcements` in `ListAll`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `announcements` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -105,16 +105,16 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   cursor, err := h.db.Announcements().Find(r.Context(), bson.M{}, opts)
   ```
 
-### `backend/internal/api/handlers/apikeys.go`
+### `internal/api/handlers/apikeys.go`
 
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/apikeys.go:45` `Find` on `api_keys` in `ListAPIKeys`
+- **[MEDIUM] No covering index** — `internal/api/handlers/apikeys.go:45` `Find` on `api_keys` in `ListAPIKeys`
   - Filter fields: `isActive``
   - _filter fields ['isActive'] are not covered by any index on `api_keys` (indexed leading fields: ['createdBy', 'keyHash'])_
   - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `api_keys`.
   ```go
   cursor, err := h.db.APIKeys().Find(r.Context(), bson.M{"isActive": true}, opts)
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/apikeys.go:60` `CountDocuments` on `api_keys` in `ListAPIKeys`
+- **[MEDIUM] No covering index** — `internal/api/handlers/apikeys.go:60` `CountDocuments` on `api_keys` in `ListAPIKeys`
   - Filter fields: `isActive``
   - _filter fields ['isActive'] are not covered by any index on `api_keys` (indexed leading fields: ['createdBy', 'keyHash'])_
   - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `api_keys`.
@@ -122,16 +122,16 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   total, err := h.db.APIKeys().CountDocuments(r.Context(), bson.M{"isActive": true})
   ```
 
-### `backend/internal/api/handlers/billing.go`
+### `internal/api/handlers/billing.go`
 
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:736` `CountDocuments` on `financial_transactions` in `AdminListTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `internal/api/handlers/billing.go:736` `CountDocuments` on `financial_transactions` in `AdminListTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
   ```go
   total, err := h.db.FinancialTransactions().CountDocuments(ctx, filter)
   ```
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/billing.go:747` `Find` on `financial_transactions` in `AdminListTransactions`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `internal/api/handlers/billing.go:747` `Find` on `financial_transactions` in `AdminListTransactions`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `financial_transactions` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -139,9 +139,9 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   cursor, err := h.db.FinancialTransactions().Find(ctx, filter, opts)
   ```
 
-### `backend/internal/api/handlers/logs.go`
+### `internal/api/handlers/logs.go`
 
-- **[MEDIUM] Multi-tenant query without tenantId filter** — `backend/internal/api/handlers/logs.go:198` `Find` on `system_logs` in `ExportCSV`
+- **[MEDIUM] Multi-tenant query without tenantId filter** — `internal/api/handlers/logs.go:198` `Find` on `system_logs` in `ExportCSV`
   - Filter fields: —
   - _empty-filter query on multi-tenant collection `system_logs` — full collection scan, risks cross-tenant data leak_
   - Suggestion: Add a `tenantId` filter (or scope the collection accessor to the current tenant) to avoid a full collection scan.
@@ -149,16 +149,16 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   cursor, err := h.db.SystemLogs().Find(ctx, filter, opts)
   ```
 
-### `backend/internal/api/handlers/promotions.go`
+### `internal/api/handlers/promotions.go`
 
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/promotions.go:200` `Find` on `plans` in `ListEligibleProducts`
+- **[MEDIUM] No covering index** — `internal/api/handlers/promotions.go:200` `Find` on `plans` in `ListEligibleProducts`
   - Filter fields: `isArchived``
   - _filter fields ['isArchived'] are not covered by any index on `plans` (indexed leading fields: ['isSystem', 'name'])_
   - Suggestion: Add an index on `isArchived` (or a compound index starting with it) on `plans`.
   ```go
   planCursor, err := h.db.Plans().Find(ctx, bson.M{"isArchived": bson.M{"$ne": true}})
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/promotions.go:226` `Find` on `credit_bundles` in `ListEligibleProducts`
+- **[MEDIUM] No covering index** — `internal/api/handlers/promotions.go:226` `Find` on `credit_bundles` in `ListEligibleProducts`
   - Filter fields: `isActive``
   - _filter fields ['isActive'] are not covered by any index on `credit_bundles` (indexed leading fields: ['name', 'sortOrder'])_
   - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `credit_bundles`.
@@ -166,51 +166,51 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   bundleCursor, err := h.db.CreditBundles().Find(ctx, bson.M{"isActive": true})
   ```
 
-### `backend/internal/api/handlers/webhook.go`
+### `internal/api/handlers/webhook.go`
 
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:391` `FindOne` on `tenants` in `handleInvoicePaid`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:391` `FindOne` on `tenants` in `handleInvoicePaid`
   - Filter fields: `stripeSubscriptionId``
   - _filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`.
   ```go
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeSubscriptionId": subscriptionID}).Decode(&tenant); err != nil {
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:482` `FindOne` on `tenants` in `handleInvoicePaymentFailed`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:482` `FindOne` on `tenants` in `handleInvoicePaymentFailed`
   - Filter fields: `stripeSubscriptionId``
   - _filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`.
   ```go
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeSubscriptionId": subscriptionID}).Decode(&tenant); err != nil {
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:551` `FindOne` on `tenants` in `handleSubscriptionUpdated`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:551` `FindOne` on `tenants` in `handleSubscriptionUpdated`
   - Filter fields: `stripeSubscriptionId``
   - _filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`.
   ```go
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeSubscriptionId": sub.ID}).Decode(&tenant); err != nil {
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:613` `FindOne` on `tenants` in `handleSubscriptionDeleted`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:613` `FindOne` on `tenants` in `handleSubscriptionDeleted`
   - Filter fields: `stripeSubscriptionId``
   - _filter fields ['stripeSubscriptionId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeSubscriptionId` (or a compound index starting with it) on `tenants`.
   ```go
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeSubscriptionId": sub.ID}).Decode(&tenant); err != nil {
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:675` `FindOne` on `tenants` in `handleChargeRefunded`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:675` `FindOne` on `tenants` in `handleChargeRefunded`
   - Filter fields: `stripeCustomerId``
   - _filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`.
   ```go
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeCustomerId": charge.Customer.ID}).Decode(&tenant); err != nil {
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:726` `FindOne` on `tenants` in `handleDisputeCreated`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:726` `FindOne` on `tenants` in `handleDisputeCreated`
   - Filter fields: `stripeCustomerId``
   - _filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`.
   ```go
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeCustomerId": customerID}).Decode(&tenant); err != nil {
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhook.go:771` `FindOne` on `tenants` in `handleDisputeClosed`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhook.go:771` `FindOne` on `tenants` in `handleDisputeClosed`
   - Filter fields: `stripeCustomerId``
   - _filter fields ['stripeCustomerId'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `stripeCustomerId` (or a compound index starting with it) on `tenants`.
@@ -218,16 +218,16 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   if err := h.db.Tenants().FindOne(ctx, bson.M{"stripeCustomerId": customerID}).Decode(&tenant); err != nil {
   ```
 
-### `backend/internal/api/handlers/webhooks.go`
+### `internal/api/handlers/webhooks.go`
 
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhooks.go:45` `Find` on `webhooks` in `ListWebhooks`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhooks.go:45` `Find` on `webhooks` in `ListWebhooks`
   - Filter fields: `isActive``
   - _filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])_
   - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `webhooks`.
   ```go
   cursor, err := h.db.Webhooks().Find(ctx, bson.M{"isActive": true}, opts)
   ```
-- **[MEDIUM] No covering index** — `backend/internal/api/handlers/webhooks.go:88` `CountDocuments` on `webhooks` in `ListWebhooks`
+- **[MEDIUM] No covering index** — `internal/api/handlers/webhooks.go:88` `CountDocuments` on `webhooks` in `ListWebhooks`
   - Filter fields: `isActive``
   - _filter fields ['isActive'] are not covered by any index on `webhooks` (indexed leading fields: ['createdBy', 'events'])_
   - Suggestion: Add an index on `isActive` (or a compound index starting with it) on `webhooks`.
@@ -235,9 +235,9 @@ These collections are queried in the codebase but have no `Indexes().CreateMany/
   total, err := h.db.Webhooks().CountDocuments(ctx, bson.M{"isActive": true})
   ```
 
-### `backend/internal/telemetry/service.go`
+### `internal/telemetry/service.go`
 
-- **[MEDIUM] No covering index** — `backend/internal/telemetry/service.go:624` `CountDocuments` on `tenants` in `computeKPIs`
+- **[MEDIUM] No covering index** — `internal/telemetry/service.go:624` `CountDocuments` on `tenants` in `computeKPIs`
   - Filter fields: `canceledAt``
   - _filter fields ['canceledAt'] are not covered by any index on `tenants` (indexed leading fields: ['billingStatus', 'isRoot', 'name', 'planId', 'slug', 'trialUsedAt'])_
   - Suggestion: Add an index on `canceledAt` (or a compound index starting with it) on `tenants`.

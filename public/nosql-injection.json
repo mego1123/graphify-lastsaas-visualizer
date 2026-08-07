@@ -1,32 +1,31 @@
 {
-  "root": "/home/z/my-project/repos/lastsaas",
+  "root": "/home/z/my-project/repos/lastsaas/backend",
   "summary": {
-    "total_files": 134,
-    "non_test_files": 101,
+    "total_files": 135,
+    "non_test_files": 102,
     "test_files": 33,
-    "non_test_lines": 29012,
+    "non_test_lines": 29136,
     "queries_scanned": 598,
-    "total_findings": 151,
+    "total_findings": 147,
     "risky_findings": 25,
-    "sanitized_findings": 126,
+    "sanitized_findings": 122,
     "by_risk": {
       "CRITICAL": 0,
       "HIGH": 25,
       "MEDIUM": 0,
-      "LOW": 126
+      "LOW": 122
     },
     "by_source": {
       "sanitized": 112,
       "query": 6,
       "json-body": 21,
       "path": 7,
-      "form": 1,
-      "tracer": 4
+      "form": 1
     }
   },
   "top_files": [
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "queries": 97,
       "findings": 13,
       "critical": 0,
@@ -35,7 +34,7 @@
       "low": 4
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "queries": 20,
       "findings": 7,
       "critical": 0,
@@ -44,7 +43,7 @@
       "low": 1
     },
     {
-      "file": "backend/internal/api/handlers/usage.go",
+      "file": "internal/api/handlers/usage.go",
       "queries": 5,
       "findings": 4,
       "critical": 0,
@@ -53,7 +52,7 @@
       "low": 0
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "queries": 78,
       "findings": 40,
       "critical": 0,
@@ -62,7 +61,7 @@
       "low": 38
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "queries": 26,
       "findings": 14,
       "critical": 0,
@@ -71,7 +70,7 @@
       "low": 12
     },
     {
-      "file": "backend/internal/api/handlers/config.go",
+      "file": "internal/api/handlers/config.go",
       "queries": 3,
       "findings": 2,
       "critical": 0,
@@ -80,16 +79,16 @@
       "low": 0
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "queries": 31,
-      "findings": 22,
+      "findings": 18,
       "critical": 0,
       "high": 0,
       "medium": 0,
-      "low": 22
+      "low": 18
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "queries": 17,
       "findings": 12,
       "critical": 0,
@@ -98,7 +97,7 @@
       "low": 12
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "queries": 22,
       "findings": 9,
       "critical": 0,
@@ -107,7 +106,7 @@
       "low": 9
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "queries": 13,
       "findings": 8,
       "critical": 0,
@@ -116,7 +115,7 @@
       "low": 8
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "queries": 35,
       "findings": 8,
       "critical": 0,
@@ -125,7 +124,7 @@
       "low": 8
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "queries": 15,
       "findings": 4,
       "critical": 0,
@@ -134,7 +133,7 @@
       "low": 4
     },
     {
-      "file": "backend/internal/api/handlers/announcements.go",
+      "file": "internal/api/handlers/announcements.go",
       "queries": 7,
       "findings": 2,
       "critical": 0,
@@ -143,7 +142,7 @@
       "low": 2
     },
     {
-      "file": "backend/internal/middleware/tenant.go",
+      "file": "internal/middleware/tenant.go",
       "queries": 3,
       "findings": 2,
       "critical": 0,
@@ -152,7 +151,7 @@
       "low": 2
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_financial.go",
+      "file": "cmd/lastsaas/cmd_financial.go",
       "queries": 11,
       "findings": 1,
       "critical": 0,
@@ -161,7 +160,7 @@
       "low": 1
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_tenants.go",
+      "file": "cmd/lastsaas/cmd_tenants.go",
       "queries": 9,
       "findings": 1,
       "critical": 0,
@@ -170,7 +169,7 @@
       "low": 1
     },
     {
-      "file": "backend/internal/api/handlers/messages.go",
+      "file": "internal/api/handlers/messages.go",
       "queries": 4,
       "findings": 1,
       "critical": 0,
@@ -179,7 +178,7 @@
       "low": 1
     },
     {
-      "file": "backend/internal/middleware/auth.go",
+      "file": "internal/middleware/auth.go",
       "queries": 6,
       "findings": 1,
       "critical": 0,
@@ -188,7 +187,7 @@
       "low": 1
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_db.go",
+      "file": "cmd/lastsaas/cmd_db.go",
       "queries": 0,
       "findings": 0,
       "critical": 0,
@@ -197,7 +196,7 @@
       "low": 0
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_doctor.go",
+      "file": "cmd/lastsaas/cmd_doctor.go",
       "queries": 4,
       "findings": 0,
       "critical": 0,
@@ -208,7 +207,7 @@
   ],
   "findings": [
     {
-      "file": "backend/cmd/lastsaas/cmd_financial.go",
+      "file": "cmd/lastsaas/cmd_financial.go",
       "line": 231,
       "end_line": 231,
       "function": "cmdFinancialTransactions",
@@ -224,7 +223,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/cmd/lastsaas/cmd_tenants.go",
+      "file": "cmd/lastsaas/cmd_tenants.go",
       "line": 160,
       "end_line": 160,
       "function": "cmdTenantsGet",
@@ -240,7 +239,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 153,
       "end_line": 153,
       "function": "ListTenants",
@@ -256,7 +255,7 @@
       "note": "value passed through sanitizer 'switch-allowlist' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 153,
       "end_line": 153,
       "function": "ListTenants",
@@ -272,7 +271,7 @@
       "note": "value passed through sanitizer 'switch-allowlist' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 304,
       "end_line": 304,
       "function": "ExportTenantsCSV",
@@ -288,7 +287,7 @@
       "note": "value passed through sanitizer 'switch-allowlist' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 418,
       "end_line": 418,
       "function": "GetTenant",
@@ -304,7 +303,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 424,
       "end_line": 424,
       "function": "GetTenant",
@@ -320,7 +319,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 483,
       "end_line": 483,
       "function": "UpdateTenantStatus",
@@ -336,7 +335,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 502,
       "end_line": 502,
       "function": "UpdateTenantStatus",
@@ -352,7 +351,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 774,
       "end_line": 774,
       "function": "UpdateUserStatus",
@@ -368,7 +367,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 943,
       "end_line": 943,
       "function": "GetUser",
@@ -384,7 +383,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 948,
       "end_line": 948,
       "function": "GetUser",
@@ -400,7 +399,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1079,
       "end_line": 1079,
       "function": "UpdateUser",
@@ -416,7 +415,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1098,
       "end_line": 1098,
       "function": "UpdateUser",
@@ -432,7 +431,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1098,
       "end_line": 1098,
       "function": "UpdateUser",
@@ -448,7 +447,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1121,
       "end_line": 1121,
       "function": "UpdateUser",
@@ -464,7 +463,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1165,
       "end_line": 1165,
       "function": "UpdateUserRole",
@@ -480,7 +479,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1182,
       "end_line": 1182,
       "function": "UpdateUserRole",
@@ -496,7 +495,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1193,
       "end_line": 1193,
       "function": "UpdateUserRole",
@@ -512,7 +511,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1193,
       "end_line": 1193,
       "function": "UpdateUserRole",
@@ -528,7 +527,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1243,
       "end_line": 1243,
       "function": "PreflightDeleteUser",
@@ -544,7 +543,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1280,
       "end_line": 1280,
       "function": "PreflightDeleteUser",
@@ -560,7 +559,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1280,
       "end_line": 1280,
       "function": "PreflightDeleteUser",
@@ -576,7 +575,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1358,
       "end_line": 1358,
       "function": "DeleteUser",
@@ -592,7 +591,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1378,
       "end_line": 1378,
       "function": "DeleteUser",
@@ -608,7 +607,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1414,
       "end_line": 1414,
       "function": "DeleteUser",
@@ -624,7 +623,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1430,
       "end_line": 1430,
       "function": "DeleteUser",
@@ -640,7 +639,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1430,
       "end_line": 1430,
       "function": "DeleteUser",
@@ -656,7 +655,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1479,
       "end_line": 1479,
       "function": "DeleteUser",
@@ -672,7 +671,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1482,
       "end_line": 1482,
       "function": "DeleteUser",
@@ -688,7 +687,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1485,
       "end_line": 1485,
       "function": "DeleteUser",
@@ -704,7 +703,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1488,
       "end_line": 1488,
       "function": "DeleteUser",
@@ -720,7 +719,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1529,
       "end_line": 1529,
       "function": "UpdateTenant",
@@ -736,7 +735,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1587,
       "end_line": 1587,
       "function": "UpdateTenant",
@@ -752,7 +751,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1619,
       "end_line": 1619,
       "function": "ImpersonateUser",
@@ -768,7 +767,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1628,
       "end_line": 1628,
       "function": "ImpersonateUser",
@@ -784,7 +783,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1667,
       "end_line": 1667,
       "function": "ImpersonateUser",
@@ -800,7 +799,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1837,
       "end_line": 1837,
       "function": "InviteRootMember",
@@ -816,7 +815,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1853,
       "end_line": 1853,
       "function": "InviteRootMember",
@@ -832,7 +831,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 1946,
       "end_line": 1946,
       "function": "RemoveRootMember",
@@ -848,7 +847,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 2032,
       "end_line": 2032,
       "function": "ChangeRootMemberRole",
@@ -864,7 +863,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/admin.go",
+      "file": "internal/api/handlers/admin.go",
       "line": 2074,
       "end_line": 2074,
       "function": "CancelRootInvitation",
@@ -880,7 +879,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/announcements.go",
+      "file": "internal/api/handlers/announcements.go",
       "line": 152,
       "end_line": 152,
       "function": "Update",
@@ -896,7 +895,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/announcements.go",
+      "file": "internal/api/handlers/announcements.go",
       "line": 168,
       "end_line": 168,
       "function": "Delete",
@@ -912,7 +911,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 223,
       "end_line": 223,
       "function": "Register",
@@ -928,7 +927,7 @@
       "note": "value passed through sanitizer 'custom-validator:isValidEmail' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 330,
       "end_line": 330,
       "function": "Login",
@@ -944,7 +943,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 537,
       "end_line": 537,
       "function": "Refresh",
@@ -960,7 +959,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 601,
       "end_line": 601,
       "function": "VerifyEmail",
@@ -976,7 +975,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 651,
       "end_line": 651,
       "function": "ResendVerification",
@@ -992,7 +991,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 691,
       "end_line": 691,
       "function": "ForgotPassword",
@@ -1008,7 +1007,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1051,
       "end_line": 1051,
       "function": "MFAChallenge",
@@ -1024,7 +1023,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1190,
       "end_line": 1190,
       "function": "MagicLinkRequest",
@@ -1040,7 +1039,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1336,
       "end_line": 1336,
       "function": "ExchangeCode",
@@ -1056,7 +1055,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1398,
       "end_line": 1398,
       "function": "GoogleOAuthCallback",
@@ -1072,7 +1071,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1531,
       "end_line": 1531,
       "function": "GitHubOAuthCallback",
@@ -1088,7 +1087,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1673,
       "end_line": 1673,
       "function": "MicrosoftOAuthCallback",
@@ -1104,7 +1103,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/auth.go",
+      "file": "internal/api/handlers/auth.go",
       "line": 1861,
       "end_line": 1861,
       "function": "RevokeSession",
@@ -1120,7 +1119,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 94,
       "end_line": 94,
       "function": "Checkout",
@@ -1136,7 +1135,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 313,
       "end_line": 313,
       "function": "Checkout",
@@ -1152,7 +1151,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 457,
       "end_line": 457,
       "function": "GetInvoice",
@@ -1168,7 +1167,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 486,
       "end_line": 486,
       "function": "GetInvoicePDF",
@@ -1184,7 +1183,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 723,
       "end_line": 723,
       "function": "AdminListTransactions",
@@ -1200,7 +1199,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 723,
       "end_line": 723,
       "function": "AdminListTransactions",
@@ -1216,7 +1215,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 958,
       "end_line": 958,
       "function": "AdminCancelSubscription",
@@ -1232,7 +1231,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 1004,
       "end_line": 1004,
       "function": "AdminCancelSubscription",
@@ -1248,7 +1247,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/billing.go",
+      "file": "internal/api/handlers/billing.go",
       "line": 1037,
       "end_line": 1037,
       "function": "AdminUpdateSubscription",
@@ -1264,7 +1263,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 119,
       "end_line": 119,
       "function": "ServeAsset",
@@ -1280,7 +1279,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 141,
       "end_line": 141,
       "function": "ServeMedia",
@@ -1296,7 +1295,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 163,
       "end_line": 163,
       "function": "GetPublicPage",
@@ -1312,7 +1311,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 324,
       "end_line": 324,
       "function": "UploadAsset",
@@ -1328,7 +1327,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 348,
       "end_line": 348,
       "function": "DeleteAsset",
@@ -1344,7 +1343,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 487,
       "end_line": 487,
       "function": "DeleteMedia",
@@ -1360,7 +1359,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/branding.go",
+      "file": "internal/api/handlers/branding.go",
       "line": 616,
       "end_line": 616,
       "function": "DeletePage",
@@ -1376,7 +1375,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 96,
       "end_line": 96,
       "function": "CreateBundle",
@@ -1392,7 +1391,7 @@
       "note": "value passed through sanitizer 'custom-validator:validateBundleRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 145,
       "end_line": 145,
       "function": "UpdateBundle",
@@ -1408,7 +1407,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 166,
       "end_line": 166,
       "function": "UpdateBundle",
@@ -1424,7 +1423,7 @@
       "note": "value passed through sanitizer 'custom-validator:validateBundleRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 166,
       "end_line": 166,
       "function": "UpdateBundle",
@@ -1440,7 +1439,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 166,
       "end_line": 166,
       "function": "UpdateBundle",
@@ -1456,7 +1455,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 196,
       "end_line": 196,
       "function": "UpdateBundle",
@@ -1472,7 +1471,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 212,
       "end_line": 212,
       "function": "DeleteBundle",
@@ -1488,7 +1487,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/bundles.go",
+      "file": "internal/api/handlers/bundles.go",
       "line": 221,
       "end_line": 221,
       "function": "DeleteBundle",
@@ -1504,7 +1503,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/config.go",
+      "file": "internal/api/handlers/config.go",
       "line": 94,
       "end_line": 94,
       "function": "UpdateConfig",
@@ -1520,7 +1519,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/config.go",
+      "file": "internal/api/handlers/config.go",
       "line": 192,
       "end_line": 192,
       "function": "DeleteConfig",
@@ -1536,7 +1535,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 135,
       "end_line": 135,
       "function": "CreateEventDefinition",
@@ -1552,7 +1551,7 @@
       "note": "value passed through sanitizer 'regex-validator:validDefName.MatchString' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 161,
       "end_line": 161,
       "function": "CreateEventDefinition",
@@ -1568,7 +1567,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 212,
       "end_line": 212,
       "function": "UpdateEventDefinition",
@@ -1584,7 +1583,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 219,
       "end_line": 219,
       "function": "UpdateEventDefinition",
@@ -1600,7 +1599,7 @@
       "note": "value passed through sanitizer 'regex-validator:validDefName.MatchString' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 219,
       "end_line": 219,
       "function": "UpdateEventDefinition",
@@ -1616,7 +1615,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 219,
       "end_line": 219,
       "function": "UpdateEventDefinition",
@@ -1632,7 +1631,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 249,
       "end_line": 249,
       "function": "UpdateEventDefinition",
@@ -1648,7 +1647,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 269,
       "end_line": 269,
       "function": "UpdateEventDefinition",
@@ -1664,7 +1663,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 278,
       "end_line": 278,
       "function": "UpdateEventDefinition",
@@ -1680,7 +1679,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 296,
       "end_line": 296,
       "function": "DeleteEventDefinition",
@@ -1696,7 +1695,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 302,
       "end_line": 302,
       "function": "DeleteEventDefinition",
@@ -1712,7 +1711,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/event_definitions.go",
+      "file": "internal/api/handlers/event_definitions.go",
       "line": 307,
       "end_line": 307,
       "function": "DeleteEventDefinition",
@@ -1728,7 +1727,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/messages.go",
+      "file": "internal/api/handlers/messages.go",
       "line": 88,
       "end_line": 88,
       "function": "MarkRead",
@@ -1744,7 +1743,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 110,
       "end_line": 110,
       "function": "GetPlan",
@@ -1760,7 +1759,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 253,
       "end_line": 253,
       "function": "CreatePlan",
@@ -1776,7 +1775,7 @@
       "note": "value passed through sanitizer 'custom-validator:validatePlanRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 323,
       "end_line": 323,
       "function": "UpdatePlan",
@@ -1792,7 +1791,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 350,
       "end_line": 350,
       "function": "UpdatePlan",
@@ -1808,7 +1807,7 @@
       "note": "value passed through sanitizer 'custom-validator:validatePlanRequest' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 350,
       "end_line": 350,
       "function": "UpdatePlan",
@@ -1824,7 +1823,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 350,
       "end_line": 350,
       "function": "UpdatePlan",
@@ -1840,7 +1839,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 368,
       "end_line": 368,
       "function": "UpdatePlan",
@@ -1856,7 +1855,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 404,
       "end_line": 404,
       "function": "UpdatePlan",
@@ -1872,7 +1871,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 408,
       "end_line": 408,
       "function": "UpdatePlan",
@@ -1888,7 +1887,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 446,
       "end_line": 446,
       "function": "DeletePlan",
@@ -1904,7 +1903,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 460,
       "end_line": 460,
       "function": "DeletePlan",
@@ -1920,7 +1919,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 470,
       "end_line": 470,
       "function": "DeletePlan",
@@ -1936,7 +1935,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 491,
       "end_line": 491,
       "function": "ArchivePlan",
@@ -1952,39 +1951,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
-      "line": 505,
-      "end_line": 505,
-      "function": "ArchivePlan",
-      "operation": "UpdateByID",
-      "query": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": true, \"updatedAt\": time.Now()}}); err != nil {",
-      "source": "tracer:filter-tracer",
-      "source_var": "planID",
-      "field": "isArchived",
-      "risk": "LOW",
-      "sanitized": true,
-      "sanitizer": "go/ssa-filter-tracer",
-      "snippet": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": true, \"updatedAt\": time.Now()}}); err != nil {",
-      "note": "filter field `isArchived` detected by go/ssa filter tracer on variable `planID` \u2014 value expression could not be statically resolved; manual review recommended"
-    },
-    {
-      "file": "backend/internal/api/handlers/plans.go",
-      "line": 505,
-      "end_line": 505,
-      "function": "ArchivePlan",
-      "operation": "UpdateByID",
-      "query": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": true, \"updatedAt\": time.Now()}}); err != nil {",
-      "source": "tracer:filter-tracer",
-      "source_var": "planID",
-      "field": "updatedAt",
-      "risk": "LOW",
-      "sanitized": true,
-      "sanitizer": "go/ssa-filter-tracer",
-      "snippet": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": true, \"updatedAt\": time.Now()}}); err != nil {",
-      "note": "filter field `updatedAt` detected by go/ssa filter tracer on variable `planID` \u2014 value expression could not be statically resolved; manual review recommended"
-    },
-    {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 526,
       "end_line": 526,
       "function": "UnarchivePlan",
@@ -2000,39 +1967,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
-      "line": 540,
-      "end_line": 540,
-      "function": "UnarchivePlan",
-      "operation": "UpdateByID",
-      "query": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": false, \"updatedAt\": time.Now()}}); err != nil {",
-      "source": "tracer:filter-tracer",
-      "source_var": "planID",
-      "field": "isArchived",
-      "risk": "LOW",
-      "sanitized": true,
-      "sanitizer": "go/ssa-filter-tracer",
-      "snippet": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": false, \"updatedAt\": time.Now()}}); err != nil {",
-      "note": "filter field `isArchived` detected by go/ssa filter tracer on variable `planID` \u2014 value expression could not be statically resolved; manual review recommended"
-    },
-    {
-      "file": "backend/internal/api/handlers/plans.go",
-      "line": 540,
-      "end_line": 540,
-      "function": "UnarchivePlan",
-      "operation": "UpdateByID",
-      "query": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": false, \"updatedAt\": time.Now()}}); err != nil {",
-      "source": "tracer:filter-tracer",
-      "source_var": "planID",
-      "field": "updatedAt",
-      "risk": "LOW",
-      "sanitized": true,
-      "sanitizer": "go/ssa-filter-tracer",
-      "snippet": "\tif _, err := h.db.Plans().UpdateByID(r.Context(), planID, bson.M{\"$set\": bson.M{\"isArchived\": false, \"updatedAt\": time.Now()}}); err != nil {",
-      "note": "filter field `updatedAt` detected by go/ssa filter tracer on variable `planID` \u2014 value expression could not be statically resolved; manual review recommended"
-    },
-    {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 576,
       "end_line": 576,
       "function": "AssignPlan",
@@ -2048,7 +1983,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 598,
       "end_line": 598,
       "function": "AssignPlan",
@@ -2064,7 +1999,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 703,
       "end_line": 703,
       "function": "ListPlansPublic",
@@ -2080,7 +2015,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/plans.go",
+      "file": "internal/api/handlers/plans.go",
       "line": 714,
       "end_line": 714,
       "function": "ListPlansPublic",
@@ -2096,7 +2031,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 171,
       "end_line": 171,
       "function": "InviteMember",
@@ -2112,7 +2047,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 187,
       "end_line": 187,
       "function": "InviteMember",
@@ -2128,7 +2063,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 344,
       "end_line": 344,
       "function": "RemoveMember",
@@ -2144,7 +2079,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 456,
       "end_line": 456,
       "function": "ChangeRole",
@@ -2160,7 +2095,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 508,
       "end_line": 508,
       "function": "TransferOwnership",
@@ -2176,7 +2111,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 524,
       "end_line": 524,
       "function": "TransferOwnership",
@@ -2192,7 +2127,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 587,
       "end_line": 587,
       "function": "GetActivity",
@@ -2208,7 +2143,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS \u2014 ensure input is escaped via escapeRegexInput()"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 587,
       "end_line": 587,
       "function": "GetActivity",
@@ -2224,7 +2159,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 590,
       "end_line": 590,
       "function": "GetActivity",
@@ -2240,7 +2175,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS \u2014 ensure input is escaped via escapeRegexInput()"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 590,
       "end_line": 590,
       "function": "GetActivity",
@@ -2256,7 +2191,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 587,
       "end_line": 587,
       "function": "GetActivity",
@@ -2272,7 +2207,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS \u2014 ensure input is escaped via escapeRegexInput()"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 587,
       "end_line": 587,
       "function": "GetActivity",
@@ -2288,7 +2223,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 590,
       "end_line": 590,
       "function": "GetActivity",
@@ -2304,7 +2239,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; $regex with user input enables regex injection / ReDoS \u2014 ensure input is escaped via escapeRegexInput()"
     },
     {
-      "file": "backend/internal/api/handlers/tenant.go",
+      "file": "internal/api/handlers/tenant.go",
       "line": 590,
       "end_line": 590,
       "function": "GetActivity",
@@ -2320,7 +2255,7 @@
       "note": "value passed through sanitizer 'escapeRegexInput' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/usage.go",
+      "file": "internal/api/handlers/usage.go",
       "line": 90,
       "end_line": 90,
       "function": "RecordUsage",
@@ -2336,7 +2271,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/usage.go",
+      "file": "internal/api/handlers/usage.go",
       "line": 90,
       "end_line": 90,
       "function": "RecordUsage",
@@ -2352,7 +2287,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/usage.go",
+      "file": "internal/api/handlers/usage.go",
       "line": 100,
       "end_line": 100,
       "function": "RecordUsage",
@@ -2368,7 +2303,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/usage.go",
+      "file": "internal/api/handlers/usage.go",
       "line": 100,
       "end_line": 100,
       "function": "RecordUsage",
@@ -2384,7 +2319,7 @@
       "note": "direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 170,
       "end_line": 170,
       "function": "handleCheckoutCompleted",
@@ -2400,7 +2335,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 182,
       "end_line": 182,
       "function": "handleCheckoutCompleted",
@@ -2416,7 +2351,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 182,
       "end_line": 182,
       "function": "handleCheckoutCompleted",
@@ -2432,7 +2367,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 205,
       "end_line": 205,
       "function": "handleCheckoutCompleted",
@@ -2448,7 +2383,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 239,
       "end_line": 239,
       "function": "handleCheckoutCompleted",
@@ -2464,7 +2399,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 255,
       "end_line": 255,
       "function": "handleCheckoutCompleted",
@@ -2480,7 +2415,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 322,
       "end_line": 322,
       "function": "handleCheckoutCompleted",
@@ -2496,7 +2431,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhook.go",
+      "file": "internal/api/handlers/webhook.go",
       "line": 328,
       "end_line": 328,
       "function": "handleCheckoutCompleted",
@@ -2512,7 +2447,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "line": 105,
       "end_line": 105,
       "function": "GetWebhook",
@@ -2528,7 +2463,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "line": 111,
       "end_line": 111,
       "function": "GetWebhook",
@@ -2544,7 +2479,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "line": 340,
       "end_line": 340,
       "function": "UpdateWebhook",
@@ -2560,7 +2495,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/api/handlers/webhooks.go",
+      "file": "internal/api/handlers/webhooks.go",
       "line": 421,
       "end_line": 421,
       "function": "TestWebhook",
@@ -2576,7 +2511,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/middleware/auth.go",
+      "file": "internal/middleware/auth.go",
       "line": 90,
       "end_line": 90,
       "function": "authenticateJWT",
@@ -2592,7 +2527,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/middleware/tenant.go",
+      "file": "internal/middleware/tenant.go",
       "line": 51,
       "end_line": 51,
       "function": "RequireTenant",
@@ -2608,7 +2543,7 @@
       "note": "value passed through sanitizer 'primitive.ObjectIDFromHex' before query; direct user input in filter value \u2014 ensure type checking (e.g. primitive.ObjectIDFromHex) prevents operator injection"
     },
     {
-      "file": "backend/internal/middleware/tenant.go",
+      "file": "internal/middleware/tenant.go",
       "line": 64,
       "end_line": 64,
       "function": "RequireTenant",
@@ -2626,938 +2561,945 @@
   ],
   "file_stats": [
     {
-      "path": "backend/cmd/lastsaas/cmd_db.go",
+      "path": "cmd/lastsaas/cmd_db.go",
       "is_test": false,
       "lines": 129,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_doctor.go",
+      "path": "cmd/lastsaas/cmd_doctor.go",
       "is_test": false,
       "lines": 154,
       "queries_scanned": 4,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_financial.go",
+      "path": "cmd/lastsaas/cmd_financial.go",
       "is_test": false,
       "lines": 389,
       "queries_scanned": 11,
       "findings": 1
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_health.go",
+      "path": "cmd/lastsaas/cmd_health.go",
       "is_test": false,
       "lines": 159,
       "queries_scanned": 8,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_logs.go",
+      "path": "cmd/lastsaas/cmd_logs.go",
       "is_test": false,
       "lines": 228,
       "queries_scanned": 4,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_mcp.go",
+      "path": "cmd/lastsaas/cmd_mcp.go",
       "is_test": false,
       "lines": 897,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_stats.go",
+      "path": "cmd/lastsaas/cmd_stats.go",
       "is_test": false,
       "lines": 140,
       "queries_scanned": 8,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_tenants.go",
+      "path": "cmd/lastsaas/cmd_tenants.go",
       "is_test": false,
       "lines": 372,
       "queries_scanned": 9,
       "findings": 1
     },
     {
-      "path": "backend/cmd/lastsaas/cmd_users.go",
+      "path": "cmd/lastsaas/cmd_users.go",
       "is_test": false,
       "lines": 396,
       "queries_scanned": 10,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/main.go",
+      "path": "cmd/lastsaas/main.go",
       "is_test": false,
       "lines": 978,
       "queries_scanned": 42,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/output.go",
+      "path": "cmd/lastsaas/output.go",
       "is_test": false,
       "lines": 150,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/cmd/lastsaas/process.go",
+      "path": "cmd/lastsaas/process.go",
       "is_test": false,
       "lines": 352,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/cmd/server/main.go",
+      "path": "cmd/server/main.go",
       "is_test": false,
-      "lines": 859,
+      "lines": 860,
       "queries_scanned": 1,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/admin.go",
+      "path": "internal/api/handlers/admin.go",
       "is_test": false,
       "lines": 2092,
       "queries_scanned": 78,
       "findings": 40
     },
     {
-      "path": "backend/internal/api/handlers/admin_test.go",
+      "path": "internal/api/handlers/admin_test.go",
       "is_test": true,
       "lines": 565,
       "queries_scanned": 7,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/announcements.go",
+      "path": "internal/api/handlers/announcements.go",
       "is_test": false,
       "lines": 174,
       "queries_scanned": 7,
       "findings": 2
     },
     {
-      "path": "backend/internal/api/handlers/apikeys.go",
+      "path": "internal/api/handlers/apikeys.go",
       "is_test": false,
       "lines": 188,
       "queries_scanned": 5,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/apikeys_test.go",
+      "path": "internal/api/handlers/apikeys_test.go",
       "is_test": true,
       "lines": 196,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/auth.go",
+      "path": "internal/api/handlers/auth.go",
       "is_test": false,
       "lines": 2437,
       "queries_scanned": 97,
       "findings": 13
     },
     {
-      "path": "backend/internal/api/handlers/auth_test.go",
+      "path": "internal/api/handlers/auth_test.go",
       "is_test": true,
       "lines": 453,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/billing.go",
+      "path": "internal/api/handlers/billing.go",
       "is_test": false,
       "lines": 1045,
       "queries_scanned": 22,
       "findings": 9
     },
     {
-      "path": "backend/internal/api/handlers/billing_test.go",
+      "path": "internal/api/handlers/billing_test.go",
       "is_test": true,
       "lines": 266,
       "queries_scanned": 1,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/bootstrap.go",
+      "path": "internal/api/handlers/bootstrap.go",
       "is_test": false,
       "lines": 94,
       "queries_scanned": 2,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/branding.go",
+      "path": "internal/api/handlers/branding.go",
       "is_test": false,
       "lines": 646,
       "queries_scanned": 20,
       "findings": 7
     },
     {
-      "path": "backend/internal/api/handlers/bundles.go",
+      "path": "internal/api/handlers/bundles.go",
       "is_test": false,
       "lines": 253,
       "queries_scanned": 13,
       "findings": 8
     },
     {
-      "path": "backend/internal/api/handlers/config.go",
+      "path": "internal/api/handlers/config.go",
       "is_test": false,
       "lines": 206,
       "queries_scanned": 3,
       "findings": 2
     },
     {
-      "path": "backend/internal/api/handlers/docs.go",
+      "path": "internal/api/handlers/docs.go",
       "is_test": false,
       "lines": 1198,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/event_definitions.go",
+      "path": "internal/api/handlers/event_definitions.go",
       "is_test": false,
       "lines": 473,
       "queries_scanned": 17,
       "findings": 12
     },
     {
-      "path": "backend/internal/api/handlers/health.go",
+      "path": "internal/api/handlers/health.go",
       "is_test": false,
       "lines": 165,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/helpers.go",
+      "path": "internal/api/handlers/helpers.go",
       "is_test": false,
       "lines": 67,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/isolation_test.go",
+      "path": "internal/api/handlers/isolation_test.go",
       "is_test": true,
       "lines": 354,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/logs.go",
+      "path": "internal/api/handlers/logs.go",
       "is_test": false,
       "lines": 250,
       "queries_scanned": 7,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/logs_test.go",
+      "path": "internal/api/handlers/logs_test.go",
       "is_test": true,
       "lines": 278,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/messages.go",
+      "path": "internal/api/handlers/messages.go",
       "is_test": false,
       "lines": 97,
       "queries_scanned": 4,
       "findings": 1
     },
     {
-      "path": "backend/internal/api/handlers/openapi.go",
+      "path": "internal/api/handlers/openapi.go",
       "is_test": false,
       "lines": 231,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/plans.go",
+      "path": "internal/api/handlers/plans.go",
       "is_test": false,
       "lines": 822,
       "queries_scanned": 31,
-      "findings": 22
+      "findings": 18
     },
     {
-      "path": "backend/internal/api/handlers/plans_test.go",
+      "path": "internal/api/handlers/plans_test.go",
       "is_test": true,
       "lines": 436,
       "queries_scanned": 2,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/pm.go",
+      "path": "internal/api/handlers/pm.go",
       "is_test": false,
       "lines": 122,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/promotions.go",
+      "path": "internal/api/handlers/promotions.go",
       "is_test": false,
       "lines": 522,
       "queries_scanned": 9,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/telemetry.go",
+      "path": "internal/api/handlers/telemetry.go",
       "is_test": false,
       "lines": 229,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/tenant.go",
+      "path": "internal/api/handlers/tenant.go",
       "is_test": false,
       "lines": 662,
       "queries_scanned": 26,
       "findings": 14
     },
     {
-      "path": "backend/internal/api/handlers/tenant_test.go",
+      "path": "internal/api/handlers/tenant_test.go",
       "is_test": true,
       "lines": 600,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/testhelpers_test.go",
+      "path": "internal/api/handlers/testhelpers_test.go",
       "is_test": true,
       "lines": 261,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/api/handlers/usage.go",
+      "path": "internal/api/handlers/usage.go",
       "is_test": false,
       "lines": 209,
       "queries_scanned": 5,
       "findings": 4
     },
     {
-      "path": "backend/internal/api/handlers/webhook.go",
+      "path": "internal/api/handlers/webhook.go",
       "is_test": false,
       "lines": 889,
       "queries_scanned": 35,
       "findings": 8
     },
     {
-      "path": "backend/internal/api/handlers/webhooks.go",
+      "path": "internal/api/handlers/webhooks.go",
       "is_test": false,
       "lines": 473,
       "queries_scanned": 15,
       "findings": 4
     },
     {
-      "path": "backend/internal/api/handlers/webhooks_test.go",
+      "path": "internal/api/handlers/webhooks_test.go",
       "is_test": true,
       "lines": 341,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/apicounter/counter.go",
+      "path": "internal/apicounter/counter.go",
       "is_test": false,
       "lines": 13,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/apicounter/counter_test.go",
+      "path": "internal/apicounter/counter_test.go",
       "is_test": true,
       "lines": 53,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/apierror/apierror.go",
+      "path": "internal/apierror/apierror.go",
       "is_test": false,
       "lines": 102,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/github_oauth.go",
+      "path": "internal/auth/github_oauth.go",
       "is_test": false,
       "lines": 117,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/google_oauth.go",
+      "path": "internal/auth/google_oauth.go",
       "is_test": false,
       "lines": 78,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/jwt.go",
+      "path": "internal/auth/jwt.go",
       "is_test": false,
       "lines": 177,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/jwt_test.go",
+      "path": "internal/auth/jwt_test.go",
       "is_test": true,
       "lines": 227,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/microsoft_oauth.go",
+      "path": "internal/auth/microsoft_oauth.go",
       "is_test": false,
       "lines": 73,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/oauth_test.go",
+      "path": "internal/auth/oauth_test.go",
       "is_test": true,
       "lines": 576,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/password.go",
+      "path": "internal/auth/password.go",
       "is_test": false,
       "lines": 109,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/password_test.go",
+      "path": "internal/auth/password_test.go",
       "is_test": true,
       "lines": 56,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/totp.go",
+      "path": "internal/auth/totp.go",
       "is_test": false,
       "lines": 149,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/totp_test.go",
+      "path": "internal/auth/totp_test.go",
       "is_test": true,
       "lines": 250,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/ua_parser.go",
+      "path": "internal/auth/ua_parser.go",
       "is_test": false,
       "lines": 68,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/auth/ua_parser_test.go",
+      "path": "internal/auth/ua_parser_test.go",
       "is_test": true,
       "lines": 109,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/config/config.go",
+      "path": "internal/config/config.go",
       "is_test": false,
       "lines": 221,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/config/config_test.go",
+      "path": "internal/config/config_test.go",
       "is_test": true,
       "lines": 372,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/configstore/seed.go",
+      "path": "internal/configstore/seed.go",
       "is_test": false,
       "lines": 393,
       "queries_scanned": 2,
       "findings": 0
     },
     {
-      "path": "backend/internal/configstore/store.go",
+      "path": "internal/configstore/store.go",
       "is_test": false,
       "lines": 134,
       "queries_scanned": 3,
       "findings": 0
     },
     {
-      "path": "backend/internal/configstore/validate.go",
+      "path": "internal/configstore/validate.go",
       "is_test": false,
       "lines": 95,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/datadog/client.go",
+      "path": "internal/datadog/client.go",
       "is_test": false,
       "lines": 809,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/db/mongodb.go",
+      "path": "internal/db/mongodb.go",
       "is_test": false,
       "lines": 485,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/db/schema.go",
+      "path": "internal/db/schema.go",
       "is_test": false,
       "lines": 630,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/email/resend.go",
+      "path": "internal/email/resend.go",
       "is_test": false,
       "lines": 297,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/events/emitter.go",
+      "path": "internal/events/emitter.go",
       "is_test": false,
       "lines": 52,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/events/emitter_test.go",
+      "path": "internal/events/emitter_test.go",
       "is_test": true,
       "lines": 63,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/health/health.go",
+      "path": "internal/health/health.go",
       "is_test": false,
       "lines": 377,
       "queries_scanned": 3,
       "findings": 0
     },
     {
-      "path": "backend/internal/health/integrations.go",
+      "path": "internal/health/integrations.go",
       "is_test": false,
       "lines": 280,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/health/query.go",
+      "path": "internal/health/query.go",
       "is_test": false,
       "lines": 137,
       "queries_scanned": 10,
       "findings": 0
     },
     {
-      "path": "backend/internal/metrics/metrics.go",
+      "path": "internal/metrics/metrics.go",
       "is_test": false,
       "lines": 295,
       "queries_scanned": 8,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/apiversion.go",
+      "path": "internal/middleware/apiversion.go",
       "is_test": false,
       "lines": 15,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/auth.go",
+      "path": "internal/middleware/auth.go",
       "is_test": false,
       "lines": 192,
       "queries_scanned": 6,
       "findings": 1
     },
     {
-      "path": "backend/internal/middleware/auth_test.go",
+      "path": "internal/middleware/auth_test.go",
       "is_test": true,
       "lines": 522,
       "queries_scanned": 2,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/bodylimit.go",
+      "path": "internal/middleware/bodylimit.go",
       "is_test": false,
       "lines": 14,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/bodylimit_test.go",
+      "path": "internal/middleware/bodylimit_test.go",
       "is_test": true,
       "lines": 69,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/metrics.go",
+      "path": "internal/middleware/gzip.go",
+      "is_test": false,
+      "lines": 123,
+      "queries_scanned": 0,
+      "findings": 0
+    },
+    {
+      "path": "internal/middleware/metrics.go",
       "is_test": false,
       "lines": 120,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/metrics_test.go",
+      "path": "internal/middleware/metrics_test.go",
       "is_test": true,
       "lines": 170,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/middleware_test.go",
+      "path": "internal/middleware/middleware_test.go",
       "is_test": true,
       "lines": 182,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/ratelimit.go",
+      "path": "internal/middleware/ratelimit.go",
       "is_test": false,
       "lines": 271,
       "queries_scanned": 3,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/ratelimit_test.go",
+      "path": "internal/middleware/ratelimit_test.go",
       "is_test": true,
       "lines": 183,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/rbac.go",
+      "path": "internal/middleware/rbac.go",
       "is_test": false,
       "lines": 37,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/recovery.go",
+      "path": "internal/middleware/recovery.go",
       "is_test": false,
       "lines": 27,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/requestid.go",
+      "path": "internal/middleware/requestid.go",
       "is_test": false,
       "lines": 42,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/security.go",
+      "path": "internal/middleware/security.go",
       "is_test": false,
       "lines": 38,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/middleware/tenant.go",
+      "path": "internal/middleware/tenant.go",
       "is_test": false,
       "lines": 155,
       "queries_scanned": 3,
       "findings": 2
     },
     {
-      "path": "backend/internal/middleware/tenant_test.go",
+      "path": "internal/middleware/tenant_test.go",
       "is_test": true,
       "lines": 275,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/announcement.go",
+      "path": "internal/models/announcement.go",
       "is_test": false,
       "lines": 17,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/api_key.go",
+      "path": "internal/models/api_key.go",
       "is_test": false,
       "lines": 30,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/billing.go",
+      "path": "internal/models/billing.go",
       "is_test": false,
       "lines": 77,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/branding.go",
+      "path": "internal/models/branding.go",
       "is_test": false,
       "lines": 91,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/config_var.go",
+      "path": "internal/models/config_var.go",
       "is_test": false,
       "lines": 36,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/credit_bundle.go",
+      "path": "internal/models/credit_bundle.go",
       "is_test": false,
       "lines": 18,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/event_definition.go",
+      "path": "internal/models/event_definition.go",
       "is_test": false,
       "lines": 17,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/health.go",
+      "path": "internal/models/health.go",
       "is_test": false,
       "lines": 116,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/invitation.go",
+      "path": "internal/models/invitation.go",
       "is_test": false,
       "lines": 26,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/membership.go",
+      "path": "internal/models/membership.go",
       "is_test": false,
       "lines": 39,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/membership_test.go",
+      "path": "internal/models/membership_test.go",
       "is_test": true,
       "lines": 49,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/message.go",
+      "path": "internal/models/message.go",
       "is_test": false,
       "lines": 17,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/models_test.go",
+      "path": "internal/models/models_test.go",
       "is_test": true,
       "lines": 150,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/plan.go",
+      "path": "internal/models/plan.go",
       "is_test": false,
       "lines": 58,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/sso_connection.go",
+      "path": "internal/models/sso_connection.go",
       "is_test": false,
       "lines": 28,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/system.go",
+      "path": "internal/models/system.go",
       "is_test": false,
       "lines": 15,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/system_log.go",
+      "path": "internal/models/system_log.go",
       "is_test": false,
       "lines": 40,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/telemetry.go",
+      "path": "internal/models/telemetry.go",
       "is_test": false,
       "lines": 38,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/tenant.go",
+      "path": "internal/models/tenant.go",
       "is_test": false,
       "lines": 29,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/tokens.go",
+      "path": "internal/models/tokens.go",
       "is_test": false,
       "lines": 71,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/usage_event.go",
+      "path": "internal/models/usage_event.go",
       "is_test": false,
       "lines": 17,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/user.go",
+      "path": "internal/models/user.go",
       "is_test": false,
       "lines": 60,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/webauthn_credential.go",
+      "path": "internal/models/webauthn_credential.go",
       "is_test": false,
       "lines": 20,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/models/webhook.go",
+      "path": "internal/models/webhook.go",
       "is_test": false,
       "lines": 107,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/planstore/seed.go",
+      "path": "internal/planstore/seed.go",
       "is_test": false,
       "lines": 44,
       "queries_scanned": 2,
       "findings": 0
     },
     {
-      "path": "backend/internal/stripe/stripe.go",
+      "path": "internal/stripe/stripe.go",
       "is_test": false,
       "lines": 412,
       "queries_scanned": 5,
       "findings": 0
     },
     {
-      "path": "backend/internal/stripe/stripe_test.go",
+      "path": "internal/stripe/stripe_test.go",
       "is_test": true,
       "lines": 641,
       "queries_scanned": 1,
       "findings": 0
     },
     {
-      "path": "backend/internal/syslog/syslog.go",
+      "path": "internal/syslog/syslog.go",
       "is_test": false,
       "lines": 274,
       "queries_scanned": 5,
       "findings": 0
     },
     {
-      "path": "backend/internal/syslog/syslog_test.go",
+      "path": "internal/syslog/syslog_test.go",
       "is_test": true,
       "lines": 316,
       "queries_scanned": 8,
       "findings": 0
     },
     {
-      "path": "backend/internal/telemetry/service.go",
+      "path": "internal/telemetry/service.go",
       "is_test": false,
       "lines": 1319,
       "queries_scanned": 33,
       "findings": 0
     },
     {
-      "path": "backend/internal/testutil/testutil.go",
+      "path": "internal/testutil/testutil.go",
       "is_test": false,
       "lines": 490,
       "queries_scanned": 14,
       "findings": 0
     },
     {
-      "path": "backend/internal/validation/validate.go",
+      "path": "internal/validation/validate.go",
       "is_test": false,
       "lines": 100,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/validation/validate_test.go",
+      "path": "internal/validation/validate_test.go",
       "is_test": true,
       "lines": 312,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/version/check.go",
+      "path": "internal/version/check.go",
       "is_test": false,
       "lines": 94,
       "queries_scanned": 5,
       "findings": 0
     },
     {
-      "path": "backend/internal/version/version.go",
+      "path": "internal/version/version.go",
       "is_test": false,
       "lines": 49,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/version/version_test.go",
+      "path": "internal/version/version_test.go",
       "is_test": true,
       "lines": 102,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/webhooks/crypto.go",
+      "path": "internal/webhooks/crypto.go",
       "is_test": false,
       "lines": 88,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/webhooks/crypto_test.go",
+      "path": "internal/webhooks/crypto_test.go",
       "is_test": true,
       "lines": 194,
       "queries_scanned": 0,
       "findings": 0
     },
     {
-      "path": "backend/internal/webhooks/dispatcher.go",
+      "path": "internal/webhooks/dispatcher.go",
       "is_test": false,
       "lines": 426,
       "queries_scanned": 3,
       "findings": 0
     },
     {
-      "path": "backend/internal/webhooks/dispatcher_integration_test.go",
+      "path": "internal/webhooks/dispatcher_integration_test.go",
       "is_test": true,
       "lines": 296,
       "queries_scanned": 4,
       "findings": 0
     },
     {
-      "path": "backend/internal/webhooks/dispatcher_test.go",
+      "path": "internal/webhooks/dispatcher_test.go",
       "is_test": true,
       "lines": 67,
       "queries_scanned": 0,

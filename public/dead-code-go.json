@@ -1,11 +1,11 @@
 {
   "root": "/home/z/my-project/repos/lastsaas/backend",
-  "total_functions_scanned": 709,
-  "total_findings": 21,
+  "total_functions_scanned": 714,
+  "total_findings": 22,
   "kind_breakdown": [
     {
       "kind": "exported",
-      "count": 18
+      "count": 19
     },
     {
       "kind": "unexported",
@@ -30,6 +30,14 @@
       "count": 2
     },
     {
+      "file": "internal/db/schema.go",
+      "count": 1
+    },
+    {
+      "file": "internal/syslog/syslog.go",
+      "count": 1
+    },
+    {
       "file": "internal/configstore/validate.go",
       "count": 1
     },
@@ -38,11 +46,7 @@
       "count": 1
     },
     {
-      "file": "internal/db/schema.go",
-      "count": 1
-    },
-    {
-      "file": "internal/syslog/syslog.go",
+      "file": "internal/middleware/gzip.go",
       "count": 1
     },
     {
@@ -84,6 +88,104 @@
       "note": "unexported function with no references anywhere in the codebase \u2014 safe to remove"
     },
     {
+      "name": "AuditLog",
+      "file": "internal/db/mongodb.go",
+      "line": 371,
+      "end_line": 373,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) AuditLog() *mongo.Collection {\n        return m.Database.Collection(\"audit_log\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "WebAuthnCredentials",
+      "file": "internal/db/mongodb.go",
+      "line": 451,
+      "end_line": 453,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) WebAuthnCredentials() *mongo.Collection {\n        return m.Database.Collection(\"webauthn_credentials\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "WebAuthnSessions",
+      "file": "internal/db/mongodb.go",
+      "line": 455,
+      "end_line": 457,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) WebAuthnSessions() *mongo.Collection {\n        return m.Database.Collection(\"webauthn_sessions\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "SSOConnections",
+      "file": "internal/db/mongodb.go",
+      "line": 459,
+      "end_line": 461,
+      "function_kind": "exported",
+      "receiver_type": "*MongoDB",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (m *MongoDB) SSOConnections() *mongo.Collection {\n        return m.Database.Collection(\"sso_connections\")\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "AllSchemas",
+      "file": "internal/db/schema.go",
+      "line": 18,
+      "end_line": 37,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 1,
+      "total_refs": 1,
+      "snippet": "func AllSchemas() []CollectionSchema {\n\treturn []CollectionSchema{\n\t\tusersSchema(),",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "CriticalWithUser",
+      "file": "internal/syslog/syslog.go",
+      "line": 206,
+      "end_line": 208,
+      "function_kind": "exported",
+      "receiver_type": "*Logger",
+      "external_refs": 0,
+      "same_file_refs": 0,
+      "total_refs": 0,
+      "snippet": "func (l *Logger) CriticalWithUser(ctx context.Context, message string, userID primitive.ObjectID) {\n\tl.log(ctx, models.LogCritical, message, &userID)\n}",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
+      "name": "ValidateEnumValue",
+      "file": "internal/configstore/validate.go",
+      "line": 51,
+      "end_line": 82,
+      "function_kind": "exported",
+      "receiver_type": "",
+      "external_refs": 0,
+      "same_file_refs": 1,
+      "total_refs": 1,
+      "snippet": "func ValidateEnumValue(value, optionsJSON string) error {\n\tif optionsJSON == \"\" {\n\t\treturn fmt.Errorf(\"enum type requires options\")",
+      "severity": "LOW",
+      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
+    },
+    {
       "name": "SetConfigDir",
       "file": "internal/testutil/testutil.go",
       "line": 185,
@@ -108,20 +210,6 @@
       "same_file_refs": 0,
       "total_refs": 0,
       "snippet": "func ParseJSON(t *testing.T, resp *http.Response, target interface{}) {\n        t.Helper()\n        defer resp.Body.Close()",
-      "severity": "LOW",
-      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
-    },
-    {
-      "name": "ValidateEnumValue",
-      "file": "internal/configstore/validate.go",
-      "line": 51,
-      "end_line": 82,
-      "function_kind": "exported",
-      "receiver_type": "",
-      "external_refs": 0,
-      "same_file_refs": 1,
-      "total_refs": 1,
-      "snippet": "func ValidateEnumValue(value, optionsJSON string) error {\n\tif optionsJSON == \"\" {\n\t\treturn fmt.Errorf(\"enum type requires options\")",
       "severity": "LOW",
       "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
     },
@@ -238,86 +326,16 @@
       "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
     },
     {
-      "name": "AuditLog",
-      "file": "internal/db/mongodb.go",
-      "line": 369,
-      "end_line": 371,
-      "function_kind": "exported",
-      "receiver_type": "*MongoDB",
-      "external_refs": 0,
-      "same_file_refs": 0,
-      "total_refs": 0,
-      "snippet": "func (m *MongoDB) AuditLog() *mongo.Collection {\n\treturn m.Database.Collection(\"audit_log\")\n}",
-      "severity": "LOW",
-      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
-    },
-    {
-      "name": "WebAuthnCredentials",
-      "file": "internal/db/mongodb.go",
-      "line": 449,
-      "end_line": 451,
-      "function_kind": "exported",
-      "receiver_type": "*MongoDB",
-      "external_refs": 0,
-      "same_file_refs": 0,
-      "total_refs": 0,
-      "snippet": "func (m *MongoDB) WebAuthnCredentials() *mongo.Collection {\n\treturn m.Database.Collection(\"webauthn_credentials\")\n}",
-      "severity": "LOW",
-      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
-    },
-    {
-      "name": "WebAuthnSessions",
-      "file": "internal/db/mongodb.go",
-      "line": 453,
-      "end_line": 455,
-      "function_kind": "exported",
-      "receiver_type": "*MongoDB",
-      "external_refs": 0,
-      "same_file_refs": 0,
-      "total_refs": 0,
-      "snippet": "func (m *MongoDB) WebAuthnSessions() *mongo.Collection {\n\treturn m.Database.Collection(\"webauthn_sessions\")\n}",
-      "severity": "LOW",
-      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
-    },
-    {
-      "name": "SSOConnections",
-      "file": "internal/db/mongodb.go",
-      "line": 457,
-      "end_line": 459,
-      "function_kind": "exported",
-      "receiver_type": "*MongoDB",
-      "external_refs": 0,
-      "same_file_refs": 0,
-      "total_refs": 0,
-      "snippet": "func (m *MongoDB) SSOConnections() *mongo.Collection {\n\treturn m.Database.Collection(\"sso_connections\")\n}",
-      "severity": "LOW",
-      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
-    },
-    {
-      "name": "AllSchemas",
-      "file": "internal/db/schema.go",
-      "line": 18,
-      "end_line": 37,
+      "name": "Hijack",
+      "file": "internal/middleware/gzip.go",
+      "line": 33,
+      "end_line": 41,
       "function_kind": "exported",
       "receiver_type": "",
       "external_refs": 0,
       "same_file_refs": 1,
       "total_refs": 1,
-      "snippet": "func AllSchemas() []CollectionSchema {\n\treturn []CollectionSchema{\n\t\tusersSchema(),",
-      "severity": "LOW",
-      "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
-    },
-    {
-      "name": "CriticalWithUser",
-      "file": "internal/syslog/syslog.go",
-      "line": 206,
-      "end_line": 208,
-      "function_kind": "exported",
-      "receiver_type": "*Logger",
-      "external_refs": 0,
-      "same_file_refs": 0,
-      "total_refs": 0,
-      "snippet": "func (l *Logger) CriticalWithUser(ctx context.Context, message string, userID primitive.ObjectID) {\n\tl.log(ctx, models.LogCritical, message, &userID)\n}",
+      "snippet": "func (w *gzipWriter) Hijack() (interface{}, error) {\n\t// If the underlying ResponseWriter supports Hijack (e.g. for websockets),\n\t// close the gzip writer first and pass through.",
       "severity": "LOW",
       "note": "exported function with no references outside its own file \u2014 candidate for removal (verify no reflect / interface dispatch usage)"
     },

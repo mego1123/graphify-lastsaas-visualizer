@@ -8,9 +8,9 @@ Lists functions that have no references anywhere in the codebase outside their o
 
 | Metric | Value |
 | --- | --- |
-| Functions scanned | 709 |
-| Dead code findings | **21** |
-| exported | 18 |
+| Functions scanned | 714 |
+| Dead code findings | **22** |
+| exported | 19 |
 | unexported | 3 |
 
 ## Files With Most Dead Code
@@ -21,10 +21,11 @@ Lists functions that have no references anywhere in the codebase outside their o
 | `internal/db/mongodb.go` | 4 |
 | `cmd/lastsaas/output.go` | 2 |
 | `internal/testutil/testutil.go` | 2 |
-| `internal/configstore/validate.go` | 1 |
-| `internal/telemetry/service.go` | 1 |
 | `internal/db/schema.go` | 1 |
 | `internal/syslog/syslog.go` | 1 |
+| `internal/configstore/validate.go` | 1 |
+| `internal/telemetry/service.go` | 1 |
+| `internal/middleware/gzip.go` | 1 |
 | `internal/api/handlers/bootstrap.go` | 1 |
 | `internal/api/handlers/plans.go` | 1 |
 
@@ -131,32 +132,32 @@ Lists functions that have no references anywhere in the codebase outside their o
 
 ### `internal/db/mongodb.go`
 
-- **[LOW] exported function `AuditLog` on `*MongoDB`** — `internal/db/mongodb.go:369` (external_refs=0, same_file_refs=0)
+- **[LOW] exported function `AuditLog` on `*MongoDB`** — `internal/db/mongodb.go:371` (external_refs=0, same_file_refs=0)
   - _exported function with no references outside its own file — candidate for removal (verify no reflect / interface dispatch usage)_
   ```go
   func (m *MongoDB) AuditLog() *mongo.Collection {
-  	return m.Database.Collection("audit_log")
+          return m.Database.Collection("audit_log")
   }
   ```
-- **[LOW] exported function `WebAuthnCredentials` on `*MongoDB`** — `internal/db/mongodb.go:449` (external_refs=0, same_file_refs=0)
+- **[LOW] exported function `WebAuthnCredentials` on `*MongoDB`** — `internal/db/mongodb.go:451` (external_refs=0, same_file_refs=0)
   - _exported function with no references outside its own file — candidate for removal (verify no reflect / interface dispatch usage)_
   ```go
   func (m *MongoDB) WebAuthnCredentials() *mongo.Collection {
-  	return m.Database.Collection("webauthn_credentials")
+          return m.Database.Collection("webauthn_credentials")
   }
   ```
-- **[LOW] exported function `WebAuthnSessions` on `*MongoDB`** — `internal/db/mongodb.go:453` (external_refs=0, same_file_refs=0)
+- **[LOW] exported function `WebAuthnSessions` on `*MongoDB`** — `internal/db/mongodb.go:455` (external_refs=0, same_file_refs=0)
   - _exported function with no references outside its own file — candidate for removal (verify no reflect / interface dispatch usage)_
   ```go
   func (m *MongoDB) WebAuthnSessions() *mongo.Collection {
-  	return m.Database.Collection("webauthn_sessions")
+          return m.Database.Collection("webauthn_sessions")
   }
   ```
-- **[LOW] exported function `SSOConnections` on `*MongoDB`** — `internal/db/mongodb.go:457` (external_refs=0, same_file_refs=0)
+- **[LOW] exported function `SSOConnections` on `*MongoDB`** — `internal/db/mongodb.go:459` (external_refs=0, same_file_refs=0)
   - _exported function with no references outside its own file — candidate for removal (verify no reflect / interface dispatch usage)_
   ```go
   func (m *MongoDB) SSOConnections() *mongo.Collection {
-  	return m.Database.Collection("sso_connections")
+          return m.Database.Collection("sso_connections")
   }
   ```
 
@@ -168,6 +169,16 @@ Lists functions that have no references anywhere in the codebase outside their o
   func AllSchemas() []CollectionSchema {
   	return []CollectionSchema{
   		usersSchema(),
+  ```
+
+### `internal/middleware/gzip.go`
+
+- **[LOW] exported function `Hijack`** — `internal/middleware/gzip.go:33` (external_refs=0, same_file_refs=1)
+  - _exported function with no references outside its own file — candidate for removal (verify no reflect / interface dispatch usage)_
+  ```go
+  func (w *gzipWriter) Hijack() (interface{}, error) {
+  	// If the underlying ResponseWriter supports Hijack (e.g. for websockets),
+  	// close the gzip writer first and pass through.
   ```
 
 ### `internal/syslog/syslog.go`
